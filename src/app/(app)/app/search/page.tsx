@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import {
   defaultTripContext,
   formatTripDateRange,
+  hasTripParams,
   mergeTripContext,
   matchActivitySlugsFromText,
   tripContextFromParams,
@@ -61,6 +62,12 @@ function SearchPageContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!hasTripParams(searchParams)) {
+      router.replace("/app");
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     setPageLoading(true);
@@ -111,8 +118,16 @@ function SearchPageContent() {
       if (matched.length > 0) {
         setSelectedActivities(new Set(matched));
       }
-      if (searchParams.get("step") === "2") setStep(2);
-      if (searchParams.get("step") === "3") setStep(3);
+
+      if (merged.mode === "destination") {
+        setMatchMode("any");
+        setMaxRadius(80);
+      }
+
+      const stepParam = searchParams.get("step");
+      if (stepParam === "3") setStep(3);
+      else if (stepParam === "1") setStep(1);
+      else setStep(2);
     }
 
     setTrip(merged);
@@ -169,7 +184,8 @@ function SearchPageContent() {
     if (params.activities.length === 0) return;
     if (!dataStatus?.search_ready) {
       setError(
-        "Baza atrakcji jest pusta. Uruchom scrape OSM w panelu admina, potem spróbuj ponownie.",
+        dataStatus?.message ??
+          "Baza atrakcji nie jest gotowa — uruchom tagowanie w panelu admina.",
       );
       return;
     }
@@ -219,31 +235,42 @@ function SearchPageContent() {
       <Breadcrumb
         items={[
           { label: "Start", href: "/app" },
-          { label: "Planowanie wyjazdu" },
+          { label: "Wyniki wyszukiwania" },
         ]}
       />
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
-        Zaplanuj wyjazd
+        {step === 1 ? "Edytuj podróż" : "Wybierz aktywności"}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
-        Najpierw podróż (skąd, kiedy, kto), potem aktywności, na końcu regiony.
+        {step === 1
+          ? "Zmień daty, lotnisko lub destynację — potem wrócisz do wyboru aktywności."
+          : "Dane podróży masz już uzupełnione ze strony głównej. Zaznacz co chcecie robić i szukaj regionów."}
       </p>
 
       <SearchStepIndicator
         step={step}
         onStep={(s) => {
-          if (s < step) setStep(s);
+          if (s === 1) {
+            setStep(1);
+            syncUrl(trip, 1);
+          } else if (s === 2 && step === 3) {
+            setStep(2);
+            syncUrl(trip, 2);
+          }
         }}
       />
 
-      {step > 1 && (
-        <TripContextBar trip={trip} onEdit={() => setStep(1)} />
+      {step !== 1 && (
+        <TripContextBar trip={trip} onEdit={() => {
+          setStep(1);
+          syncUrl(trip, 1);
+        }} />
       )}
 
       {step === 1 && (
         <Card className="mb-8">
-          <CardHeader title="1. Twoja podróż" />
+          <CardHeader title="Twoja podróż" />
           <CardBody className="space-y-6">
             <div className="flex gap-2">
               <ModePill
@@ -270,7 +297,7 @@ function SearchPageContent() {
                 setStep(2);
               }}
             >
-              Dalej — wybierz aktywności →
+              Zapisz i wróć do aktywności →
             </Button>
           </CardBody>
         </Card>
@@ -282,14 +309,12 @@ function SearchPageContent() {
             <Card className="mb-6 border-warning/40 bg-orange-50/60">
               <CardBody>
                 <p className="font-medium text-text-primary">
-                  Wyszukiwanie regionów jest niedostępne — baza atrakcji jest
-                  pusta ({dataStatus!.attractions} w bazie)
+                  Wyszukiwanie regionów jest niedostępne
                 </p>
                 <p className="mt-2 text-sm text-text-secondary">
-                  Wybrałeś miejscowość i aktywności poprawnie, ale aplikacja nie
-                  ma jeszcze danych OSM (atrakcje w okolicy Alicante itd.).
-                  Uruchom scrape w panelu admina — dla Hiszpanii wybierz region{" "}
-                  <strong>Iberia + Madeira + Canary</strong>.
+                  {dataStatus!.tags === 0
+                    ? `Masz ${dataStatus!.attractions} atrakcji, ale brak tagów aktywności — uruchom „Tylko tagowanie” w panelu admina.`
+                    : `Baza ma ${dataStatus!.attractions} atrakcji — sprawdź scrape OSM (region Iberia dla Hiszpanii).`}
                 </p>
                 <Link
                   href="/app/admin"
@@ -302,12 +327,20 @@ function SearchPageContent() {
           )}
 
           <Card className="mb-8">
-            <CardHeader title="2. Wybierz aktywności" />
+            <CardHeader title="Aktywności" />
             <CardBody>
               {pageLoading && <SkeletonList count={3} />}
               {!pageLoading && taxonomy.length === 0 && (
                 <p className="text-sm text-danger">
                   Nie udało się załadować aktywności.
+                </p>
+              )}
+              {!pageLoading && taxonomy.length > 0 && selectedActivities.size === 0 && (
+                <p className="mb-4 rounded-lg bg-brand-50 px-4 py-3 text-sm text-text-secondary">
+                  Zaznacz co najmniej jedną aktywność poniżej.
+                  {trip.interests
+                    ? ` (Szukaliśmy dopasowań do „${trip.interests}” — wybierz ręcznie jeśli brak.)`
+                    : ""}
                 </p>
               )}
               {!pageLoading &&
@@ -340,8 +373,11 @@ function SearchPageContent() {
             </CardBody>
           </Card>
 
-          <Card className="mb-8">
-            <CardHeader title="Parametry wyszukiwania" />
+          <details className="mb-8">
+            <summary className="cursor-pointer text-sm font-medium text-text-secondary hover:text-brand-700">
+              Zaawansowane parametry wyszukiwania
+            </summary>
+            <Card className="mt-3">
             <CardBody className="space-y-4 text-sm">
               <div>
                 <p className="mb-2 font-medium text-text-primary">
@@ -393,7 +429,8 @@ function SearchPageContent() {
                 </label>
               </div>
             </CardBody>
-          </Card>
+            </Card>
+          </details>
 
           <div className="mb-6 flex flex-wrap gap-3">
             <Button
@@ -412,8 +449,11 @@ function SearchPageContent() {
                   ? "Brak danych OSM — uruchom scrape"
                   : `Szukaj (${selectedActivities.size} aktywności)`}
             </Button>
-            <Button variant="ghost" onClick={() => setStep(1)}>
-              ← Wróć do podróży
+            <Button variant="ghost" onClick={() => {
+              setStep(1);
+              syncUrl(trip, 1);
+            }}>
+              ← Edytuj podróż
             </Button>
           </div>
 

@@ -22,7 +22,7 @@ export function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link
-                  href="/app/search"
+                  href="/app#search"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
                   Wyszukiwarka

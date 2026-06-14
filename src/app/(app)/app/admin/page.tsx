@@ -256,7 +256,7 @@ export default function AdminSetupPage() {
         </>
       )}
 
-      <Link href="/app/search" className="text-sm font-semibold text-brand-700 hover:underline">
+      <Link href="/app#search" className="text-sm font-semibold text-brand-700 hover:underline">
         ← Wróć do wyszukiwarki
       </Link>
     </PageContainer>

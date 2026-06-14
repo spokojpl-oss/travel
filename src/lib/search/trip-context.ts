@@ -82,6 +82,18 @@ export function tripContextFromParams(
   return partial;
 }
 
+export function hasTripParams(params: URLSearchParams): boolean {
+  return (
+    params.has("from_date") ||
+    params.has("mode") ||
+    params.has("interests") ||
+    params.has("destination") ||
+    params.has("destination_label") ||
+    params.has("origin") ||
+    params.has("origin_label")
+  );
+}
+
 export function mergeTripContext(
   base: TripContext,
   partial: Partial<TripContext>,

@@ -1,6 +1,6 @@
 import { callClaudeJson } from "@/lib/api/claude";
 import { apiEnv } from "@/config/api-env";
-import type { SearchType } from "@/lib/history/log-search";
+import type { SearchType } from "@/lib/search/search-types";
 
 export type RefinementContext = {
   searchType: SearchType;

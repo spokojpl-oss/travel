@@ -6,10 +6,8 @@ import { cn } from "@/lib/utils/cn";
 import { Logo } from "@/components/ui/Logo";
 
 const NAV_LINKS = [
-  { href: "/app/search", label: "Wyszukiwarka" },
   { href: "/app/trips", label: "Moje wyjazdy" },
   { href: "/app/compare", label: "Porównaj" },
-  { href: "/app/history", label: "Historia" },
   { href: "/app#guide", label: "Jak to działa?" },
 ];
 

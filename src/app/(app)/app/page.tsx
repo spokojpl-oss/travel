@@ -13,12 +13,6 @@ const quickLinks: Array<{
   icon: IconName;
 }> = [
   {
-    href: "/app/search",
-    title: "Wyszukiwarka aktywności",
-    desc: "Znajdź regiony pasujące do Twoich zainteresowań",
-    icon: "target",
-  },
-  {
     href: "/app/trips",
     title: "Moje wyjazdy",
     desc: "Plany, dokumenty i inteligentne porady",
@@ -63,7 +57,7 @@ export default async function AppHome() {
 
         <HowItWorksGuide className="mb-10" />
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {quickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <Card className="card-hover h-full transition-shadow hover:shadow-cardHover">

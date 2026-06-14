@@ -22,11 +22,13 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
       destination:
         trip.mode === "destination" ? trip.destination_label : trip.destination,
     });
+    params.set("step", "2");
     router.push(`/app/search?${params.toString()}`);
   }
 
   return (
     <section
+      id="search"
       className={cn(
         "relative bg-brand-900",
         compact ? "pt-8 pb-12" : "pt-16 pb-24 lg:pt-24 lg:pb-32",

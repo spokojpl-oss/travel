@@ -3,7 +3,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { searchHotels } from "@/lib/hotels/hotel-search";
-import { logSearch } from "@/lib/history/log-search";
 import {
   calculateProximity,
   computeAttractionsCentroid,
@@ -93,16 +92,6 @@ export async function POST(request: Request) {
       maxPriceTotal: parsed.data.max_price_total,
       limit: parsed.data.limit,
     });
-
-    logSearch({
-      userId: user.id,
-      searchType: "hotels",
-      params: parsed.data,
-      resultSummary: {
-        hotels_count: result.hotels.length,
-        total_found: result.meta.total_found,
-      },
-    }).catch(() => {});
 
     return NextResponse.json(result);
   } catch (error) {
@@ -196,13 +185,6 @@ export async function POST(request: Request) {
           score: 0.5,
         };
       });
-
-      logSearch({
-        userId: user.id,
-        searchType: "hotels",
-        params: parsed.data,
-        resultSummary: { hotels_count: hotels.length, fallback: true },
-      }).catch(() => {});
 
       return NextResponse.json({
         hotels,

@@ -5,7 +5,6 @@ import { flexibleFlightSearch } from "@/lib/flights/flexible-search";
 import { POLISH_AIRPORT_IATAS } from "@/lib/flights/polish-airports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { logSearch } from "@/lib/history/log-search";
 import type { BoundingBox } from "@/types/domain";
 import type { FlightOffer } from "@/lib/api/travelpayouts";
 
@@ -112,16 +111,6 @@ export async function POST(request: Request) {
       searched_origins: origins.slice(0, parsed.data.max_origins),
     };
 
-    logSearch({
-      userId: user.id,
-      searchType: "flights",
-      params: { ...parsed.data, origins: origins.slice(0, parsed.data.max_origins) },
-      resultSummary: {
-        offers_count: result.all_offers.length,
-        cheapest_count: result.cheapest.length,
-      },
-    }).catch(() => {});
-
     return NextResponse.json({ result, meta });
   } catch (error) {
     const { data: cached } = await admin
@@ -136,12 +125,6 @@ export async function POST(request: Request) {
 
     if (cached && cached.length > 0) {
       const offers = cached.map(cacheRowToFlightOffer);
-      logSearch({
-        userId: user.id,
-        searchType: "flights",
-        params: parsed.data,
-        resultSummary: { offers_count: offers.length, fallback: true },
-      }).catch(() => {});
 
       return NextResponse.json({
         result: {

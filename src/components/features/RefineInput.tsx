@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SearchType } from "@/lib/history/log-search";
+import type { SearchType } from "@/lib/search/search-types";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";

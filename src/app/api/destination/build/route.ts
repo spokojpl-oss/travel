@@ -4,7 +4,6 @@ import {
   loadCachedDestinationBuild,
 } from "@/lib/pipeline/destination-builder";
 import { createClient } from "@/lib/supabase/server";
-import { logSearch } from "@/lib/history/log-search";
 import type { GeoCluster } from "@/types/domain";
 import { z } from "zod";
 
@@ -75,16 +74,6 @@ export async function POST(request: Request) {
   const { cluster, selected_activities, trip } = parsed.data;
   const requestId = crypto.randomUUID();
   const lockKey = `build:destination:${cluster.id}`;
-
-  logSearch({
-    userId: user.id,
-    searchType: "destination_build",
-    params: {
-      cluster: { id: cluster.id, center: cluster.center },
-      selected_activities,
-    },
-    resultSummary: { started: true },
-  }).catch(() => {});
 
   const buildInput = {
     cluster: cluster as unknown as GeoCluster,

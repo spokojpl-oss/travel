@@ -31,7 +31,6 @@ const REQUIRED_TABLES = [
   "trip_share_views",
   "trip_advisories",
   "country_holidays",
-  "search_history",
   "trip_comparisons",
 ] as const;
 

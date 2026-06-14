@@ -14,7 +14,7 @@ export const POPULAR_DESTINATIONS = [
     stats: { attractions: 18, temp: "23°C", savings: "−480 zł" },
     description:
       "Wulkaniczna wyspa z lewadami, jaskiniami i punktami widokowymi. Idealne dla aktywnych rodzin.",
-    href: "/app/search",
+    href: "/app#search",
     featured: true,
   },
   {
@@ -25,7 +25,7 @@ export const POPULAR_DESTINATIONS = [
     rating: 4.8,
     highlights: ["Plaże", "Żeglarstwo", "Góry"],
     stats: { attractions: 12, temp: "28°C", savings: "10%" },
-    href: "/app/search",
+    href: "/app#search",
   },
   {
     destination: { name: "Kreta", country: "Grecja" },
@@ -35,7 +35,7 @@ export const POPULAR_DESTINATIONS = [
     rating: 4.7,
     highlights: ["Plaże", "Ruiny", "Wędrówki"],
     stats: { attractions: 21, temp: "29°C", savings: "5%" },
-    href: "/app/search",
+    href: "/app#search",
   },
   {
     destination: { name: "Saranda", country: "Albania" },
@@ -45,7 +45,7 @@ export const POPULAR_DESTINATIONS = [
     rating: 4.4,
     highlights: ["Plaże", "Ruiny", "Kayak"],
     stats: { attractions: 9, temp: "27°C", savings: "8%" },
-    href: "/app/search",
+    href: "/app#search",
   },
 ] satisfies DestinationCardProps[];
 

@@ -57,6 +57,8 @@ export function DatePicker({
   min,
   large,
   className,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   label: string;
   value: string;
@@ -64,12 +66,16 @@ export function DatePicker({
   min?: string;
   large?: boolean;
   className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [viewMonth, setViewMonth] = useState(() =>
     startOfMonth(parseDate(value) ?? new Date()),
   );
@@ -97,7 +103,7 @@ export function DatePicker({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     if (!open || !buttonRef.current) return;
@@ -244,7 +250,7 @@ export function DatePicker({
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => setOpen(!open)}
           className={cn(
             "flex w-full items-center justify-between text-left font-medium text-text-primary",
             large ? "text-lg font-semibold" : "text-base",
@@ -286,6 +292,8 @@ export function DateRangePicker({
   min?: string;
   className?: string;
 }) {
+  const [openField, setOpenField] = useState<"from" | "to" | null>(null);
+
   return (
     <div className={cn("grid gap-3 sm:grid-cols-2", className)}>
       <DatePicker
@@ -296,12 +304,16 @@ export function DateRangePicker({
           if (toValue && v > toValue) onToChange(v);
         }}
         min={min}
+        open={openField === "from"}
+        onOpenChange={(o) => setOpenField(o ? "from" : null)}
       />
       <DatePicker
         label={labelTo ?? "Powrót"}
         value={toValue}
         onChange={onToChange}
         min={fromValue || min}
+        open={openField === "to"}
+        onOpenChange={(o) => setOpenField(o ? "to" : null)}
       />
     </div>
   );

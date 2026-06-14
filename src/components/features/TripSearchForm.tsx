@@ -110,10 +110,12 @@ export function TripSearchForm({
       )}
 
       <DateRangePicker
+        labelFrom="Wyjazd"
+        labelTo="Powrót"
         fromValue={trip.departure_date}
-        toValue={trip.return_date ?? trip.departure_date}
+        toValue={trip.return_date ?? ""}
         onFromChange={(v) => onChange({ ...trip, departure_date: v })}
-        onToChange={(v) => onChange({ ...trip, return_date: v })}
+        onToChange={(v) => onChange({ ...trip, return_date: v || null })}
         min={minDate}
       />
 
