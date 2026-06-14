@@ -83,12 +83,18 @@ export async function POST(request: Request) {
       }
     | undefined;
   const tagging = results.tagging as
-    | { total_attractions?: number; total_tags_created?: number }
+    | {
+        total_attractions?: number;
+        total_tags_created?: number;
+        attractions_with_tags?: number;
+        errors?: string[];
+      }
     | undefined;
 
   const persisted = scrape?.total_persisted ?? 0;
   const tagsCreated = tagging?.total_tags_created ?? 0;
   const scrapeErrors = scrape?.errors?.length ?? 0;
+  const taggingErrors = tagging?.errors?.length ?? 0;
 
   const warnings: string[] = [];
   if (!skipScrape && persisted === 0) {
@@ -99,7 +105,16 @@ export async function POST(request: Request) {
     );
   }
   if (!skipTagging && tagsCreated === 0 && (tagging?.total_attractions ?? 0) > 0) {
-    warnings.push("Tagowanie nie utworzyło tagów — sprawdź activity_osm_mappings.");
+    warnings.push(
+      taggingErrors > 0
+        ? `Tagowanie nie utworzyło tagów (${taggingErrors} błędów zapisu).`
+        : "Tagowanie nie dopasowało żadnych aktywności do atrakcji.",
+    );
+  }
+  if (taggingErrors > 0 && tagsCreated > 0) {
+    warnings.push(
+      `Tagowanie częściowo udane: ${tagsCreated} tagów, ${taggingErrors} błędów zapisu.`,
+    );
   }
 
   return NextResponse.json({
@@ -112,6 +127,8 @@ export async function POST(request: Request) {
       scrape_errors: scrapeErrors,
       attractions_tagged: tagging?.total_attractions ?? 0,
       tags_created: tagsCreated,
+      attractions_with_tags: tagging?.attractions_with_tags ?? 0,
+      tagging_errors: taggingErrors,
     },
   });
 }

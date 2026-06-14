@@ -31,6 +31,8 @@ type ScrapeResponse = {
     scrape_errors: number;
     attractions_tagged: number;
     tags_created: number;
+    attractions_with_tags?: number;
+    tagging_errors?: number;
   };
   results?: unknown;
   error?: string;

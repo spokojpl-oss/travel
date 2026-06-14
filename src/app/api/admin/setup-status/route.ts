@@ -94,7 +94,7 @@ export async function GET() {
     issues.push("Brak atrakcji — uruchom initial-scrape (OSM).");
   } else if (tags === 0) {
     issues.push(
-      "Atrakcje są, ale brak tagów — uruchom POST /api/admin/initial-scrape?skipScrape=true",
+      "Atrakcje są, ale brak tagów — kliknij „Tylko tagowanie” poniżej (lub POST /api/admin/initial-scrape?skipScrape=true).",
     );
   }
 
