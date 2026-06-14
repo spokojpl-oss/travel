@@ -17,6 +17,8 @@ const REQUIRED_TABLES = [
   "activities",
   "activity_osm_mappings",
   "attraction_activity_tags",
+  "destination_summaries",
+  "destination_builds",
 ] as const;
 
 export async function GET() {

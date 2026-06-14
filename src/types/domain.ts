@@ -34,6 +34,11 @@ export const TRAVEL_STYLE_LABELS: Record<TravelStyle, string> = {
   mixed: "Mieszany",
 };
 
+export type DestinationSummaryRow =
+  Database["public"]["Tables"]["destination_summaries"]["Row"];
+export type DestinationBuildRow =
+  Database["public"]["Tables"]["destination_builds"]["Row"];
+export type BuildStatus = Database["public"]["Enums"]["build_status"];
 export type Destination = Database["public"]["Tables"]["destinations"]["Row"];
 export type Attraction = Database["public"]["Tables"]["attractions"]["Row"];
 export type ApiCacheEntry = Database["public"]["Tables"]["api_cache"]["Row"];

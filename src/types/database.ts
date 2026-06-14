@@ -246,6 +246,100 @@ export type Database = {
           },
         ];
       };
+      destination_builds: {
+        Row: {
+          build_request_id: string;
+          completed_at: string | null;
+          destination_id: string;
+          errors: Json;
+          id: string;
+          started_at: string;
+          status: Database["public"]["Enums"]["build_status"];
+          steps_completed: string[];
+          total_duration_ms: number | null;
+          triggered_by_user: string | null;
+        };
+        Insert: {
+          build_request_id: string;
+          completed_at?: string | null;
+          destination_id: string;
+          errors?: Json;
+          id?: string;
+          started_at?: string;
+          status?: Database["public"]["Enums"]["build_status"];
+          steps_completed?: string[];
+          total_duration_ms?: number | null;
+          triggered_by_user?: string | null;
+        };
+        Update: {
+          build_request_id?: string;
+          completed_at?: string | null;
+          destination_id?: string;
+          errors?: Json;
+          id?: string;
+          started_at?: string;
+          status?: Database["public"]["Enums"]["build_status"];
+          steps_completed?: string[];
+          total_duration_ms?: number | null;
+          triggered_by_user?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destination_builds_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      destination_summaries: {
+        Row: {
+          context_hash: string;
+          created_at: string;
+          destination_id: string;
+          expires_at: string;
+          family_profile_summary: Json | null;
+          id: string;
+          model_used: string;
+          selected_activities: string[];
+          summary: Json;
+          tokens_used: Json;
+        };
+        Insert: {
+          context_hash: string;
+          created_at?: string;
+          destination_id: string;
+          expires_at: string;
+          family_profile_summary?: Json | null;
+          id?: string;
+          model_used: string;
+          selected_activities?: string[];
+          summary: Json;
+          tokens_used?: Json;
+        };
+        Update: {
+          context_hash?: string;
+          created_at?: string;
+          destination_id?: string;
+          expires_at?: string;
+          family_profile_summary?: Json | null;
+          id?: string;
+          model_used?: string;
+          selected_activities?: string[];
+          summary?: Json;
+          tokens_used?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destination_summaries_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       destinations: {
         Row: {
           bounding_box: Json;
@@ -564,6 +658,7 @@ export type Database = {
       };
     };
     Enums: {
+      build_status: "in_progress" | "completed" | "failed";
       destination_type: "country" | "region" | "city" | "island" | "area";
       intensity_level: "low" | "medium" | "high";
       member_type: "adult" | "child" | "infant" | "senior";

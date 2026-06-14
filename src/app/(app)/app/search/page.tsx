@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type {
   Activity,
   ActivityGroup,
   ActivitySearchResult,
+  GeoCluster,
 } from "@/types/domain";
 
 type TaxonomyResponse = {
@@ -12,6 +14,7 @@ type TaxonomyResponse = {
 };
 
 export default function SearchPage() {
+  const router = useRouter();
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
@@ -68,6 +71,16 @@ export default function SearchPage() {
     } finally {
       setIsSearching(false);
     }
+  }
+
+  function openDestination(cluster: GeoCluster) {
+    const clusterParam = encodeURIComponent(JSON.stringify(cluster));
+    const activitiesParam = encodeURIComponent(
+      JSON.stringify(Array.from(selectedActivities)),
+    );
+    router.push(
+      `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}`,
+    );
   }
 
   return (
@@ -204,6 +217,12 @@ export default function SearchPage() {
                   ))}
                 </ul>
               </details>
+              <button
+                onClick={() => openDestination(cluster)}
+                className="mt-3 border px-3 py-1 rounded text-sm bg-black text-white"
+              >
+                Zobacz szczegóły regionu →
+              </button>
             </article>
           ))}
         </section>
