@@ -4,17 +4,11 @@ import {
   tagAttractionsWithActivities,
 } from "@/lib/api/osm-global-scrape";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAdminEmails, isAdminEmail } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-function getAdminEmails(): string[] {
-  const raw = process.env.ADMIN_EMAILS ?? "";
-  return raw
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -22,13 +16,45 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const adminEmails = getAdminEmails();
-  if (
-    !user ||
-    adminEmails.length === 0 ||
-    !adminEmails.includes((user.email ?? "").toLowerCase())
-  ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!user || !isAdminEmail(user.email)) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        hint:
+          getAdminEmails().length === 0
+            ? "Ustaw ADMIN_EMAILS na Vercel i zrób redeploy."
+            : `Zaloguj się jako: ${getAdminEmails().join(", ")}`,
+      },
+      { status: 403 },
+    );
+  }
+
+  let serviceRoleOk = false;
+  let serviceRoleError: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const { count, error } = await admin
+      .from("attractions")
+      .select("*", { count: "exact", head: true });
+    if (error) {
+      serviceRoleError = error.message;
+    } else {
+      serviceRoleOk = true;
+      void count;
+    }
+  } catch (e) {
+    serviceRoleError = e instanceof Error ? e.message : String(e);
+  }
+
+  if (!serviceRoleOk) {
+    return NextResponse.json(
+      {
+        error: "SUPABASE_SERVICE_ROLE_KEY invalid or missing",
+        detail: serviceRoleError,
+        hint: "Sprawdź zmienną na Vercel — klucz musi zaczynać się od eyJ i pochodzić z tego samego projektu Supabase co seed SQL.",
+      },
+      { status: 500 },
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -41,7 +67,7 @@ export async function POST(request: Request) {
   if (!skipScrape) {
     results.scrape = await performGlobalOsmScrape({
       bboxFilter,
-      delayBetweenRequestsMs: 2000,
+      delayBetweenRequestsMs: 1200,
     });
   }
 
@@ -49,5 +75,43 @@ export async function POST(request: Request) {
     results.tagging = await tagAttractionsWithActivities();
   }
 
-  return NextResponse.json({ success: true, results });
+  const scrape = results.scrape as
+    | {
+        total_fetched?: number;
+        total_persisted?: number;
+        errors?: Array<{ bbox: string; category: string; error: string }>;
+      }
+    | undefined;
+  const tagging = results.tagging as
+    | { total_attractions?: number; total_tags_created?: number }
+    | undefined;
+
+  const persisted = scrape?.total_persisted ?? 0;
+  const tagsCreated = tagging?.total_tags_created ?? 0;
+  const scrapeErrors = scrape?.errors?.length ?? 0;
+
+  const warnings: string[] = [];
+  if (!skipScrape && persisted === 0) {
+    warnings.push(
+      scrapeErrors > 0
+        ? `Scrape zakończony z ${scrapeErrors} błędami i 0 zapisanych atrakcji.`
+        : "Scrape nie zapisał żadnych atrakcji (Overpass zwrócił 0 miejsc z nazwą).",
+    );
+  }
+  if (!skipTagging && tagsCreated === 0 && (tagging?.total_attractions ?? 0) > 0) {
+    warnings.push("Tagowanie nie utworzyło tagów — sprawdź activity_osm_mappings.");
+  }
+
+  return NextResponse.json({
+    success: warnings.length === 0,
+    warnings,
+    results,
+    summary: {
+      fetched: scrape?.total_fetched ?? 0,
+      persisted,
+      scrape_errors: scrapeErrors,
+      attractions_tagged: tagging?.total_attractions ?? 0,
+      tags_created: tagsCreated,
+    },
+  });
 }

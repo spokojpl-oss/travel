@@ -3,7 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { BoundingBox } from "@/types/domain";
 import type { Json } from "@/types/database";
 
-const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 
 const OSM_QUERY_TEMPLATES = {
   bicycle_rental: `["amenity"="bicycle_rental"]`,
@@ -75,19 +78,30 @@ export async function fetchOsmPlaces({
     ttlSeconds: 90 * 24 * 60 * 60,
     forceRefresh,
     fetcher: async () => {
-      const response = await fetch(OVERPASS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(overpassQuery)}`,
-      });
+      let lastError: Error | null = null;
 
-      if (!response.ok) {
-        throw new Error(
-          `OSM Overpass error: ${response.status} ${response.statusText}`,
-        );
+      for (const endpoint of OVERPASS_ENDPOINTS) {
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `data=${encodeURIComponent(overpassQuery)}`,
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `OSM Overpass error: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          return response.json() as Promise<OsmResponse>;
+        } catch (error) {
+          lastError =
+            error instanceof Error ? error : new Error(String(error));
+        }
       }
 
-      return response.json() as Promise<OsmResponse>;
+      throw lastError ?? new Error("All Overpass endpoints failed");
     },
   });
 
@@ -141,10 +155,10 @@ function normalizeOsmElement(
 export async function persistOsmPlaces(
   places: NormalizedOsmPlace[],
   destinationId: string | null,
-): Promise<{ inserted: number; updated: number }> {
+): Promise<{ upserted: number }> {
   const supabase = createAdminClient();
 
-  if (places.length === 0) return { inserted: 0, updated: 0 };
+  if (places.length === 0) return { upserted: 0 };
 
   const rows = places.map((p) => ({
     external_id: p.external_id,
@@ -162,14 +176,23 @@ export async function persistOsmPlaces(
     tags: p.tags as Json,
   }));
 
-  const { error, count } = await supabase
-    .from("attractions")
-    .upsert(rows, {
+  const batchSize = 200;
+  let upserted = 0;
+
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    const { error } = await supabase.from("attractions").upsert(batch, {
       onConflict: "source,external_id",
-      count: "exact",
     });
 
-  if (error) throw new Error(`Failed to persist OSM places: ${error.message}`);
+    if (error) {
+      throw new Error(
+        `Failed to persist OSM places (batch ${i / batchSize + 1}): ${error.message}`,
+      );
+    }
 
-  return { inserted: count ?? 0, updated: 0 };
+    upserted += batch.length;
+  }
+
+  return { upserted };
 }

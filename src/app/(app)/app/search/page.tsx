@@ -190,6 +190,15 @@ export default function SearchPage() {
                 {dataStatus.message ??
                   "Uruchom seed activities.sql i scrape OSM."}
               </p>
+              <p className="mt-2">
+                <Link
+                  href="/app/admin"
+                  className="font-semibold text-brand-700 hover:underline"
+                >
+                  Otwórz panel diagnostyczny →
+                </Link>{" "}
+                (status bazy, scrape z przycisku, komunikaty błędów).
+              </p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
                 <li>
                   W Supabase: migracja 007 + seed{" "}

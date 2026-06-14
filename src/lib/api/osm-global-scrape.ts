@@ -41,6 +41,7 @@ export async function performGlobalOsmScrape(options?: {
   delayBetweenRequestsMs?: number;
 }): Promise<{
   total_fetched: number;
+  total_persisted: number;
   per_bbox: Array<{ bbox_name: string; categories: Record<string, number> }>;
   errors: Array<{ bbox: string; category: string; error: string }>;
 }> {
@@ -51,6 +52,7 @@ export async function performGlobalOsmScrape(options?: {
 
   const result = {
     total_fetched: 0,
+    total_persisted: 0,
     per_bbox: [] as Array<{
       bbox_name: string;
       categories: Record<string, number>;
@@ -67,10 +69,15 @@ export async function performGlobalOsmScrape(options?: {
 
     for (const category of ALL_OSM_CATEGORIES) {
       try {
-        const places = await fetchOsmPlaces({ bbox, category });
-        await persistOsmPlaces(places, null);
+        const places = await fetchOsmPlaces({
+          bbox,
+          category,
+          forceRefresh: true,
+        });
+        const { upserted } = await persistOsmPlaces(places, null);
         perBbox.categories[category] = places.length;
         result.total_fetched += places.length;
+        result.total_persisted += upserted;
         await sleep(delay);
       } catch (error) {
         result.errors.push({
@@ -124,10 +131,13 @@ export async function tagAttractionsWithActivities(): Promise<{
 
     for (const attraction of attractions) {
       totalAttractions++;
-      const tags =
+      const tags = enrichTagsForMatching(
+        attraction.category,
+        attraction.subcategories,
         attraction.tags && typeof attraction.tags === "object"
           ? (attraction.tags as Record<string, unknown>)
-          : {};
+          : {},
+      );
       const matches = matchAttractionToActivities(
         {
           category: attraction.category,
@@ -160,6 +170,38 @@ export async function tagAttractionsWithActivities(): Promise<{
   }
 
   return { total_attractions: totalAttractions, total_tags_created: totalTags };
+}
+
+const CATEGORY_TAG_HINTS: Record<string, Record<string, string>> = {
+  museum: { tourism: "museum" },
+  zoo: { tourism: "zoo" },
+  theme_park: { tourism: "theme_park" },
+  viewpoint: { tourism: "viewpoint" },
+  cave: { natural: "cave_entrance" },
+  beach: { natural: "beach" },
+  waterfall: { waterway: "waterfall", natural: "waterfall" },
+  bicycle_rental: { amenity: "bicycle_rental" },
+  car_rental: { amenity: "car_rental" },
+  hiking: { sport: "hiking" },
+  tourism_attraction: { tourism: "attraction" },
+};
+
+function enrichTagsForMatching(
+  category: string,
+  subcategories: string[],
+  tags: Record<string, unknown>,
+): Record<string, unknown> {
+  const enriched = { ...tags };
+  const hints = CATEGORY_TAG_HINTS[category];
+  if (hints) {
+    for (const [key, value] of Object.entries(hints)) {
+      if (!enriched[key]) enriched[key] = value;
+    }
+  }
+  for (const sub of subcategories) {
+    if (!enriched.sport && sub) enriched.sport = sub;
+  }
+  return enriched;
 }
 
 function matchAttractionToActivities(
