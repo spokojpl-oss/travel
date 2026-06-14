@@ -84,6 +84,59 @@ export type Database = {
           },
         ];
       };
+      airport_transport_baseline: {
+        Row: {
+          airport_iata: string;
+          destination_area: string;
+          distance_km_approx: number | null;
+          duration_minutes_approx: number | null;
+          id: string;
+          notes: string | null;
+          price_max_pln: number;
+          price_min_pln: number;
+          provider_info: string | null;
+          source: string | null;
+          transport_type: Database["public"]["Enums"]["transport_type"];
+          updated_at: string;
+        };
+        Insert: {
+          airport_iata: string;
+          destination_area: string;
+          distance_km_approx?: number | null;
+          duration_minutes_approx?: number | null;
+          id?: string;
+          notes?: string | null;
+          price_max_pln: number;
+          price_min_pln: number;
+          provider_info?: string | null;
+          source?: string | null;
+          transport_type: Database["public"]["Enums"]["transport_type"];
+          updated_at?: string;
+        };
+        Update: {
+          airport_iata?: string;
+          destination_area?: string;
+          distance_km_approx?: number | null;
+          duration_minutes_approx?: number | null;
+          id?: string;
+          notes?: string | null;
+          price_max_pln?: number;
+          price_min_pln?: number;
+          provider_info?: string | null;
+          source?: string | null;
+          transport_type?: Database["public"]["Enums"]["transport_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "airport_transport_baseline_airport_iata_fkey";
+            columns: ["airport_iata"];
+            isOneToOne: false;
+            referencedRelation: "airports";
+            referencedColumns: ["iata_code"];
+          },
+        ];
+      };
       flight_offers_cache: {
         Row: {
           airline_code: string | null;
@@ -761,6 +814,60 @@ export type Database = {
           },
         ];
       };
+      transport_offers_cache: {
+        Row: {
+          cache_key: string;
+          deep_link: string;
+          expires_at: string;
+          fetched_at: string;
+          from_airport_iata: string;
+          id: string;
+          passengers: number;
+          pickup_date: string;
+          price_pln: number;
+          provider: string;
+          raw_data: Json;
+          to_lat: number | null;
+          to_location: string;
+          to_lon: number | null;
+          vehicle_type: string;
+        };
+        Insert: {
+          cache_key: string;
+          deep_link: string;
+          expires_at: string;
+          fetched_at?: string;
+          from_airport_iata: string;
+          id?: string;
+          passengers: number;
+          pickup_date: string;
+          price_pln: number;
+          provider: string;
+          raw_data?: Json;
+          to_lat?: number | null;
+          to_location: string;
+          to_lon?: number | null;
+          vehicle_type: string;
+        };
+        Update: {
+          cache_key?: string;
+          deep_link?: string;
+          expires_at?: string;
+          fetched_at?: string;
+          from_airport_iata?: string;
+          id?: string;
+          passengers?: number;
+          pickup_date?: string;
+          price_pln?: number;
+          provider?: string;
+          raw_data?: Json;
+          to_lat?: number | null;
+          to_location?: string;
+          to_lon?: number | null;
+          vehicle_type?: string;
+        };
+        Relationships: [];
+      };
       scrape_locks: {
         Row: {
           acquired_at: string;
@@ -929,6 +1036,14 @@ export type Database = {
       intensity_level: "low" | "medium" | "high";
       member_type: "adult" | "child" | "infant" | "senior";
       travel_style: "active" | "relax" | "mixed";
+      transport_type:
+        | "taxi"
+        | "bus"
+        | "train"
+        | "shuttle"
+        | "metro"
+        | "transfer"
+        | "walk";
       weather_dependency: "none" | "low" | "high";
     };
     CompositeTypes: {

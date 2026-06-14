@@ -24,6 +24,8 @@ const REQUIRED_TABLES = [
   "flight_offers_cache",
   "hotels",
   "hotel_offers_cache",
+  "airport_transport_baseline",
+  "transport_offers_cache",
 ] as const;
 
 export async function GET() {

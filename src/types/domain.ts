@@ -40,6 +40,10 @@ export type FlightOfferCacheRow =
 export type Hotel = Database["public"]["Tables"]["hotels"]["Row"];
 export type HotelOfferCacheRow =
   Database["public"]["Tables"]["hotel_offers_cache"]["Row"];
+export type AirportTransportBaselineRow =
+  Database["public"]["Tables"]["airport_transport_baseline"]["Row"];
+export type TransportOfferCacheRow =
+  Database["public"]["Tables"]["transport_offers_cache"]["Row"];
 export type AirportSize = Database["public"]["Enums"]["airport_size"];
 export type DestinationSummaryRow =
   Database["public"]["Tables"]["destination_summaries"]["Row"];

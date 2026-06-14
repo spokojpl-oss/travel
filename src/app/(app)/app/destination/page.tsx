@@ -2,6 +2,7 @@
 
 import { FlightsSection } from "@/components/features/FlightsSection";
 import { HotelsSection } from "@/components/features/HotelsSection";
+import { TransportSection } from "@/components/features/TransportSection";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination } from "@/types/domain";
@@ -349,6 +350,15 @@ export default function DestinationPage() {
         <HotelsSection
           destinationId={destination.id}
           attractions={attractions}
+        />
+      )}
+
+      {destination && (
+        <TransportSection
+          destinationId={destination.id}
+          destinationLat={Number(destination.center_lat)}
+          destinationLon={Number(destination.center_lon)}
+          destinationName={destination.name}
         />
       )}
 
