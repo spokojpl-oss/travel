@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { searchActivities } from "@/lib/search/activity-search";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const searchRequestSchema = z.object({
   activities: z

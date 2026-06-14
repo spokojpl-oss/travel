@@ -7,7 +7,8 @@ import type {
   AttractionWithActivities,
 } from "@/types/domain";
 
-const MAX_ATTRACTIONS_FROM_DB = 5000;
+const MAX_TAG_ROWS = 8000;
+const MAX_ATTRACTIONS_TO_CLUSTER = 1200;
 
 type TagRow = {
   attraction_id: string;
@@ -23,6 +24,18 @@ function normalizeAttraction(attraction: Attraction): AttractionWithActivities {
     lon: Number(attraction.lon),
     activity_tags: [],
   };
+}
+
+function hasNearPoint(query: ActivitySearchQuery): query is ActivitySearchQuery & {
+  near_lat: number;
+  near_lon: number;
+} {
+  return (
+    query.near_lat != null &&
+    query.near_lon != null &&
+    Number.isFinite(query.near_lat) &&
+    Number.isFinite(query.near_lon)
+  );
 }
 
 export async function searchActivities(
@@ -62,7 +75,7 @@ export async function searchActivities(
     `,
     )
     .in("activity_slug", query.activities)
-    .limit(MAX_ATTRACTIONS_FROM_DB);
+    .limit(MAX_TAG_ROWS);
 
   if (!tagRows || tagRows.length === 0) {
     return {
@@ -97,7 +110,26 @@ export async function searchActivities(
     }
   }
 
-  const attractions = Array.from(attractionMap.values());
+  let attractions = Array.from(attractionMap.values());
+
+  if (hasNearPoint(query)) {
+    const center = { lat: query.near_lat, lon: query.near_lon };
+    const radius = query.near_radius_km ?? 150;
+    attractions = attractions.filter(
+      (a) => distanceKm(center, { lat: a.lat, lon: a.lon }) <= radius,
+    );
+  } else if (attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
+    attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
+  }
+
+  if (attractions.length === 0) {
+    return {
+      query,
+      clusters: [],
+      total_attractions_considered: 0,
+      duration_ms: Date.now() - startTime,
+    };
+  }
 
   const clusters = clusterAttractions({
     attractions,
@@ -113,12 +145,7 @@ export async function searchActivities(
   }));
 
   let filtered = topClusters;
-  if (
-    query.near_lat != null &&
-    query.near_lon != null &&
-    Number.isFinite(query.near_lat) &&
-    Number.isFinite(query.near_lon)
-  ) {
+  if (hasNearPoint(query)) {
     const center = { lat: query.near_lat, lon: query.near_lon };
     const radius = query.near_radius_km ?? 200;
     filtered = topClusters

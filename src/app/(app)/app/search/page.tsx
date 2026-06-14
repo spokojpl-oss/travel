@@ -19,6 +19,7 @@ import {
   hasTripParams,
   mergeTripContext,
   matchActivitySlugsFromText,
+  resolveDestinationCoords,
   tripContextFromParams,
   tripContextToParams,
   type TripContext,
@@ -55,8 +56,8 @@ function SearchPageContent() {
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
   );
-  const [matchMode, setMatchMode] = useState<"all" | "any">("all");
-  const [maxRadius, setMaxRadius] = useState(50);
+  const [matchMode, setMatchMode] = useState<"all" | "any">("any");
+  const [maxRadius, setMaxRadius] = useState(80);
   const [minPerActivity, setMinPerActivity] = useState(1);
   const [results, setResults] = useState<ActivitySearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -134,6 +135,36 @@ function SearchPageContent() {
     setInitialized(true);
   }, [initialized, pageLoading, searchParams, taxonomy]);
 
+  useEffect(() => {
+    if (!initialized || trip.mode !== "destination") return;
+    if (trip.destination_lat != null && trip.destination_lon != null) return;
+
+    const label = trip.destination_label ?? trip.destination ?? "";
+    if (label.trim().length < 2) return;
+
+    let cancelled = false;
+    resolveDestinationCoords(label).then((coords) => {
+      if (cancelled || !coords) return;
+      setTrip((t) => ({
+        ...t,
+        destination_lat: coords.lat,
+        destination_lon: coords.lon,
+        destination_label: coords.label,
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    initialized,
+    trip.mode,
+    trip.destination_lat,
+    trip.destination_lon,
+    trip.destination_label,
+    trip.destination,
+  ]);
+
   function syncUrl(nextTrip: TripContext, nextStep?: 1 | 2 | 3) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
@@ -196,11 +227,17 @@ function SearchPageContent() {
     syncUrl(trip, 3);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 50000);
+
       const response = await fetch("/api/search/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
+
       const data = await response.json();
       if (!response.ok) {
         throw new Error(
@@ -209,7 +246,13 @@ function SearchPageContent() {
       }
       setResults(data as ActivitySearchResult);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      if (e instanceof Error && e.name === "AbortError") {
+        setError(
+          "Szukanie trwało zbyt długo — spróbuj mniej aktywności lub zawęź destynację.",
+        );
+      } else {
+        setError(e instanceof Error ? e.message : "Unknown error");
+      }
     } finally {
       setIsSearching(false);
     }
@@ -226,6 +269,10 @@ function SearchPageContent() {
   }
 
   const dbReady = dataStatus?.search_ready ?? false;
+  const missingDestinationCoords =
+    trip.mode === "destination" &&
+    (trip.destination_lat == null || trip.destination_lon == null) &&
+    Boolean(trip.destination_label ?? trip.destination);
 
   const showDataInfo =
     dataStatus && !dataStatus.search_ready && !pageLoading && step >= 2;
@@ -305,6 +352,17 @@ function SearchPageContent() {
 
       {step >= 2 && (
         <>
+          {missingDestinationCoords && (
+            <Card className="mb-6 border-warning/40 bg-orange-50/60">
+              <CardBody className="text-sm text-text-secondary">
+                Nie mamy współrzędnych dla „
+                {trip.destination_label ?? trip.destination}”. Wybierz miejsce z
+                listy podpowiedzi na stronie głównej albo poczekaj chwilę — próbujemy
+                je ustalić automatycznie.
+              </CardBody>
+            </Card>
+          )}
+
           {showDataInfo && (
             <Card className="mb-6 border-warning/40 bg-orange-50/60">
               <CardBody>
@@ -525,11 +583,18 @@ function SearchPageContent() {
                 </p>
                 {results.total_attractions_considered === 0 && (
                   <p className="mt-3 text-sm text-text-secondary">
-                    Baza atrakcji jest pusta — uruchom scrape w{" "}
-                    <Link href="/app/admin" className="text-brand-700 underline">
-                      panelu admina
-                    </Link>
+                    Brak atrakcji w bazie dla wybranych aktywności
+                    {trip.destination_label
+                      ? ` w okolicy ${trip.destination_label}`
+                      : ""}
                     .
+                  </p>
+                )}
+                {results.total_attractions_considered > 0 && (
+                  <p className="mt-3 text-sm text-text-secondary">
+                    Znaleziono {results.total_attractions_considered} atrakcji, ale
+                    żaden klaster nie spełnia kryteriów — spróbuj trybu „dowolna z
+                    wybranych” lub zwiększ promień w ustawieniach zaawansowanych.
                   </p>
                 )}
               </CardBody>

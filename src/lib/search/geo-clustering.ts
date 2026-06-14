@@ -42,9 +42,10 @@ export function clusterAttractions({
 }): GeoCluster[] {
   if (attractions.length === 0) return [];
 
+  const seeds = pickGridSeeds(attractions, maxRadiusKm, 180);
   const candidateClusters: GeoCluster[] = [];
 
-  for (const seed of attractions) {
+  for (const seed of seeds) {
     const seedCenter = toGeoPoint(seed);
 
     const inRange = attractions.filter(
@@ -106,6 +107,31 @@ export function clusterAttractions({
 
   const deduped = dedupClusters(candidateClusters, 30);
   return deduped.sort((a, b) => b.score - a.score);
+}
+
+/** Ogranicza liczbę seedów — pełna pętla po wszystkich atrakcjach to O(n²) i timeout na Vercel */
+function pickGridSeeds(
+  attractions: AttractionWithActivities[],
+  maxRadiusKm: number,
+  maxSeeds: number,
+): AttractionWithActivities[] {
+  if (attractions.length <= maxSeeds) return attractions;
+
+  const cellKm = Math.max(maxRadiusKm / 2, 8);
+  const cells = new Map<string, AttractionWithActivities>();
+
+  for (const a of attractions) {
+    const lat = Number(a.lat);
+    const lon = Number(a.lon);
+    const latCell = Math.floor(lat / (cellKm / 111));
+    const lonCell = Math.floor(
+      lon / (cellKm / (111 * Math.cos((lat * Math.PI) / 180))),
+    );
+    const key = `${latCell}:${lonCell}`;
+    if (!cells.has(key)) cells.set(key, a);
+  }
+
+  return Array.from(cells.values()).slice(0, maxSeeds);
 }
 
 function computeCentroid(attractions: AttractionWithActivities[]): GeoPoint {

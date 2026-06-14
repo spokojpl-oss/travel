@@ -156,3 +156,34 @@ export function matchActivitySlugsFromText(
   }
   return Array.from(slugs);
 }
+
+export async function resolveDestinationCoords(
+  label: string,
+): Promise<{ lat: number; lon: number; label: string } | null> {
+  const q = label.trim();
+  if (q.length < 2) return null;
+
+  try {
+    const params = new URLSearchParams({ q, type: "destination", limit: "1" });
+    const r = await fetch(`/api/places/search?${params}`);
+    if (!r.ok) return null;
+    const data = (await r.json()) as {
+      places?: Array<{ label: string; sublabel?: string; lat?: number; lon?: number }>;
+    };
+    const place = data.places?.[0];
+    if (
+      place?.lat == null ||
+      place?.lon == null ||
+      !Number.isFinite(place.lat) ||
+      !Number.isFinite(place.lon)
+    ) {
+      return null;
+    }
+    const resolvedLabel = place.sublabel
+      ? `${place.label}, ${place.sublabel}`
+      : place.label;
+    return { lat: place.lat, lon: place.lon, label: resolvedLabel };
+  } catch {
+    return null;
+  }
+}

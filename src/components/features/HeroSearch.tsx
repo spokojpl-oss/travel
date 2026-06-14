@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { TripSearchForm } from "@/components/features/TripSearchForm";
 import {
   defaultTripContext,
+  resolveDestinationCoords,
   tripContextToParams,
   type TripContext,
 } from "@/lib/search/trip-context";
@@ -14,16 +15,43 @@ import {
 export function HeroSearch({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSearch() {
-    const params = tripContextToParams({
-      ...trip,
-      interests: trip.mode === "activities" ? trip.interests : "",
-      destination:
-        trip.mode === "destination" ? trip.destination_label : trip.destination,
-    });
-    params.set("step", "2");
-    router.push(`/app/search?${params.toString()}`);
+  async function handleSearch() {
+    setSubmitting(true);
+    try {
+      let nextTrip = { ...trip };
+
+      if (
+        nextTrip.mode === "destination" &&
+        (nextTrip.destination_lat == null || nextTrip.destination_lon == null)
+      ) {
+        const label =
+          nextTrip.destination_label ?? nextTrip.destination ?? "";
+        const coords = await resolveDestinationCoords(label);
+        if (coords) {
+          nextTrip = {
+            ...nextTrip,
+            destination_lat: coords.lat,
+            destination_lon: coords.lon,
+            destination_label: coords.label,
+          };
+        }
+      }
+
+      const params = tripContextToParams({
+        ...nextTrip,
+        interests: nextTrip.mode === "activities" ? nextTrip.interests : "",
+        destination:
+          nextTrip.mode === "destination"
+            ? nextTrip.destination_label
+            : nextTrip.destination,
+      });
+      params.set("step", "2");
+      router.push(`/app/search?${params.toString()}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -123,10 +151,11 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
             <button
               type="button"
               onClick={handleSearch}
-              className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent-500 px-8 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99]"
+              disabled={submitting}
+              className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent-500 px-8 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99] disabled:opacity-70"
             >
               <Icon name="search" size={20} />
-              Szukaj wakacji
+              {submitting ? "Przygotowuję wyszukiwanie..." : "Szukaj wakacji"}
             </button>
           </div>
         </div>
