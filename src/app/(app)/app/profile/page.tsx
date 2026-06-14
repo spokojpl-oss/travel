@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/features/profile-form";
+import { PageContainer, Breadcrumb } from "@/components/layout/Header";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -19,14 +20,27 @@ export default async function ProfilePage() {
     .order("name");
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Profil</h1>
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Profil" },
+        ]}
+      />
+
+      <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
+        Profil
+      </h1>
+      <p className="mb-8 text-sm text-text-secondary">
+        Twoje dane konta i domyślna grupa podróżna używana przy planowaniu.
+      </p>
+
       <ProfileForm
         email={user!.email ?? ""}
         displayName={profile?.display_name ?? ""}
         defaultGroupId={profile?.default_group_id ?? null}
         groups={groups ?? []}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -19,7 +19,7 @@ export function Input({
       <input
         {...props}
         className={cn(
-          "block w-full rounded-md border border-border-default bg-white px-3 py-2.5 text-base text-text-primary placeholder:text-text-tertiary transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100",
+          "block w-full rounded-md border border-border-default bg-white px-3 py-2.5 text-base text-text-primary placeholder:text-text-tertiary transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 focus-visible:outline-none",
           error && "border-danger focus:border-danger focus:ring-red-100",
           className,
         )}

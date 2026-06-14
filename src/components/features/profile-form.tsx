@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { updateProfile } from "@/app/(app)/app/groups/actions";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils/cn";
 
 type ProfileFormProps = {
   email: string;
@@ -43,56 +48,69 @@ export function ProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md space-y-4">
-      <div>
-        <label className="block mb-1 font-medium">Email</label>
-        <input
-          type="email"
-          value={email}
-          disabled
-          className="border px-3 py-2 rounded w-full bg-gray-50"
-        />
-      </div>
+    <Card className="max-w-lg">
+      <CardHeader title="Ustawienia konta" />
+      <CardBody>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input
+            type="email"
+            label="Email"
+            value={email}
+            disabled
+            className="bg-bg-soft text-text-secondary"
+          />
 
-      <div>
-        <label className="block mb-1 font-medium">Wyświetlana nazwa</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="border px-3 py-2 rounded w-full"
-        />
-      </div>
+          <Input
+            type="text"
+            label="Wyświetlana nazwa"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            placeholder="np. Ania i Tomek"
+          />
 
-      <div>
-        <label className="block mb-1 font-medium">Domyślna grupa</label>
-        <select
-          value={defaultId}
-          onChange={(e) => setDefaultId(e.target.value)}
-          className="border px-3 py-2 rounded w-full"
-        >
-          <option value="">— brak —</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div className="w-full">
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Domyślna grupa
+            </label>
+            <select
+              value={defaultId}
+              onChange={(e) => setDefaultId(e.target.value)}
+              className={cn(
+                "block w-full rounded-md border border-border-default bg-white px-3 py-2.5 text-base text-text-primary transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100",
+              )}
+            >
+              <option value="">— brak —</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-text-tertiary">
+              {groups.length === 0 ? (
+                <>
+                  Nie masz jeszcze grup.{" "}
+                  <Link href="/app/groups/new" className="text-brand-700 hover:underline">
+                    Stwórz grupę
+                  </Link>
+                </>
+              ) : (
+                "Używana domyślnie przy wyszukiwaniu hoteli i liczeniu kosztów."
+              )}
+            </p>
+          </div>
 
-      {error && <p className="text-red-600">Błąd: {error}</p>}
-      {status === "saved" && (
-        <p className="text-green-700">Profil zapisany.</p>
-      )}
+          {error && <p className="text-sm text-danger">Błąd: {error}</p>}
+          {status === "saved" && (
+            <p className="text-sm text-success">Profil zapisany.</p>
+          )}
 
-      <button
-        type="submit"
-        disabled={status === "saving"}
-        className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-      >
-        {status === "saving" ? "Zapisuję..." : "Zapisz"}
-      </button>
-    </form>
+          <Button type="submit" disabled={status === "saving"}>
+            {status === "saving" ? "Zapisuję..." : "Zapisz"}
+          </Button>
+        </form>
+      </CardBody>
+    </Card>
   );
 }

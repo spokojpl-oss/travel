@@ -98,13 +98,19 @@ body {
 }
 
 ::selection {
-  background-color: #ff5b0033;
+  background-color: #aac3e966;
   color: #1a2b3c;
 }
 
 :focus-visible {
-  outline: 2px solid #ff5b00;
+  outline: 2px solid #003faa;
   outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
 }
 
 .card-hover {

@@ -119,13 +119,6 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
               <Icon name="search" size={20} />
               Szukaj wakacji
             </button>
-
-            <div className="mt-4 flex flex-wrap gap-2 px-1">
-              <QuickFilter>Z dziećmi</QuickFilter>
-              <QuickFilter>Aktywne</QuickFilter>
-              <QuickFilter>Pod 5000 zł</QuickFilter>
-              <QuickFilter>Bez przesiadek</QuickFilter>
-            </div>
           </div>
         </div>
 
@@ -183,10 +176,8 @@ function SearchField({
   return (
     <div
       className={cn(
-        "cursor-pointer rounded-xl border transition-all hover:border-brand-300",
-        large
-          ? "border-2 border-border-default p-4 focus-within:border-brand-700 focus-within:ring-4 focus-within:ring-brand-100"
-          : "border-border-default p-3",
+        "rounded-xl border border-border-default p-3 transition-all hover:border-brand-300 focus-within:border-brand-700 focus-within:ring-2 focus-within:ring-brand-100",
+        large && "border-2 p-4 focus-within:ring-4",
       )}
     >
       <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
@@ -197,22 +188,11 @@ function SearchField({
         type="text"
         placeholder={placeholder}
         className={cn(
-          "w-full border-0 bg-transparent p-0 font-medium text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-0",
+          "w-full border-0 bg-transparent p-0 font-medium text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-0 focus-visible:outline-none",
           large ? "text-lg font-semibold" : "text-base",
         )}
       />
     </div>
-  );
-}
-
-function QuickFilter({ children }: { children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      className="rounded-full bg-bg-soft px-3 py-1 text-sm font-medium text-text-secondary transition-colors hover:bg-brand-50 hover:text-brand-700"
-    >
-      {children}
-    </button>
   );
 }
 
