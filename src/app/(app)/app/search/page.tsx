@@ -30,6 +30,7 @@ import type {
   ActivitySearchResult,
   GeoCluster,
 } from "@/types/domain";
+import { agentLog } from "@/lib/debug/agent-log";
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
@@ -66,11 +67,18 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!hasTripParams(searchParams)) {
+      agentLog(
+        "search/page.tsx:redirect",
+        "no trip params — redirect to /app",
+        { params: searchParams.toString() },
+        "C",
+      );
       router.replace("/app");
     }
   }, [searchParams, router]);
 
   useEffect(() => {
+    const mountStart = Date.now();
     setPageLoading(true);
     Promise.all([
       fetch("/api/activities/taxonomy").then(async (r) => {
@@ -85,6 +93,17 @@ function SearchPageContent() {
       .then(([taxonomyData, statusData]) => {
         setTaxonomy(taxonomyData.groups ?? []);
         if (statusData) setDataStatus(statusData as DataStatus);
+        agentLog(
+          "search/page.tsx:mount",
+          "page data loaded",
+          {
+            mount_ms: Date.now() - mountStart,
+            taxonomy_groups: taxonomyData.groups?.length ?? 0,
+            search_ready: (statusData as DataStatus | null)?.search_ready ?? null,
+            tags: (statusData as DataStatus | null)?.tags ?? null,
+          },
+          "B",
+        );
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setPageLoading(false));
@@ -212,8 +231,22 @@ function SearchPageContent() {
     overrideParams?: ReturnType<typeof getSearchParams>,
   ) {
     const params = overrideParams ?? getSearchParams();
-    if (params.activities.length === 0) return;
+    if (params.activities.length === 0) {
+      agentLog(
+        "search/page.tsx:handleSearch",
+        "blocked — no activities",
+        { params },
+        "E",
+      );
+      return;
+    }
     if (!dataStatus?.search_ready) {
+      agentLog(
+        "search/page.tsx:handleSearch",
+        "blocked — db not ready",
+        { dataStatus, params },
+        "E",
+      );
       setError(
         dataStatus?.message ??
           "Baza atrakcji nie jest gotowa — uruchom tagowanie w panelu admina.",
@@ -225,6 +258,18 @@ function SearchPageContent() {
     setResults(null);
     setStep(3);
     syncUrl(trip, 3);
+
+    const clientStart = Date.now();
+    agentLog(
+      "search/page.tsx:handleSearch",
+      "fetch start",
+      {
+        activities: params.activities.length,
+        has_near: params.near_lat != null,
+        match_mode: params.match_mode,
+      },
+      "A",
+    );
 
     try {
       const controller = new AbortController();
@@ -245,7 +290,28 @@ function SearchPageContent() {
         );
       }
       setResults(data as ActivitySearchResult);
+      agentLog(
+        "search/page.tsx:handleSearch",
+        "fetch done",
+        {
+          client_ms: Date.now() - clientStart,
+          clusters: (data as ActivitySearchResult).clusters.length,
+          attractions: (data as ActivitySearchResult).total_attractions_considered,
+          server_ms: (data as ActivitySearchResult).duration_ms,
+        },
+        "A",
+      );
     } catch (e) {
+      agentLog(
+        "search/page.tsx:handleSearch",
+        "fetch error",
+        {
+          client_ms: Date.now() - clientStart,
+          error: e instanceof Error ? e.message : String(e),
+          aborted: e instanceof Error && e.name === "AbortError",
+        },
+        "A",
+      );
       if (e instanceof Error && e.name === "AbortError") {
         setError(
           "Szukanie trwało zbyt długo — spróbuj mniej aktywności lub zawęź destynację.",

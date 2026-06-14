@@ -11,6 +11,7 @@ import {
   tripContextToParams,
   type TripContext,
 } from "@/lib/search/trip-context";
+import { agentLog } from "@/lib/debug/agent-log";
 
 export function HeroSearch({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
@@ -19,6 +20,7 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
 
   async function handleSearch() {
     setSubmitting(true);
+    const heroStart = Date.now();
     try {
       let nextTrip = { ...trip };
 
@@ -28,7 +30,18 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
       ) {
         const label =
           nextTrip.destination_label ?? nextTrip.destination ?? "";
+        const geoStart = Date.now();
         const coords = await resolveDestinationCoords(label);
+        agentLog(
+          "HeroSearch.tsx:handleSearch",
+          "geocode done",
+          {
+            geo_ms: Date.now() - geoStart,
+            found: coords != null,
+            label_len: label.length,
+          },
+          "D",
+        );
         if (coords) {
           nextTrip = {
             ...nextTrip,
@@ -48,6 +61,16 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
             : nextTrip.destination,
       });
       params.set("step", "2");
+      agentLog(
+        "HeroSearch.tsx:handleSearch",
+        "navigate to search",
+        {
+          hero_ms: Date.now() - heroStart,
+          mode: nextTrip.mode,
+          has_coords: nextTrip.destination_lat != null,
+        },
+        "C",
+      );
       router.push(`/app/search?${params.toString()}`);
     } finally {
       setSubmitting(false);

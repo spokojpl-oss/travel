@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { searchActivities } from "@/lib/search/activity-search";
+import { agentLog } from "@/lib/debug/agent-log";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -44,7 +45,30 @@ export async function POST(request: Request) {
   }
 
   try {
+    const apiStart = Date.now();
+    agentLog(
+      "activities/route.ts:POST",
+      "search request start",
+      {
+        activities: parsed.data.activities,
+        match_mode: parsed.data.match_mode,
+        has_near: parsed.data.near_lat != null,
+        max_radius_km: parsed.data.max_radius_km,
+      },
+      "A",
+    );
     const result = await searchActivities(parsed.data);
+    agentLog(
+      "activities/route.ts:POST",
+      "search request done",
+      {
+        clusters: result.clusters.length,
+        attractions: result.total_attractions_considered,
+        duration_ms: result.duration_ms,
+        api_ms: Date.now() - apiStart,
+      },
+      "A",
+    );
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

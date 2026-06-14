@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
+import { agentLog } from "@/lib/debug/agent-log";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
@@ -44,6 +45,7 @@ export async function searchActivities(
   const startTime = Date.now();
   const supabase = createAdminClient();
 
+  const dbStart = Date.now();
   const { data: tagRows } = await supabase
     .from("attraction_activity_tags")
     .select(
@@ -76,6 +78,18 @@ export async function searchActivities(
     )
     .in("activity_slug", query.activities)
     .limit(MAX_TAG_ROWS);
+
+  agentLog(
+    "activity-search.ts:db",
+    "tag rows fetched",
+    {
+      tag_rows: tagRows?.length ?? 0,
+      db_ms: Date.now() - dbStart,
+      activities: query.activities,
+      has_near: hasNearPoint(query),
+    },
+    "A",
+  );
 
   if (!tagRows || tagRows.length === 0) {
     return {
@@ -122,6 +136,16 @@ export async function searchActivities(
     attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
   }
 
+  agentLog(
+    "activity-search.ts:geo",
+    "attractions after geo filter",
+    {
+      count: attractions.length,
+      elapsed_ms: Date.now() - startTime,
+    },
+    "A",
+  );
+
   if (attractions.length === 0) {
     return {
       query,
@@ -131,6 +155,7 @@ export async function searchActivities(
     };
   }
 
+  const clusterStart = Date.now();
   const clusters = clusterAttractions({
     attractions,
     selectedActivities: query.activities,
@@ -138,6 +163,17 @@ export async function searchActivities(
     maxRadiusKm: query.max_radius_km,
     minPerActivity: query.min_per_activity,
   });
+
+  agentLog(
+    "activity-search.ts:cluster",
+    "clustering done",
+    {
+      raw_clusters: clusters.length,
+      cluster_ms: Date.now() - clusterStart,
+      total_ms: Date.now() - startTime,
+    },
+    "A",
+  );
 
   const topClusters = clusters.slice(0, 10).map((cluster) => ({
     ...cluster,
