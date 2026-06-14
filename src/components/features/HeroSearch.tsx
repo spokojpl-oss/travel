@@ -1,22 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
 import { TripSearchForm } from "@/components/features/TripSearchForm";
 import {
   defaultTripContext,
+  mergeTripContext,
   resolveDestinationCoords,
+  tripContextFromParams,
   tripContextToParams,
   type TripContext,
 } from "@/lib/search/trip-context";
 import { agentLog } from "@/lib/debug/agent-log";
 
-export function HeroSearch({ compact = false }: { compact?: boolean }) {
+function HeroSearchContent({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
   const [submitting, setSubmitting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const fromUrl = tripContextFromParams(searchParams);
+    if (Object.keys(fromUrl).length > 0) {
+      setTrip(mergeTripContext(defaultTripContext(), fromUrl));
+    }
+    setHydrated(true);
+    if (window.location.hash === "#search") {
+      document.getElementById("search")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [searchParams]);
 
   async function handleSearch() {
     setSubmitting(true);
@@ -75,6 +90,18 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!hydrated) {
+    return (
+      <section
+        id="search"
+        className={cn(
+          "relative bg-brand-900",
+          compact ? "pt-8 pb-12" : "pt-16 pb-24",
+        )}
+      />
+    );
   }
 
   return (
@@ -192,6 +219,24 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
         )}
       </div>
     </section>
+  );
+}
+
+export function HeroSearch({ compact = false }: { compact?: boolean }) {
+  return (
+    <Suspense
+      fallback={
+        <section
+          id="search"
+          className={cn(
+            "relative bg-brand-900",
+            compact ? "pt-8 pb-12" : "pt-16 pb-24",
+          )}
+        />
+      }
+    >
+      <HeroSearchContent compact={compact} />
+    </Suspense>
   );
 }
 

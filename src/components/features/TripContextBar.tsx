@@ -83,9 +83,12 @@ export function TripContextBar({
 export function SearchStepIndicator({
   step,
   onStep,
+  tripComplete = false,
 }: {
   step: 1 | 2 | 3;
   onStep?: (s: 1 | 2 | 3) => void;
+  /** Krok „Podróż” ukończony na stronie głównej — tylko podgląd / edycja przez onStep(1) */
+  tripComplete?: boolean;
 }) {
   const steps = [
     { n: 1 as const, label: "Podróż" },
@@ -95,7 +98,18 @@ export function SearchStepIndicator({
 
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-2">
-      {steps.map((s, i) => (
+      {steps.map((s, i) => {
+        const done = step > s.n || (tripComplete && s.n === 1 && step >= 2);
+        const active = step === s.n;
+        const clickable =
+          onStep &&
+          (s.n === 1
+            ? tripComplete
+            : s.n === 2
+              ? step >= 2
+              : false);
+
+        return (
         <div key={s.n} className="flex items-center gap-2">
           {i > 0 && (
             <span className="text-text-tertiary" aria-hidden>
@@ -104,20 +118,21 @@ export function SearchStepIndicator({
           )}
           <button
             type="button"
-            onClick={() => onStep?.(s.n)}
-            disabled={!onStep || s.n > step}
+            onClick={() => clickable && onStep?.(s.n)}
+            disabled={!clickable}
             className={
-              step === s.n
+              active
                 ? "rounded-full bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white"
-                : step > s.n
-                  ? "rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700"
+                : done
+                  ? "rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
                   : "rounded-full bg-bg-soft px-4 py-1.5 text-sm font-medium text-text-tertiary"
             }
           >
             {s.n}. {s.label}
           </button>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

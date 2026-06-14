@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RefineInput } from "@/components/features/RefineInput";
-import { TripSearchForm } from "@/components/features/TripSearchForm";
 import {
   SearchStepIndicator,
   TripContextBar,
@@ -49,7 +48,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<2 | 3>(2);
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -145,14 +144,38 @@ function SearchPageContent() {
       }
 
       const stepParam = searchParams.get("step");
-      if (stepParam === "3") setStep(3);
-      else if (stepParam === "1") setStep(1);
-      else setStep(2);
+      const resolvedStep = stepParam === "3" ? 3 : 2;
+      setStep(resolvedStep);
+      agentLog(
+        "search/page.tsx:init",
+        "trip initialized — no step 1 UI",
+        { stepParam, resolvedStep, mode: merged.mode },
+        "A",
+      );
     }
 
     setTrip(merged);
     setInitialized(true);
   }, [initialized, pageLoading, searchParams, taxonomy]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (searchParams.get("step") === "1") {
+      agentLog(
+        "search/page.tsx:redirect",
+        "step=1 in URL — redirect to /app#search",
+        { params: searchParams.toString() },
+        "E",
+      );
+      const p = tripContextToParams(trip);
+      router.replace(`/app?${p.toString()}#search`);
+    }
+  }, [initialized, searchParams, trip, router]);
+
+  function editTripOnHome() {
+    const p = tripContextToParams(trip);
+    router.push(`/app?${p.toString()}#search`);
+  }
 
   useEffect(() => {
     if (!initialized || trip.mode !== "destination") return;
@@ -184,7 +207,7 @@ function SearchPageContent() {
     trip.destination,
   ]);
 
-  function syncUrl(nextTrip: TripContext, nextStep?: 1 | 2 | 3) {
+  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
     router.replace(`/app/search?${p.toString()}`, { scroll: false });
@@ -353,68 +376,27 @@ function SearchPageContent() {
       />
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
-        {step === 1 ? "Edytuj podróż" : "Wybierz aktywności"}
+        {step === 3 ? "Wyniki wyszukiwania" : "Wybierz aktywności"}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
-        {step === 1
-          ? "Zmień daty, lotnisko lub destynację — potem wrócisz do wyboru aktywności."
-          : "Dane podróży masz już uzupełnione ze strony głównej. Zaznacz co chcecie robić i szukaj regionów."}
+        {step === 3
+          ? "Regiony dopasowane do Twojej podróży i wybranych aktywności."
+          : "Dane podróży uzupełniłeś na stronie głównej — zaznacz co chcecie robić i szukaj regionów."}
       </p>
 
       <SearchStepIndicator
         step={step}
+        tripComplete
         onStep={(s) => {
-          if (s === 1) {
-            setStep(1);
-            syncUrl(trip, 1);
-          } else if (s === 2 && step === 3) {
+          if (s === 1) editTripOnHome();
+          else if (s === 2 && step === 3) {
             setStep(2);
             syncUrl(trip, 2);
           }
         }}
       />
 
-      {step !== 1 && (
-        <TripContextBar trip={trip} onEdit={() => {
-          setStep(1);
-          syncUrl(trip, 1);
-        }} />
-      )}
-
-      {step === 1 && (
-        <Card className="mb-8">
-          <CardHeader title="Twoja podróż" />
-          <CardBody className="space-y-6">
-            <div className="flex gap-2">
-              <ModePill
-                active={trip.mode === "activities"}
-                onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
-                label="Od aktywności"
-              />
-              <ModePill
-                active={trip.mode === "destination"}
-                onClick={() => setTrip((t) => ({ ...t, mode: "destination" }))}
-                label="Od destynacji"
-              />
-            </div>
-            <TripSearchForm
-              trip={trip}
-              onChange={setTrip}
-              showInterests={trip.mode === "activities"}
-              showDestination={trip.mode === "destination"}
-            />
-            <Button
-              size="lg"
-              onClick={() => {
-                syncUrl(trip, 2);
-                setStep(2);
-              }}
-            >
-              Zapisz i wróć do aktywności →
-            </Button>
-          </CardBody>
-        </Card>
-      )}
+      <TripContextBar trip={trip} onEdit={editTripOnHome} />
 
       {step >= 2 && (
         <>
@@ -573,11 +555,8 @@ function SearchPageContent() {
                   ? "Brak danych OSM — uruchom scrape"
                   : `Szukaj (${selectedActivities.size} aktywności)`}
             </Button>
-            <Button variant="ghost" onClick={() => {
-              setStep(1);
-              syncUrl(trip, 1);
-            }}>
-              ← Edytuj podróż
+            <Button variant="ghost" onClick={editTripOnHome}>
+              ← Zmień podróż na stronie głównej
             </Button>
           </div>
 
@@ -702,30 +681,6 @@ function SearchPageContent() {
         </section>
       )}
     </PageContainer>
-  );
-}
-
-function ModePill({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        active
-          ? "rounded-full bg-brand-700 px-4 py-2 text-sm font-semibold text-white"
-          : "rounded-full bg-bg-soft px-4 py-2 text-sm font-medium text-text-secondary hover:bg-brand-50"
-      }
-    >
-      {label}
-    </button>
   );
 }
 
