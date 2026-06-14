@@ -44,6 +44,10 @@ export type AirportTransportBaselineRow =
   Database["public"]["Tables"]["airport_transport_baseline"]["Row"];
 export type TransportOfferCacheRow =
   Database["public"]["Tables"]["transport_offers_cache"]["Row"];
+export type Trip = Database["public"]["Tables"]["trips"]["Row"];
+export type TripDocument = Database["public"]["Tables"]["trip_documents"]["Row"];
+export type TripStatus = Database["public"]["Enums"]["trip_status"];
+export type DocumentType = Database["public"]["Enums"]["document_type"];
 export type AirportSize = Database["public"]["Enums"]["airport_size"];
 export type DestinationSummaryRow =
   Database["public"]["Tables"]["destination_summaries"]["Row"];

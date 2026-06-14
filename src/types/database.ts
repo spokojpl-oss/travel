@@ -868,6 +868,161 @@ export type Database = {
         };
         Relationships: [];
       };
+      trip_documents: {
+        Row: {
+          content: Json;
+          created_at: string;
+          document_type: Database["public"]["Enums"]["document_type"];
+          id: string;
+          model_used: string;
+          tokens_used: Json;
+          trip_id: string;
+          validation_issues: string[];
+        };
+        Insert: {
+          content: Json;
+          created_at?: string;
+          document_type: Database["public"]["Enums"]["document_type"];
+          id?: string;
+          model_used: string;
+          tokens_used?: Json;
+          trip_id: string;
+          validation_issues?: string[];
+        };
+        Update: {
+          content?: Json;
+          created_at?: string;
+          document_type?: Database["public"]["Enums"]["document_type"];
+          id?: string;
+          model_used?: string;
+          tokens_used?: Json;
+          trip_id?: string;
+          validation_issues?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "trip_documents_trip_id_fkey";
+            columns: ["trip_id"];
+            isOneToOne: false;
+            referencedRelation: "trips";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      trip_share_views: {
+        Row: {
+          id: string;
+          referrer: string | null;
+          trip_id: string;
+          user_agent_hash: string | null;
+          viewed_at: string;
+        };
+        Insert: {
+          id?: string;
+          referrer?: string | null;
+          trip_id: string;
+          user_agent_hash?: string | null;
+          viewed_at?: string;
+        };
+        Update: {
+          id?: string;
+          referrer?: string | null;
+          trip_id?: string;
+          user_agent_hash?: string | null;
+          viewed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "trip_share_views_trip_id_fkey";
+            columns: ["trip_id"];
+            isOneToOne: false;
+            referencedRelation: "trips";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      trips: {
+        Row: {
+          created_at: string;
+          date_from: string;
+          date_to: string;
+          destination_id: string;
+          id: string;
+          is_share_enabled: boolean;
+          name: string;
+          selected_attraction_ids: string[];
+          selected_flight_offer_id: string | null;
+          selected_hotel_offer_id: string | null;
+          selected_transport_option: Json | null;
+          selected_vehicle_config: Json | null;
+          share_token: string;
+          status: Database["public"]["Enums"]["trip_status"] | null;
+          travel_group_id: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          date_from: string;
+          date_to: string;
+          destination_id: string;
+          id?: string;
+          is_share_enabled?: boolean;
+          name: string;
+          selected_attraction_ids?: string[];
+          selected_flight_offer_id?: string | null;
+          selected_hotel_offer_id?: string | null;
+          selected_transport_option?: Json | null;
+          selected_vehicle_config?: Json | null;
+          share_token?: string;
+          status?: Database["public"]["Enums"]["trip_status"] | null;
+          travel_group_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          date_from?: string;
+          date_to?: string;
+          destination_id?: string;
+          id?: string;
+          is_share_enabled?: boolean;
+          name?: string;
+          selected_attraction_ids?: string[];
+          selected_flight_offer_id?: string | null;
+          selected_hotel_offer_id?: string | null;
+          selected_transport_option?: Json | null;
+          selected_vehicle_config?: Json | null;
+          share_token?: string;
+          status?: Database["public"]["Enums"]["trip_status"] | null;
+          travel_group_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "trips_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "trips_selected_hotel_offer_id_fkey";
+            columns: ["selected_hotel_offer_id"];
+            isOneToOne: false;
+            referencedRelation: "hotels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "trips_travel_group_id_fkey";
+            columns: ["travel_group_id"];
+            isOneToOne: false;
+            referencedRelation: "travel_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       scrape_locks: {
         Row: {
           acquired_at: string;
@@ -1032,10 +1187,12 @@ export type Database = {
     Enums: {
       airport_size: "large" | "medium" | "small";
       build_status: "in_progress" | "completed" | "failed";
+      document_type: "itinerary" | "packing_list" | "pre_trip_todo";
       destination_type: "country" | "region" | "city" | "island" | "area";
       intensity_level: "low" | "medium" | "high";
       member_type: "adult" | "child" | "infant" | "senior";
       travel_style: "active" | "relax" | "mixed";
+      trip_status: "draft" | "active" | "completed";
       transport_type:
         | "taxi"
         | "bus"
