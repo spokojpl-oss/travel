@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type LoginMode = "password" | "magic_link";
 
@@ -22,15 +21,17 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (error) {
+      const data = await response.json();
+
+      if (!response.ok) {
         setStatus("error");
-        setErrorMessage(translateAuthError(error.message));
+        setErrorMessage(translateAuthError(data.error ?? "Logowanie nieudane"));
         return;
       }
 
@@ -50,17 +51,17 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      const response = await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) {
+      const data = await response.json();
+
+      if (!response.ok) {
         setStatus("error");
-        setErrorMessage(translateAuthError(error.message));
+        setErrorMessage(translateAuthError(data.error ?? "Wysyłka nieudana"));
         return;
       }
 
