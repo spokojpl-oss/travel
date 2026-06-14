@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/Logo";
 
 export function Footer() {
   return (
@@ -6,13 +7,8 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8">
         <div className="grid gap-10 md:grid-cols-4">
           <div>
-            <div className="mb-4 flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-700 font-display text-lg font-bold text-white">
-                T
-              </div>
-              <span className="font-display text-xl font-bold text-text-primary">
-                Travel<span className="text-accent-500">.</span>app
-              </span>
+            <div className="mb-4">
+              <Logo variant="footer" href="/" />
             </div>
             <p className="text-sm leading-relaxed text-text-secondary">
               Twoje narzędzie do planowania wyjazdów rodzinnych.

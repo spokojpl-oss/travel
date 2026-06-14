@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { Logo } from "@/components/ui/Logo";
 
 const NAV_LINKS = [
   { href: "/app/search", label: "Wyszukiwarka" },
@@ -25,14 +26,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 border-b border-brand-800 bg-brand-900 text-text-on-brand shadow-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
-        <Link href={homeHref} className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 font-display text-lg font-bold">
-            T
-          </div>
-          <span className="font-display text-xl font-bold tracking-tight">
-            Travel<span className="text-accent-500">.</span>app
-          </span>
-        </Link>
+        <Logo variant="header" href={homeHref} />
 
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (

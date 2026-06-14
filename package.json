@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/types/database.ts",
     "seed:airports": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-airports.ts",
-    "generate:airports-sql": "node scripts/generate-airports-sql.mjs"
+    "generate:airports-sql": "node scripts/generate-airports-sql.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
