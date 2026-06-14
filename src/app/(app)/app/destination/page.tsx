@@ -1,9 +1,10 @@
 "use client";
 
 import { FlightsSection } from "@/components/features/FlightsSection";
+import { HotelsSection } from "@/components/features/HotelsSection";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Destination } from "@/types/domain";
+import type { Attraction, Destination } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
 import type { WikivoyageDestinationContent } from "@/lib/api/wikivoyage";
 import type { GooglePlace } from "@/lib/api/google-places";
@@ -24,6 +25,9 @@ export default function DestinationPage() {
     useState<WikivoyageDestinationContent | null>(null);
   const [googlePlaces, setGooglePlaces] = useState<GooglePlace[]>([]);
   const [attractionCount, setAttractionCount] = useState(0);
+  const [attractions, setAttractions] = useState<
+    Pick<Attraction, "id" | "name">[]
+  >([]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,26 @@ export default function DestinationPage() {
 
     startBuild(cluster, activities);
   }, [clusterData, activitiesParam]);
+
+  useEffect(() => {
+    if (!destination) return;
+
+    fetch(`/api/destination/${destination.id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load attractions");
+        return res.json();
+      })
+      .then((data: { attractions?: Attraction[] }) => {
+        if (data.attractions) {
+          setAttractions(
+            data.attractions.map((a) => ({ id: a.id, name: a.name })),
+          );
+        }
+      })
+      .catch(() => {
+        /* attractions optional for display */
+      });
+  }, [destination?.id]);
 
   async function startBuild(cluster: unknown, activities: string[]) {
     setIsBuilding(true);
@@ -319,6 +343,13 @@ export default function DestinationPage() {
 
       {destination && (
         <FlightsSection destinationId={destination.id} />
+      )}
+
+      {destination && attractions.length > 0 && (
+        <HotelsSection
+          destinationId={destination.id}
+          attractions={attractions}
+        />
       )}
 
       {isComplete && (

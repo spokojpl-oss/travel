@@ -37,6 +37,9 @@ export const TRAVEL_STYLE_LABELS: Record<TravelStyle, string> = {
 export type Airport = Database["public"]["Tables"]["airports"]["Row"];
 export type FlightOfferCacheRow =
   Database["public"]["Tables"]["flight_offers_cache"]["Row"];
+export type Hotel = Database["public"]["Tables"]["hotels"]["Row"];
+export type HotelOfferCacheRow =
+  Database["public"]["Tables"]["hotel_offers_cache"]["Row"];
 export type AirportSize = Database["public"]["Enums"]["airport_size"];
 export type DestinationSummaryRow =
   Database["public"]["Tables"]["destination_summaries"]["Row"];

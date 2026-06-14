@@ -17,6 +17,10 @@ function loadApiEnv(): ApiEnv {
     cached = apiEnvSchema.parse({
       GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      TRAVELPAYOUTS_TOKEN: process.env.TRAVELPAYOUTS_TOKEN,
+      TRAVELPAYOUTS_MARKER_AVIASALES:
+        process.env.TRAVELPAYOUTS_MARKER_AVIASALES,
+      TRAVELPAYOUTS_MARKER_BOOKING: process.env.TRAVELPAYOUTS_MARKER_BOOKING,
     });
   }
   return cached;

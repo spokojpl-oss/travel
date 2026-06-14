@@ -625,6 +625,142 @@ export type Database = {
           },
         ];
       };
+      hotel_offers_cache: {
+        Row: {
+          adults: number;
+          breakfast_included: boolean | null;
+          cache_key: string;
+          cancellation_policy: string | null;
+          check_in: string;
+          check_out: string;
+          children: number;
+          deep_link: string;
+          expires_at: string;
+          fetched_at: string;
+          hotel_id: string;
+          id: string;
+          nights: number;
+          price_per_night_pln: number;
+          price_total_pln: number;
+          raw_data: Json;
+          source: string;
+        };
+        Insert: {
+          adults: number;
+          breakfast_included?: boolean | null;
+          cache_key: string;
+          cancellation_policy?: string | null;
+          check_in: string;
+          check_out: string;
+          children?: number;
+          deep_link: string;
+          expires_at: string;
+          fetched_at?: string;
+          hotel_id: string;
+          id?: string;
+          nights: number;
+          price_per_night_pln: number;
+          price_total_pln: number;
+          raw_data?: Json;
+          source: string;
+        };
+        Update: {
+          adults?: number;
+          breakfast_included?: boolean | null;
+          cache_key?: string;
+          cancellation_policy?: string | null;
+          check_in?: string;
+          check_out?: string;
+          children?: number;
+          deep_link?: string;
+          expires_at?: string;
+          fetched_at?: string;
+          hotel_id?: string;
+          id?: string;
+          nights?: number;
+          price_per_night_pln?: number;
+          price_total_pln?: number;
+          raw_data?: Json;
+          source?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hotel_offers_cache_hotel_id_fkey";
+            columns: ["hotel_id"];
+            isOneToOne: false;
+            referencedRelation: "hotels";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hotels: {
+        Row: {
+          address: string | null;
+          amenities: Json;
+          created_at: string;
+          destination_id: string | null;
+          external_id: string;
+          id: string;
+          lat: number;
+          lon: number;
+          max_guests: number | null;
+          name: string;
+          property_type: string | null;
+          rating: number | null;
+          rating_count: number | null;
+          raw_data: Json;
+          source: string;
+          stars: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          address?: string | null;
+          amenities?: Json;
+          created_at?: string;
+          destination_id?: string | null;
+          external_id: string;
+          id?: string;
+          lat: number;
+          lon: number;
+          max_guests?: number | null;
+          name: string;
+          property_type?: string | null;
+          rating?: number | null;
+          rating_count?: number | null;
+          raw_data?: Json;
+          source: string;
+          stars?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string | null;
+          amenities?: Json;
+          created_at?: string;
+          destination_id?: string | null;
+          external_id?: string;
+          id?: string;
+          lat?: number;
+          lon?: number;
+          max_guests?: number | null;
+          name?: string;
+          property_type?: string | null;
+          rating?: number | null;
+          rating_count?: number | null;
+          raw_data?: Json;
+          source?: string;
+          stars?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hotels_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       scrape_locks: {
         Row: {
           acquired_at: string;
