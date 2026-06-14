@@ -9,6 +9,8 @@ export type AutocompleteOption = {
   id: string;
   label: string;
   sublabel?: string;
+  lat?: number;
+  lon?: number;
 };
 
 export function Autocomplete({

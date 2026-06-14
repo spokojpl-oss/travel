@@ -67,6 +67,7 @@ export function DatePicker({
 }) {
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() =>
@@ -78,13 +79,21 @@ export function DatePicker({
   const minDate = parseDate(min ?? null) ?? new Date();
 
   useEffect(() => {
+    if (open) {
+      setViewMonth(startOfMonth(selected ?? new Date()));
+    }
+  }, [open, value]);
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        containerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
       ) {
-        setOpen(false);
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -142,13 +151,16 @@ export function DatePicker({
 
   const panel = open ? (
     <div
+      ref={panelRef}
       id={panelId}
       style={panelStyle}
       className="rounded-2xl border border-border-default bg-white p-4 shadow-2xl"
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setViewMonth((m) => addMonths(m, -1))}
           className="rounded-lg px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50"
         >
@@ -159,6 +171,7 @@ export function DatePicker({
         </span>
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setViewMonth((m) => addMonths(m, 1))}
           className="rounded-lg px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50"
         >
@@ -177,7 +190,11 @@ export function DatePicker({
       <div className="grid grid-cols-7 gap-1">
         {cells.map((day, i) => {
           if (!day) return <div key={`empty-${i}`} />;
-          const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+          const dayStart = new Date(
+            day.getFullYear(),
+            day.getMonth(),
+            day.getDate(),
+          );
           const minStart = new Date(
             minDate.getFullYear(),
             minDate.getMonth(),
@@ -190,6 +207,7 @@ export function DatePicker({
               key={toIsoDate(day)}
               type="button"
               disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onChange(toIsoDate(day));
                 setOpen(false);
@@ -234,7 +252,11 @@ export function DatePicker({
           )}
         >
           <span>{displayValue}</span>
-          <Icon name="chevron-right" size={16} className="rotate-90 text-text-tertiary" />
+          <Icon
+            name="chevron-right"
+            size={16}
+            className="rotate-90 text-text-tertiary"
+          />
         </button>
       </div>
 

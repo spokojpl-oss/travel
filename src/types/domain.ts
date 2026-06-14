@@ -131,6 +131,9 @@ export type ActivitySearchQuery = {
   match_mode: "all" | "any";
   max_radius_km: number;
   min_per_activity: number;
+  near_lat?: number;
+  near_lon?: number;
+  near_radius_km?: number;
 };
 
 export type ActivitySearchResult = {

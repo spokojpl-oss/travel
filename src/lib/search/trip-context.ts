@@ -3,6 +3,8 @@ export type TripContext = {
   interests: string;
   destination: string | null;
   destination_label: string | null;
+  destination_lat: number | null;
+  destination_lon: number | null;
   departure_date: string;
   return_date: string | null;
   origin_iata: string | null;
@@ -25,6 +27,8 @@ export function defaultTripContext(): TripContext {
     interests: "",
     destination: null,
     destination_label: null,
+    destination_lat: null,
+    destination_lon: null,
     departure_date: start.toISOString().split("T")[0],
     return_date: end.toISOString().split("T")[0],
     origin_iata: "WAW",
@@ -39,6 +43,8 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   if (trip.interests) p.set("interests", trip.interests);
   if (trip.destination) p.set("destination", trip.destination);
   if (trip.destination_label) p.set("destination_label", trip.destination_label);
+  if (trip.destination_lat != null) p.set("dest_lat", String(trip.destination_lat));
+  if (trip.destination_lon != null) p.set("dest_lon", String(trip.destination_lon));
   if (trip.departure_date) p.set("from_date", trip.departure_date);
   if (trip.return_date) p.set("to_date", trip.return_date);
   if (trip.origin_iata) p.set("origin", trip.origin_iata);
@@ -59,6 +65,10 @@ export function tripContextFromParams(
   if (destination) partial.destination = destination;
   const destinationLabel = params.get("destination_label");
   if (destinationLabel) partial.destination_label = destinationLabel;
+  const destLat = params.get("dest_lat");
+  if (destLat) partial.destination_lat = Number(destLat);
+  const destLon = params.get("dest_lon");
+  if (destLon) partial.destination_lon = Number(destLon);
   const fromDate = params.get("from_date");
   if (fromDate) partial.departure_date = fromDate;
   const toDate = params.get("to_date");

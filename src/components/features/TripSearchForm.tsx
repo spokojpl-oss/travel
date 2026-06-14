@@ -10,14 +10,28 @@ import type { TripContext } from "@/lib/search/trip-context";
 async function searchPlacesApi(
   query: string,
   type: "destination" | "airport",
-): Promise<Array<{ id: string; label: string; sublabel?: string }>> {
+): Promise<
+  Array<{ id: string; label: string; sublabel?: string; lat?: number; lon?: number }>
+> {
   const params = new URLSearchParams({ q: query, type, limit: "12" });
   const r = await fetch(`/api/places/search?${params}`);
   if (!r.ok) return [];
   const data = (await r.json()) as {
-    places?: Array<{ id: string; label: string; sublabel?: string }>;
+    places?: Array<{
+      id: string;
+      label: string;
+      sublabel?: string;
+      lat?: number;
+      lon?: number;
+    }>;
   };
-  return data.places ?? [];
+  return (data.places ?? []).map((p) => ({
+    id: p.id,
+    label: p.label,
+    sublabel: p.sublabel,
+    lat: p.lat,
+    lon: p.lon,
+  }));
 }
 
 export function TripSearchForm({
@@ -74,6 +88,8 @@ export function TripSearchForm({
               ...trip,
               destination: v,
               destination_label: v,
+              destination_lat: null,
+              destination_lon: null,
             })
           }
           onSelect={(opt) =>
@@ -83,6 +99,8 @@ export function TripSearchForm({
               destination_label: opt.sublabel
                 ? `${opt.label}, ${opt.sublabel}`
                 : opt.label,
+              destination_lat: opt.lat ?? null,
+              destination_lon: opt.lon ?? null,
             })
           }
           options={[]}

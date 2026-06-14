@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RefineInput } from "@/components/features/RefineInput";
-import { HowItWorksGuide } from "@/components/features/HowItWorksGuide";
 import { TripSearchForm } from "@/components/features/TripSearchForm";
 import {
   SearchStepIndicator,
@@ -134,12 +133,33 @@ function SearchPageContent() {
   }
 
   function getSearchParams() {
-    return {
+    const params: {
+      activities: string[];
+      match_mode: "all" | "any";
+      max_radius_km: number;
+      min_per_activity: number;
+      near_lat?: number;
+      near_lon?: number;
+      near_radius_km?: number;
+    } = {
       activities: Array.from(selectedActivities),
       match_mode: matchMode,
       max_radius_km: maxRadius,
       min_per_activity: minPerActivity,
     };
+
+    if (
+      trip.destination_lat != null &&
+      trip.destination_lon != null &&
+      Number.isFinite(trip.destination_lat) &&
+      Number.isFinite(trip.destination_lon)
+    ) {
+      params.near_lat = trip.destination_lat;
+      params.near_lon = trip.destination_lon;
+      params.near_radius_km = trip.mode === "destination" ? 150 : 250;
+    }
+
+    return params;
   }
 
   async function handleSearch(
@@ -147,6 +167,12 @@ function SearchPageContent() {
   ) {
     const params = overrideParams ?? getSearchParams();
     if (params.activities.length === 0) return;
+    if (!dataStatus?.search_ready) {
+      setError(
+        "Baza atrakcji jest pusta. Uruchom scrape OSM w panelu admina, potem spróbuj ponownie.",
+      );
+      return;
+    }
     setIsSearching(true);
     setError(null);
     setResults(null);
@@ -182,6 +208,8 @@ function SearchPageContent() {
       `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}`,
     );
   }
+
+  const dbReady = dataStatus?.search_ready ?? false;
 
   const showDataInfo =
     dataStatus && !dataStatus.search_ready && !pageLoading && step >= 2;
@@ -250,21 +278,24 @@ function SearchPageContent() {
 
       {step >= 2 && (
         <>
-          <HowItWorksGuide variant="compact" className="mb-6" />
-
           {showDataInfo && (
-            <Card className="mb-6 border-brand-200 bg-brand-50/50">
-              <CardBody className="text-sm text-text-secondary">
+            <Card className="mb-6 border-warning/40 bg-orange-50/60">
+              <CardBody>
                 <p className="font-medium text-text-primary">
-                  Baza regionów w trakcie ładowania ({dataStatus!.attractions}{" "}
-                  atrakcji). Możesz wybierać aktywności — wyniki pojawią się po
-                  scrape OSM.
+                  Wyszukiwanie regionów jest niedostępne — baza atrakcji jest
+                  pusta ({dataStatus!.attractions} w bazie)
+                </p>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Wybrałeś miejscowość i aktywności poprawnie, ale aplikacja nie
+                  ma jeszcze danych OSM (atrakcje w okolicy Alicante itd.).
+                  Uruchom scrape w panelu admina — dla Hiszpanii wybierz region{" "}
+                  <strong>Iberia + Madeira + Canary</strong>.
                 </p>
                 <Link
                   href="/app/admin"
-                  className="mt-2 inline-block font-semibold text-brand-700 hover:underline"
+                  className="mt-3 inline-flex rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
                 >
-                  Panel admina →
+                  Otwórz panel admina →
                 </Link>
               </CardBody>
             </Card>
@@ -368,13 +399,18 @@ function SearchPageContent() {
             <Button
               onClick={() => handleSearch()}
               disabled={
-                isSearching || selectedActivities.size === 0 || pageLoading
+                isSearching ||
+                selectedActivities.size === 0 ||
+                pageLoading ||
+                !dbReady
               }
               size="lg"
             >
               {isSearching
                 ? "Szukam regionów..."
-                : `Szukaj (${selectedActivities.size} aktywności)`}
+                : !dbReady
+                  ? "Brak danych OSM — uruchom scrape"
+                  : `Szukaj (${selectedActivities.size} aktywności)`}
             </Button>
             <Button variant="ghost" onClick={() => setStep(1)}>
               ← Wróć do podróży
@@ -441,7 +477,11 @@ function SearchPageContent() {
             <Card>
               <CardBody>
                 <p className="text-text-secondary">
-                  Nie znaleziono regionów dla wybranych aktywności.
+                  Nie znaleziono regionów
+                  {trip.destination_label
+                    ? ` w okolicy ${trip.destination_label}`
+                    : ""}{" "}
+                  dla wybranych aktywności.
                 </p>
                 {results.total_attractions_considered === 0 && (
                   <p className="mt-3 text-sm text-text-secondary">

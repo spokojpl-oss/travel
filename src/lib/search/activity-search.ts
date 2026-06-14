@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clusterAttractions } from "./geo-clustering";
+import { clusterAttractions, distanceKm } from "./geo-clustering";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
@@ -112,9 +112,28 @@ export async function searchActivities(
     attractions: cluster.attractions.slice(0, 20),
   }));
 
+  let filtered = topClusters;
+  if (
+    query.near_lat != null &&
+    query.near_lon != null &&
+    Number.isFinite(query.near_lat) &&
+    Number.isFinite(query.near_lon)
+  ) {
+    const center = { lat: query.near_lat, lon: query.near_lon };
+    const radius = query.near_radius_km ?? 200;
+    filtered = topClusters
+      .map((cluster) => ({
+        cluster,
+        dist: distanceKm(cluster.center, center),
+      }))
+      .filter((x) => x.dist <= radius)
+      .sort((a, b) => a.dist - b.dist)
+      .map((x) => x.cluster);
+  }
+
   return {
     query,
-    clusters: topClusters,
+    clusters: filtered,
     total_attractions_considered: attractions.length,
     duration_ms: Date.now() - startTime,
   };
