@@ -13,6 +13,10 @@ const REQUIRED_TABLES = [
   "api_cache",
   "weather_cache",
   "scrape_locks",
+  "activity_groups",
+  "activities",
+  "activity_osm_mappings",
+  "attraction_activity_tags",
 ] as const;
 
 export async function GET() {

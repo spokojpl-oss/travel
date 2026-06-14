@@ -27,6 +27,9 @@ export default async function AppLayout({
         <a href="/app/profile" className="underline">
           Profil
         </a>
+        <a href="/app/search" className="underline">
+          Wyszukiwarka
+        </a>
         <form action="/auth/logout" method="POST" className="ml-auto">
           <button type="submit" className="underline">
             Wyloguj

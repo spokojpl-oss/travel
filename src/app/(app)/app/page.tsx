@@ -19,9 +19,12 @@ export default async function AppHome() {
       <p>
         Tu będzie wyszukiwarka. Na razie zarządzaj swoimi grupami podróżnymi.
       </p>
-      <p className="mt-4">
+      <p className="mt-4 flex flex-col gap-2">
+        <a href="/app/search" className="underline">
+          → Wyszukiwarka aktywności
+        </a>
         <a href="/app/groups" className="underline">
-          Przejdź do moich grup →
+          → Moje grupy podróżne
         </a>
       </p>
     </div>

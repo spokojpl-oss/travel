@@ -65,3 +65,48 @@ export type WeatherSummary = {
   avg_uv_index: number;
   fetched_at: string;
 };
+
+export type ActivityGroup =
+  Database["public"]["Tables"]["activity_groups"]["Row"];
+export type Activity = Database["public"]["Tables"]["activities"]["Row"];
+export type ActivityOsmMapping =
+  Database["public"]["Tables"]["activity_osm_mappings"]["Row"];
+export type AttractionActivityTag =
+  Database["public"]["Tables"]["attraction_activity_tags"]["Row"];
+
+export type IntensityLevel = Database["public"]["Enums"]["intensity_level"];
+export type WeatherDependency =
+  Database["public"]["Enums"]["weather_dependency"];
+
+export type ActivityGroupWithActivities = ActivityGroup & {
+  activities: Activity[];
+};
+
+export type AttractionWithActivities = Attraction & {
+  activity_tags: { activity_slug: string; confidence: number }[];
+};
+
+export type GeoCluster = {
+  id: string;
+  center: GeoPoint;
+  bbox: BoundingBox;
+  radius_km: number;
+  attractions: AttractionWithActivities[];
+  covered_activities: string[];
+  score: number;
+  activity_counts: Record<string, number>;
+};
+
+export type ActivitySearchQuery = {
+  activities: string[];
+  match_mode: "all" | "any";
+  max_radius_km: number;
+  min_per_activity: number;
+};
+
+export type ActivitySearchResult = {
+  query: ActivitySearchQuery;
+  clusters: GeoCluster[];
+  total_attractions_considered: number;
+  duration_ms: number;
+};

@@ -33,6 +33,145 @@ export type Database = {
         };
         Relationships: [];
       };
+      activities: {
+        Row: {
+          description: string | null;
+          group_slug: string;
+          intensity: Database["public"]["Enums"]["intensity_level"];
+          min_recommended_age: number | null;
+          name_en: string;
+          name_pl: string;
+          requires_license: boolean;
+          slug: string;
+          sort_order: number;
+          typical_duration_minutes: number | null;
+          weather_dependency: Database["public"]["Enums"]["weather_dependency"];
+        };
+        Insert: {
+          description?: string | null;
+          group_slug: string;
+          intensity?: Database["public"]["Enums"]["intensity_level"];
+          min_recommended_age?: number | null;
+          name_en: string;
+          name_pl: string;
+          requires_license?: boolean;
+          slug: string;
+          sort_order?: number;
+          typical_duration_minutes?: number | null;
+          weather_dependency?: Database["public"]["Enums"]["weather_dependency"];
+        };
+        Update: {
+          description?: string | null;
+          group_slug?: string;
+          intensity?: Database["public"]["Enums"]["intensity_level"];
+          min_recommended_age?: number | null;
+          name_en?: string;
+          name_pl?: string;
+          requires_license?: boolean;
+          slug?: string;
+          sort_order?: number;
+          typical_duration_minutes?: number | null;
+          weather_dependency?: Database["public"]["Enums"]["weather_dependency"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activities_group_slug_fkey";
+            columns: ["group_slug"];
+            isOneToOne: false;
+            referencedRelation: "activity_groups";
+            referencedColumns: ["slug"];
+          },
+        ];
+      };
+      activity_groups: {
+        Row: {
+          description: string | null;
+          icon: string | null;
+          name_en: string;
+          name_pl: string;
+          slug: string;
+          sort_order: number;
+        };
+        Insert: {
+          description?: string | null;
+          icon?: string | null;
+          name_en: string;
+          name_pl: string;
+          slug: string;
+          sort_order?: number;
+        };
+        Update: {
+          description?: string | null;
+          icon?: string | null;
+          name_en?: string;
+          name_pl?: string;
+          slug?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      activity_osm_mappings: {
+        Row: {
+          activity_slug: string;
+          id: string;
+          osm_query: string;
+          priority: number;
+        };
+        Insert: {
+          activity_slug: string;
+          id?: string;
+          osm_query: string;
+          priority?: number;
+        };
+        Update: {
+          activity_slug?: string;
+          id?: string;
+          osm_query?: string;
+          priority?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_osm_mappings_activity_slug_fkey";
+            columns: ["activity_slug"];
+            isOneToOne: false;
+            referencedRelation: "activities";
+            referencedColumns: ["slug"];
+          },
+        ];
+      };
+      attraction_activity_tags: {
+        Row: {
+          activity_slug: string;
+          attraction_id: string;
+          confidence: number;
+        };
+        Insert: {
+          activity_slug: string;
+          attraction_id: string;
+          confidence?: number;
+        };
+        Update: {
+          activity_slug?: string;
+          attraction_id?: string;
+          confidence?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attraction_activity_tags_activity_slug_fkey";
+            columns: ["activity_slug"];
+            isOneToOne: false;
+            referencedRelation: "activities";
+            referencedColumns: ["slug"];
+          },
+          {
+            foreignKeyName: "attraction_activity_tags_attraction_id_fkey";
+            columns: ["attraction_id"];
+            isOneToOne: false;
+            referencedRelation: "attractions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       attractions: {
         Row: {
           address: string | null;
@@ -426,8 +565,10 @@ export type Database = {
     };
     Enums: {
       destination_type: "country" | "region" | "city" | "island" | "area";
+      intensity_level: "low" | "medium" | "high";
       member_type: "adult" | "child" | "infant" | "senior";
       travel_style: "active" | "relax" | "mixed";
+      weather_dependency: "none" | "low" | "high";
     };
     CompositeTypes: {
       [_ in never]: never;
