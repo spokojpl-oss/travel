@@ -36,7 +36,7 @@ type DataStatus = {
 export default function SearchPage() {
   const router = useRouter();
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
-  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [taxonomyMeta, setTaxonomyMeta] = useState<TaxonomyResponse["meta"]>();
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
@@ -51,25 +51,26 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setTaxonomyLoading(true);
-    fetch("/api/activities/taxonomy")
-      .then(async (r) => {
+    setPageLoading(true);
+    Promise.all([
+      fetch("/api/activities/taxonomy").then(async (r) => {
         const data = (await r.json()) as TaxonomyResponse & { error?: string };
         if (!r.ok) {
           throw new Error(data.error ?? `HTTP ${r.status}`);
         }
-        setTaxonomy(data.groups ?? []);
-        setTaxonomyMeta(data.meta);
+        return data;
+      }),
+      fetch("/api/activities/status")
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([taxonomyData, statusData]) => {
+        setTaxonomy(taxonomyData.groups ?? []);
+        setTaxonomyMeta(taxonomyData.meta);
+        if (statusData) setDataStatus(statusData as DataStatus);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setTaxonomyLoading(false));
-
-    fetch("/api/activities/status")
-      .then((r) => r.json())
-      .then((data: DataStatus) => setDataStatus(data))
-      .catch(() => {
-        /* status optional */
-      });
+      .finally(() => setPageLoading(false));
   }, []);
 
   useEffect(() => {
@@ -148,8 +149,8 @@ export default function SearchPage() {
     );
   }
 
-  const showDataWarning =
-    dataStatus && !dataStatus.search_ready && !taxonomyLoading;
+  const showDataInfo =
+    dataStatus && !dataStatus.search_ready && !pageLoading;
 
   return (
     <PageContainer>
@@ -166,35 +167,42 @@ export default function SearchPage() {
 
       <HowItWorksGuide variant="compact" className="mb-6" />
 
-      {showDataWarning && (
-        <Card className="mb-6 border-warning/40 bg-orange-50/50">
+      {showDataInfo && (
+        <Card className="mb-6 border-brand-200 bg-brand-50/50">
           <CardBody>
             <p className="font-medium text-text-primary">
-              Baza atrakcji nie jest jeszcze gotowa
+              Aktywności działają — wyszukiwanie regionów wymaga danych OSM
             </p>
             <p className="mt-1 text-sm text-text-secondary">
-              {dataStatus.message ??
-                "Możesz wybierać aktywności, ale wyszukiwanie zwróci 0 regionów dopóki nie załadujesz danych OSM."}
+              Możesz wybierać aktywności z katalogu
+              {taxonomyMeta?.source === "fallback"
+                ? " wbudowanego"
+                : ""}
+              , ale mapowanie na regiony zadziała dopiero po załadowaniu
+              atrakcji do bazy ({dataStatus.attractions} atrakcji,{" "}
+              {dataStatus.tags} tagów).
             </p>
-            <p className="mt-2 text-xs text-text-tertiary">
-              W Supabase: migracja 007 + seed{" "}
-              <code className="rounded bg-white px-1">activities.sql</code>, potem{" "}
-              <code className="rounded bg-white px-1">
-                POST /api/admin/initial-scrape
-              </code>{" "}
-              (konto admin). Status: {dataStatus.attractions} atrakcji,{" "}
-              {dataStatus.tags} tagów.
-            </p>
-          </CardBody>
-        </Card>
-      )}
-
-      {taxonomyMeta?.source === "fallback" && (
-        <Card className="mb-6 border-brand-200 bg-brand-50/40">
-          <CardBody className="text-sm text-text-secondary">
-            Lista aktywności załadowana z wbudowanego katalogu (baza Supabase
-            pusta lub niedostępna). Wyszukiwanie regionów wymaga seedów i scrape
-            OSM.
+            <details className="mt-3 text-sm text-text-tertiary">
+              <summary className="cursor-pointer font-medium text-brand-700">
+                Instrukcja dla administratora
+              </summary>
+              <p className="mt-2">
+                {dataStatus.message ??
+                  "Uruchom seed activities.sql i scrape OSM."}
+              </p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>
+                  W Supabase: migracja 007 + seed{" "}
+                  <code className="rounded bg-white px-1">activities.sql</code>
+                </li>
+                <li>
+                  <code className="rounded bg-white px-1">
+                    POST /api/admin/initial-scrape
+                  </code>{" "}
+                  (konto z ADMIN_EMAILS)
+                </li>
+              </ol>
+            </details>
           </CardBody>
         </Card>
       )}
@@ -202,16 +210,16 @@ export default function SearchPage() {
       <Card className="mb-8">
         <CardHeader title="1. Wybierz aktywności" />
         <CardBody>
-          {taxonomyLoading && <SkeletonList count={3} />}
+          {pageLoading && <SkeletonList count={3} />}
 
-          {!taxonomyLoading && taxonomy.length === 0 && (
+          {!pageLoading && taxonomy.length === 0 && (
             <p className="text-sm text-danger">
               Nie udało się załadować aktywności. Odśwież stronę lub sprawdź
               połączenie z Supabase.
             </p>
           )}
 
-          {!taxonomyLoading &&
+          {!pageLoading &&
             taxonomy.map((group) => (
               <div key={group.slug} className="mb-6 last:mb-0">
                 <h3 className="mb-3 font-semibold text-text-primary">
@@ -296,7 +304,7 @@ export default function SearchPage() {
       <Button
         onClick={() => handleSearch()}
         disabled={
-          isSearching || selectedActivities.size === 0 || taxonomyLoading
+          isSearching || selectedActivities.size === 0 || pageLoading
         }
         size="lg"
         className="mb-6"
