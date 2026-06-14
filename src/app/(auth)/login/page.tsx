@@ -1,5 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -75,103 +80,114 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="p-8 max-w-md">
-      <h1 className="text-2xl font-bold mb-4">Logowanie</h1>
-
-      <div className="flex gap-4 mb-6 text-sm">
-        <button
-          type="button"
-          onClick={() => {
-            setMode("password");
-            setStatus("idle");
-            setErrorMessage("");
-          }}
-          className={mode === "password" ? "font-bold underline" : "underline"}
-        >
-          Email i hasło
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode("magic_link");
-            setStatus("idle");
-            setErrorMessage("");
-          }}
-          className={mode === "magic_link" ? "font-bold underline" : "underline"}
-        >
-          Magic link
-        </button>
-      </div>
-
-      {status === "sent" && mode === "magic_link" ? (
-        <p>
-          Sprawdź email – wysłaliśmy link do logowania na{" "}
-          <strong>{email}</strong>
-        </p>
-      ) : mode === "password" ? (
-        <form onSubmit={handlePasswordLogin} className="flex flex-col gap-3">
-          <input
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            disabled={status === "loading"}
-            className="border px-3 py-2 rounded"
-          />
-          <input
-            type="password"
-            placeholder="Hasło"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            disabled={status === "loading"}
-            className="border px-3 py-2 rounded"
-          />
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-          >
-            {status === "loading" ? "Loguję..." : "Zaloguj się"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleMagicLink} className="flex flex-col gap-3">
-          <input
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={status === "loading"}
-            className="border px-3 py-2 rounded"
-          />
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-          >
-            {status === "loading" ? "Wysyłam..." : "Wyślij link logowania"}
-          </button>
-          <p className="text-sm text-gray-600">
-            Magic link wymaga działającej poczty w Supabase. Na darmowym planie
-            limit to ~4 maile/godz. Jeśli nie przychodzi – użyj email i hasło.
+    <div className="flex min-h-full flex-col bg-bg-soft">
+      <Header variant="public" />
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl border border-border-default bg-white p-8 shadow-card">
+          <h1 className="font-display mb-2 text-2xl font-bold text-text-primary">
+            Zaloguj się
+          </h1>
+          <p className="mb-6 text-sm text-text-secondary">
+            Planuj wakacje dopasowane do Twojej rodziny
           </p>
-        </form>
-      )}
 
-      {status === "error" && (
-        <p className="text-red-600 mt-3">Błąd: {errorMessage}</p>
-      )}
+          <div className="mb-6 flex gap-2 rounded-lg bg-bg-soft p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("password");
+                setStatus("idle");
+                setErrorMessage("");
+              }}
+              className={`flex-1 rounded-md px-3 py-2 font-medium transition-colors ${
+                mode === "password"
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-secondary"
+              }`}
+            >
+              Email i hasło
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("magic_link");
+                setStatus("idle");
+                setErrorMessage("");
+              }}
+              className={`flex-1 rounded-md px-3 py-2 font-medium transition-colors ${
+                mode === "magic_link"
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-secondary"
+              }`}
+            >
+              Magic link
+            </button>
+          </div>
 
-      <p className="mt-4">
-        <a href="/" className="underline">
-          ← Strona główna
-        </a>
-      </p>
+          {status === "sent" && mode === "magic_link" ? (
+            <p className="text-text-secondary">
+              Sprawdź email – wysłaliśmy link do logowania na{" "}
+              <strong className="text-text-primary">{email}</strong>
+            </p>
+          ) : mode === "password" ? (
+            <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
+              <Input
+                type="email"
+                label="Email"
+                placeholder="email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                disabled={status === "loading"}
+              />
+              <Input
+                type="password"
+                label="Hasło"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                disabled={status === "loading"}
+              />
+              <Button type="submit" disabled={status === "loading"} className="w-full">
+                {status === "loading" ? "Loguję..." : "Zaloguj się"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleMagicLink} className="flex flex-col gap-4">
+              <Input
+                type="email"
+                label="Email"
+                placeholder="email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={status === "loading"}
+              />
+              <Button type="submit" disabled={status === "loading"} className="w-full">
+                {status === "loading" ? "Wysyłam..." : "Wyślij link logowania"}
+              </Button>
+              <p className="text-xs text-text-tertiary">
+                Magic link wymaga działającej poczty w Supabase. Na darmowym planie
+                limit to ~4 maile/godz. Jeśli nie przychodzi – użyj email i hasło.
+              </p>
+            </form>
+          )}
+
+          {status === "error" && (
+            <p className="mt-4 text-sm text-danger">Błąd: {errorMessage}</p>
+          )}
+
+          <p className="mt-6 text-center text-sm">
+            <Link href="/" className="text-brand-700 hover:underline">
+              ← Strona główna
+            </Link>
+          </p>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { HeroSearch } from "@/components/features/HeroSearch";
+import { PageContainer } from "@/components/layout/Header";
+import { Card, CardBody } from "@/components/ui/Card";
 
 export default async function AppHome() {
   const supabase = await createClient();
@@ -11,22 +15,61 @@ export default async function AppHome() {
     .eq("id", user!.id)
     .single();
 
+  const quickLinks = [
+    {
+      href: "/app/search",
+      title: "Wyszukiwarka aktywności",
+      desc: "Znajdź regiony pasujące do Twoich zainteresowań",
+      icon: "🎯",
+    },
+    {
+      href: "/app/trips",
+      title: "Moje wyjazdy",
+      desc: "Plany, dokumenty i inteligentne porady",
+      icon: "🗂️",
+    },
+    {
+      href: "/app/compare",
+      title: "Porównaj tripy",
+      desc: "Madera vs Mallorca vs Kreta — liczby zamiast domysłów",
+      icon: "⚖️",
+    },
+    {
+      href: "/app/groups",
+      title: "Grupy podróżne",
+      desc: "Profil rodziny i preferencje",
+      icon: "👥",
+    },
+  ];
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2">
-        Cześć, {profile?.display_name ?? user!.email}
-      </h1>
-      <p>
-        Tu będzie wyszukiwarka. Na razie zarządzaj swoimi grupami podróżnymi.
-      </p>
-      <p className="mt-4 flex flex-col gap-2">
-        <a href="/app/search" className="underline">
-          → Wyszukiwarka aktywności
-        </a>
-        <a href="/app/groups" className="underline">
-          → Moje grupy podróżne
-        </a>
-      </p>
-    </div>
+    <>
+      <HeroSearch compact />
+      <PageContainer>
+        <p className="mb-8 text-lg text-text-secondary">
+          Cześć,{" "}
+          <strong className="text-text-primary">
+            {profile?.display_name ?? user!.email}
+          </strong>
+          ! Gdzie dziś planujemy?
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {quickLinks.map((link) => (
+            <Link key={link.href} href={link.href}>
+              <Card className="card-hover h-full transition-shadow hover:shadow-cardHover">
+                <CardBody>
+                  <div className="mb-3 text-2xl">{link.icon}</div>
+                  <h2 className="font-display text-lg font-bold text-text-primary">
+                    {link.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-text-secondary">{link.desc}</p>
+                </CardBody>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </PageContainer>
+    </>
   );
 }

@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import type { Attraction } from "@/types/domain";
 import { RefineInput } from "@/components/features/RefineInput";
 import { SkeletonList } from "@/components/ui/Skeleton";
+import { HotelCard } from "@/components/features/HotelCard";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type HotelSearchResult = {
   hotels: Array<{
@@ -160,20 +164,23 @@ export function HotelsSection({
 
   if (attractions.length === 0) {
     return (
-      <section className="mb-8 border p-4 rounded">
-        <h2 className="text-lg font-semibold mb-2">Hotele blisko atrakcji</h2>
-        <p className="text-sm text-gray-600">
-          Brak atrakcji dla tej destynacji. Zbuduj stronę destynacji ponownie z
-          wyszukiwarki.
-        </p>
-      </section>
+      <Card className="mb-8">
+        <CardHeader title="Hotele blisko atrakcji" />
+        <CardBody>
+          <p className="text-sm text-text-secondary">
+            Brak atrakcji dla tej destynacji. Zbuduj stronę destynacji ponownie z
+            wyszukiwarki.
+          </p>
+        </CardBody>
+      </Card>
     );
   }
 
   return (
-    <section className="mb-8 border p-4 rounded">
-      <h2 className="text-lg font-semibold mb-3">Hotele blisko Twoich atrakcji</h2>
-      <p className="text-sm text-gray-600 mb-4">
+    <Card className="mb-8">
+      <CardHeader title="Hotele blisko Twoich atrakcji" />
+      <CardBody>
+      <p className="mb-4 text-sm text-text-secondary">
         Hotele wyszukiwane wokół wybranych atrakcji, nie centrum destynacji.
       </p>
 
@@ -261,13 +268,13 @@ export function HotelsSection({
           />
           Mam/będę miał wynajęte auto
         </label>
-        <button
+        <Button
           onClick={() => handleSearch()}
           disabled={loading || !checkIn || !checkOut}
-          className="border px-3 py-1 rounded bg-black text-white disabled:opacity-50"
+          size="sm"
         >
           {loading ? "Szukam..." : "Szukaj noclegów"}
-        </button>
+        </Button>
       </div>
 
       <RefineInput
@@ -352,61 +359,35 @@ export function HotelsSection({
                 zwiększyć budżet.
               </p>
             ) : (
-              <ol className="space-y-3 list-none">
-                {results.hotels.map((h, i) => (
-                  <li key={h.hotel.id} className="border p-3 rounded">
-                    <h4 className="font-medium">
-                      {i + 1}. {h.hotel.name}{" "}
-                      {h.hotel.stars ? "★".repeat(h.hotel.stars) : ""}
-                      <span className="text-gray-500 font-normal ml-2">
-                        (dopasowanie: {h.score})
-                      </span>
-                    </h4>
-                    {h.hotel.address && (
-                      <p className="text-gray-600">{h.hotel.address}</p>
-                    )}
-
-                    <p className="mt-1">
-                      <strong>{h.offer.price_total_pln} PLN</strong> za{" "}
-                      {h.offer.nights} nocy ({h.offer.price_per_night_pln} PLN/noc)
-                    </p>
-
-                    <p className="mt-1 text-gray-700">
-                      Odległość do atrakcji: średnio {h.proximity.avg_distance_km}{" "}
-                      km · najbliżej {h.proximity.closest.name} (
-                      {h.proximity.closest.distance_km} km) · najdalej{" "}
-                      {h.proximity.farthest.name} ({h.proximity.farthest.distance_km}{" "}
-                      km)
-                    </p>
-
-                    <details className="mt-2">
-                      <summary>
+              <div className="space-y-2">
+                {results.hotels.map((h) => (
+                  <div key={h.hotel.id}>
+                    <HotelCard
+                      hotel={h.hotel}
+                      offer={h.offer}
+                      proximity={h.proximity}
+                    />
+                    <details className="mb-4 ml-1 text-xs text-text-secondary">
+                      <summary className="cursor-pointer">
                         Real total cost: {h.real_cost.total_pln} PLN (
-                        {h.real_cost.per_person_per_night_pln} PLN/os/noc)
+                        {h.real_cost.per_person_per_night_pln} PLN/os/noc) ·
+                        dopasowanie: {h.score}
                       </summary>
-                      <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
+                      <ul className="mt-1 list-disc pl-5">
                         {h.real_cost.notes.map((n, j) => (
                           <li key={j}>{n}</li>
                         ))}
                       </ul>
                     </details>
-
-                    <a
-                      href={h.offer.deep_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-2 underline"
-                    >
-                      Zobacz na Hotellook / Booking →
-                    </a>
-                  </li>
+                  </div>
                 ))}
-              </ol>
+              </div>
             )}
           </div>
         </div>
       )}
-    </section>
+      </CardBody>
+    </Card>
   );
 }
 

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 
 export default async function AppLayout({
   children,
@@ -16,36 +18,10 @@ export default async function AppLayout({
   }
 
   return (
-    <div>
-      <nav className="border-b px-8 py-3 flex gap-4 items-center">
-        <a href="/app" className="underline">
-          Strona główna
-        </a>
-        <a href="/app/groups" className="underline">
-          Moje grupy
-        </a>
-        <a href="/app/profile" className="underline">
-          Profil
-        </a>
-        <a href="/app/search" className="underline">
-          Wyszukiwarka
-        </a>
-        <a href="/app/trips" className="underline">
-          Moje wyjazdy
-        </a>
-        <a href="/app/history" className="underline">
-          Historia
-        </a>
-        <a href="/app/compare" className="underline">
-          Porównaj
-        </a>
-        <form action="/auth/logout" method="POST" className="ml-auto">
-          <button type="submit" className="underline">
-            Wyloguj
-          </button>
-        </form>
-      </nav>
-      <main className="p-8">{children}</main>
+    <div className="flex min-h-full flex-col bg-white">
+      <Header userEmail={user.email ?? undefined} variant="app" />
+      <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }

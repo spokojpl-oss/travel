@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { toggleTripShare, deleteTrip } from "../actions";
 import { TripDocumentsView } from "@/components/features/TripDocumentsView";
 import { TripAdvisoriesSection } from "@/components/features/TripAdvisoriesSection";
+import { Breadcrumb, PageContainer } from "@/components/layout/Header";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 type TripWithDocs = {
   id: string;
@@ -91,67 +94,93 @@ export default function TripDetailPage() {
     await deleteTrip(tripId);
   }
 
-  if (loading) return <p>Ładowanie...</p>;
-  if (error && !trip) return <p className="text-red-600">Błąd: {error}</p>;
-  if (!trip) return <p>Wyjazd nie znaleziony</p>;
+  if (loading) {
+    return (
+      <PageContainer>
+        <p className="text-text-secondary">Ładowanie...</p>
+      </PageContainer>
+    );
+  }
+  if (error && !trip) {
+    return (
+      <PageContainer>
+        <p className="text-danger">Błąd: {error}</p>
+      </PageContainer>
+    );
+  }
+  if (!trip) {
+    return (
+      <PageContainer>
+        <p>Wyjazd nie znaleziony</p>
+      </PageContainer>
+    );
+  }
 
   const hasDocs = trip.documents.length > 0;
 
   return (
-    <div className="max-w-4xl">
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Moje wyjazdy", href: "/app/trips" },
+          { label: trip.name },
+        ]}
+      />
+
       <button
         onClick={() => router.push("/app/trips")}
-        className="underline mb-4 text-sm"
+        className="mb-4 text-sm text-brand-700 hover:underline"
       >
         ← Moje wyjazdy
       </button>
 
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">{trip.name}</h1>
-        <p className="text-sm text-gray-600 mt-1">
+        <h1 className="font-display text-3xl font-bold text-text-primary">
+          {trip.name}
+        </h1>
+        <p className="mt-2 text-sm text-text-secondary">
           {trip.destination.name} ({trip.destination.country_code}) ·{" "}
           {trip.date_from} → {trip.date_to} · {trip.status}
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2 mb-6 text-sm">
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="border px-3 py-1 rounded bg-black text-white disabled:opacity-50"
-        >
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Button onClick={handleGenerate} disabled={generating} size="sm">
           {generating ? "Generuję..." : hasDocs ? "Regeneruj plan" : "Wygeneruj plan"}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => router.push(`/app/trips/${tripId}/print`)}
           disabled={!hasDocs}
-          className="border px-3 py-1 rounded disabled:opacity-50"
         >
           Drukuj / PDF
-        </button>
-        <button onClick={handleToggleShare} className="border px-3 py-1 rounded">
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleToggleShare}>
           {trip.is_share_enabled ? "Wyłącz udostępnianie" : "Włącz udostępnianie"}
-        </button>
-        <button
-          onClick={handleDelete}
-          className="border px-3 py-1 rounded text-red-700"
-        >
+        </Button>
+        <Button variant="danger" size="sm" onClick={handleDelete}>
           Usuń wyjazd
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && <p className="mb-4 text-danger">{error}</p>}
 
       {trip.is_share_enabled && shareUrl && (
-        <div className="mb-6 border p-3 rounded bg-gray-50 text-sm">
-          <p className="font-medium mb-1">Link dla rodziny (read-only):</p>
-          <code className="text-xs break-all">{shareUrl}</code>
-        </div>
+        <Card className="mb-6">
+          <CardBody>
+            <p className="mb-1 font-medium text-text-primary">
+              Link dla rodziny (read-only):
+            </p>
+            <code className="break-all text-xs text-text-secondary">{shareUrl}</code>
+          </CardBody>
+        </Card>
       )}
 
       <TripAdvisoriesSection tripId={tripId} />
 
       <TripDocumentsView documents={trip.documents} />
-    </div>
+    </PageContainer>
   );
 }

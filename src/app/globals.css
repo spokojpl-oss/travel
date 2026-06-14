@@ -1,28 +1,120 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-brand-50: #f0f5fc;
+  --color-brand-100: #d9e3f5;
+  --color-brand-200: #aac3e9;
+  --color-brand-300: #7ba3dd;
+  --color-brand-400: #4d83d1;
+  --color-brand-500: #1f63c5;
+  --color-brand-600: #0a4baa;
+  --color-brand-700: #003faa;
+  --color-brand-800: #002d7a;
+  --color-brand-900: #001b4a;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-accent-50: #fff4ee;
+  --color-accent-100: #ffe2d0;
+  --color-accent-200: #ffc4a1;
+  --color-accent-300: #ffa572;
+  --color-accent-400: #ff8743;
+  --color-accent-500: #ff5b00;
+  --color-accent-600: #d94d00;
+  --color-accent-700: #b34000;
+  --color-accent-800: #8c3300;
+
+  --color-bg-soft: #f7f9fc;
+  --color-bg-card: #ffffff;
+  --color-bg-hover: #f0f5fc;
+
+  --color-border-default: #e0e6ed;
+  --color-border-strong: #c5d0db;
+
+  --color-text-primary: #1a2b3c;
+  --color-text-secondary: #5a6878;
+  --color-text-tertiary: #8a96a3;
+  --color-text-on-brand: #ffffff;
+
+  --color-success: #16a34a;
+  --color-warning: #ea8500;
+  --color-danger: #dc2626;
+  --color-info: #0284c7;
+  --color-star: #f5b800;
+
+  --font-sans: var(--font-inter), var(--font-geist-sans), system-ui, sans-serif;
+  --font-display: var(--font-geist-sans), var(--font-inter), system-ui, sans-serif;
+
+  --shadow-hero: 0 30px 80px -20px rgba(0, 27, 74, 0.4);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 12px 28px -8px rgba(0, 63, 170, 0.15),
+    0 4px 10px -4px rgba(15, 23, 42, 0.05);
+
+  --animate-fade-in: fade-in 200ms ease-out;
+  --animate-slide-up: slide-up 300ms ease-out;
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    0% {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #ffffff;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.numeric,
+[data-numeric],
+.price {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+::selection {
+  background-color: #ff5b0033;
+  color: #1a2b3c;
+}
+
+:focus-visible {
+  outline: 2px solid #ff5b00;
+  outline-offset: 2px;
+}
+
+.card-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  border-color: #aac3e9;
+  box-shadow: var(--shadow-card-hover);
 }
 
 @keyframes skeleton-loading {
@@ -38,4 +130,58 @@ body {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.live-dot {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+
+  .no-print,
+  header,
+  footer,
+  nav {
+    display: none !important;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .location-diagram {
+    border: 1px solid #888;
+  }
+
+  table {
+    background: white !important;
+  }
+
+  @page {
+    margin: 2cm;
+  }
 }

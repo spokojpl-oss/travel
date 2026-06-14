@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SearchHistoryEntry } from "@/types/domain";
 import { SkeletonList } from "@/components/ui/Skeleton";
+import { Breadcrumb, PageContainer } from "@/components/layout/Header";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -78,16 +81,25 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-4">Historia wyszukiwań</h1>
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Historia wyszukiwań" },
+        ]}
+      />
 
-      <div className="flex flex-wrap gap-2 items-center mb-6 text-sm">
-        <label>
+      <h1 className="font-display mb-6 text-3xl font-bold text-text-primary">
+        Historia wyszukiwań
+      </h1>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-sm">
+        <label className="text-text-secondary">
           Filtruj:{" "}
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="border px-2 py-1 rounded"
+            className="ml-1 rounded-md border border-border-default px-2 py-1.5"
           >
             <option value="all">Wszystkie</option>
             <option value="activities">Aktywności</option>
@@ -97,50 +109,61 @@ export default function HistoryPage() {
             <option value="transport">Transport</option>
           </select>
         </label>
-        <button
-          onClick={handleClearAll}
-          className="border px-3 py-1 rounded text-red-700"
-        >
+        <Button variant="danger" size="sm" onClick={handleClearAll}>
           Wyczyść całą historię
-        </button>
+        </Button>
       </div>
 
       {loading && <SkeletonList count={4} />}
 
       {!loading && history.length === 0 && (
-        <p className="text-sm text-gray-600">
-          Brak historii. Twoje wyszukiwania zaczną się pojawiać tutaj.
-        </p>
+        <Card>
+          <CardBody>
+            <p className="text-sm text-text-secondary">
+              Brak historii. Twoje wyszukiwania zaczną się pojawiać tutaj.
+            </p>
+          </CardBody>
+        </Card>
       )}
 
       <ul className="space-y-3">
         {history.map((entry) => (
-          <li key={entry.id} className="border p-4 rounded">
-            <div>
-              <strong>{translateType(entry.search_type)}</strong>
-              <small className="text-gray-600 ml-2">
-                – {new Date(entry.executed_at).toLocaleString("pl-PL")}
-              </small>
-            </div>
-            <p className="text-sm mt-1">{summarizeEntry(entry)}</p>
-            <div className="mt-2 flex gap-2 text-sm">
-              <button
-                onClick={() => restoreSearch(entry)}
-                className="border px-3 py-1 rounded"
-              >
-                ↺ Przywróć
-              </button>
-              <button
-                onClick={() => handleDelete(entry.id)}
-                className="border px-3 py-1 rounded text-red-700"
-              >
-                ✕ Usuń
-              </button>
-            </div>
+          <li key={entry.id}>
+            <Card className="card-hover">
+              <CardBody>
+                <div>
+                  <strong className="text-text-primary">
+                    {translateType(entry.search_type)}
+                  </strong>
+                  <small className="ml-2 text-text-tertiary">
+                    – {new Date(entry.executed_at).toLocaleString("pl-PL")}
+                  </small>
+                </div>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {summarizeEntry(entry)}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => restoreSearch(entry)}
+                  >
+                    ↺ Przywróć
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(entry.id)}
+                  >
+                    ✕ Usuń
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
           </li>
         ))}
       </ul>
-    </div>
+    </PageContainer>
   );
 }
 

@@ -5,9 +5,14 @@ import { HotelsSection } from "@/components/features/HotelsSection";
 import { TransportSection } from "@/components/features/TransportSection";
 import { SaveTripSection } from "@/components/features/SaveTripSection";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LocationDiagram } from "@/components/features/LocationDiagram";
+import type { DiagramLine, DiagramPoint } from "@/components/features/LocationDiagram";
+import { Breadcrumb, PageContainer } from "@/components/layout/Header";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Attraction, Destination } from "@/types/domain";
+import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
 import type { WikivoyageDestinationContent } from "@/lib/api/wikivoyage";
 import type { GooglePlace } from "@/lib/api/google-places";
@@ -20,6 +25,7 @@ type BuildEvent = {
 export default function DestinationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [cluster, setCluster] = useState<GeoCluster | null>(null);
   const [events, setEvents] = useState<BuildEvent[]>([]);
   const [destination, setDestination] = useState<Destination | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
@@ -47,17 +53,18 @@ export default function DestinationPage() {
     }
     startedRef.current = true;
 
-    let cluster: unknown;
+    let parsedCluster: GeoCluster;
     let activities: string[];
     try {
-      cluster = JSON.parse(decodeURIComponent(clusterData));
+      parsedCluster = JSON.parse(decodeURIComponent(clusterData)) as GeoCluster;
       activities = JSON.parse(decodeURIComponent(activitiesParam));
+      setCluster(parsedCluster);
     } catch {
       setError("Nieprawidłowe dane URL");
       return;
     }
 
-    startBuild(cluster, activities);
+    startBuild(parsedCluster, activities);
   }, [clusterData, activitiesParam]);
 
   useEffect(() => {
@@ -153,66 +160,86 @@ export default function DestinationPage() {
 
   if (error) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Błąd</h1>
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={() => router.back()}
-          className="underline"
-        >
+      <PageContainer>
+        <h1 className="font-display mb-4 text-2xl font-bold text-text-primary">
+          Błąd
+        </h1>
+        <p className="mb-4 text-danger">{error}</p>
+        <Button variant="secondary" onClick={() => router.back()}>
           Wróć
-        </button>
-      </div>
+        </Button>
+      </PageContainer>
     );
   }
 
+  const diagram = cluster ? buildClusterDiagram(cluster) : null;
+
   return (
-    <div className="max-w-4xl">
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Wyszukiwarka", href: "/app/search" },
+          { label: destination?.name ?? "Destynacja" },
+        ]}
+      />
+
       <button
         onClick={() => router.push("/app/search")}
-        className="underline mb-4"
+        className="mb-4 text-sm text-brand-700 hover:underline"
       >
         ← Wróć do wyszukiwarki
       </button>
 
       <header className="mb-8">
-        <h1 className="text-2xl font-bold">
+        <h1 className="font-display text-3xl font-bold text-text-primary">
           {destination?.name ?? "Buduję destynację..."}
         </h1>
         {destination && (
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="mt-2 text-sm text-text-secondary">
             {destination.country_code} · {destination.destination_type} ·{" "}
             {destination.timezone}
           </p>
         )}
-        {destination?.bounding_box && (
-          <p className="text-xs text-gray-500 mt-1">
-            Bbox: {JSON.stringify(destination.bounding_box)}
-          </p>
-        )}
       </header>
 
-      {isBuilding && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="font-semibold mb-2">Postęp budowania</h2>
-          <ol className="text-sm space-y-1">
-            {events.map((e, i) => (
-              <li key={i}>
-                <code>{e.type}</code>
-                {typeof e.count === "number" && ` (${e.count})`}
-                {typeof e.from_cache === "boolean" &&
-                  (e.from_cache ? " [cache]" : " [fresh]")}
-                {typeof e.message === "string" && ` – ${e.message}`}
-              </li>
-            ))}
-          </ol>
+      {diagram && (
+        <section className="mb-8">
+          <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
+            Mapa regionu
+          </h2>
+          <LocationDiagram
+            points={diagram.points}
+            lines={diagram.lines}
+            size="md"
+          />
         </section>
       )}
 
+      {isBuilding && (
+        <Card className="mb-8">
+          <CardHeader title="Postęp budowania" />
+          <CardBody>
+            <ol className="space-y-1 text-sm text-text-secondary">
+              {events.map((e, i) => (
+                <li key={i}>
+                  <code className="text-brand-700">{e.type}</code>
+                  {typeof e.count === "number" && ` (${e.count})`}
+                  {typeof e.from_cache === "boolean" &&
+                    (e.from_cache ? " [cache]" : " [fresh]")}
+                  {typeof e.message === "string" && ` – ${e.message}`}
+                </li>
+              ))}
+            </ol>
+          </CardBody>
+        </Card>
+      )}
+
       {summary && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="text-lg font-semibold mb-3">Podsumowanie AI</h2>
-          <p className="mb-3">{summary.overview}</p>
+        <Card className="mb-8">
+          <CardHeader title="Podsumowanie AI" />
+          <CardBody>
+          <p className="mb-4 text-text-secondary">{summary.overview}</p>
           <p className="mb-4">
             <strong>Dlaczego pasuje:</strong> {summary.why_matches_query}
           </p>
@@ -262,7 +289,7 @@ export default function DestinationPage() {
 
           {summary.best_areas_to_stay?.length > 0 && (
             <>
-              <h3 className="font-medium mb-2">Gdzie się zatrzymać</h3>
+              <h3 className="mb-2 font-medium text-text-primary">Gdzie się zatrzymać</h3>
               <ul className="space-y-2">
                 {summary.best_areas_to_stay.map((a, i) => (
                   <li key={i}>
@@ -272,25 +299,27 @@ export default function DestinationPage() {
               </ul>
             </>
           )}
-        </section>
+          </CardBody>
+        </Card>
       )}
 
       {attractionCount > 0 && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">
-            Atrakcje ({attractionCount})
-          </h2>
-          <p className="text-sm text-gray-600">
-            Atrakcje powiązane z wybranymi aktywnościami zostały przypisane do
-            destynacji.
-          </p>
-        </section>
+        <Card className="mb-8">
+          <CardHeader title={`Atrakcje (${attractionCount})`} />
+          <CardBody>
+            <p className="text-sm text-text-secondary">
+              Atrakcje powiązane z wybranymi aktywnościami zostały przypisane do
+              destynacji.
+            </p>
+          </CardBody>
+        </Card>
       )}
 
       {wikivoyage && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">Wikivoyage</h2>
-          <p className="mb-2">{wikivoyage.intro}</p>
+        <Card className="mb-8">
+          <CardHeader title="Wikivoyage" />
+          <CardBody>
+            <p className="mb-4 text-text-secondary">{wikivoyage.intro}</p>
           {wikivoyage.sections.getIn && (
             <>
               <h3 className="font-medium mt-3">Dojazd</h3>
@@ -309,21 +338,21 @@ export default function DestinationPage() {
           )}
           {wikivoyage.sections.stayHealthy && (
             <>
-              <h3 className="font-medium mt-3">Zdrowie</h3>
-              <p className="text-sm whitespace-pre-wrap">
+              <h3 className="mt-3 font-medium text-text-primary">Zdrowie</h3>
+              <p className="text-sm whitespace-pre-wrap text-text-secondary">
                 {wikivoyage.sections.stayHealthy}
               </p>
             </>
           )}
-        </section>
+          </CardBody>
+        </Card>
       )}
 
       {googlePlaces.length > 0 && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">
-            Lokalne usługi ({googlePlaces.length})
-          </h2>
-          <ul className="space-y-2 text-sm">
+        <Card className="mb-8">
+          <CardHeader title={`Lokalne usługi (${googlePlaces.length})`} />
+          <CardBody>
+            <ul className="space-y-2 text-sm text-text-secondary">
             {googlePlaces.slice(0, 10).map((p) => (
               <li key={p.place_id}>
                 <strong>{p.name}</strong>
@@ -331,17 +360,20 @@ export default function DestinationPage() {
                 {p.address && ` – ${p.address}`}
               </li>
             ))}
-          </ul>
-        </section>
+            </ul>
+          </CardBody>
+        </Card>
       )}
 
       {weather && (
-        <section className="mb-8 border p-4 rounded">
-          <h2 className="text-lg font-semibold mb-2">Pogoda</h2>
-          <pre className="text-xs overflow-auto">
-            {JSON.stringify(weather, null, 2)}
-          </pre>
-        </section>
+        <Card className="mb-8">
+          <CardHeader title="Pogoda" />
+          <CardBody>
+            <pre className="overflow-auto text-xs text-text-secondary">
+              {JSON.stringify(weather, null, 2)}
+            </pre>
+          </CardBody>
+        </Card>
       )}
 
       {destination && (
@@ -381,10 +413,58 @@ export default function DestinationPage() {
       )}
 
       {isComplete && (
-        <p className="text-green-700 text-sm">
+        <p className="text-sm text-success">
           ✓ Strona kompletna. Następnym razem załaduje się szybciej z cache.
         </p>
       )}
-    </div>
+    </PageContainer>
   );
+}
+
+function buildClusterDiagram(cluster: GeoCluster): {
+  points: DiagramPoint[];
+  lines: DiagramLine[];
+} {
+  const center = cluster.center;
+  const attractions = cluster.attractions.slice(0, 8);
+
+  const points: DiagramPoint[] = [
+    {
+      id: "centroid",
+      type: "centroid",
+      label: "Centrum regionu",
+      lat: center.lat,
+      lon: center.lon,
+    },
+    ...attractions.map((a) => ({
+      id: a.id,
+      type: "attraction" as const,
+      label: a.name.length > 24 ? `${a.name.slice(0, 24)}…` : a.name,
+      lat: Number(a.lat),
+      lon: Number(a.lon),
+    })),
+  ];
+
+  const lines: DiagramLine[] = attractions.map((a) => ({
+    from: "centroid",
+    to: a.id,
+    distance_km: distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }),
+  }));
+
+  return { points, lines };
+}
+
+function distanceKm(
+  a: { lat: number; lon: number },
+  b: { lat: number; lon: number },
+): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)) * 10) / 10;
 }

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefineInput } from "@/components/features/RefineInput";
 import { SkeletonList } from "@/components/ui/Skeleton";
+import { Breadcrumb, PageContainer } from "@/components/layout/Header";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import type {
   Activity,
   ActivityGroup,
@@ -112,85 +115,112 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">Wyszukiwarka aktywności</h1>
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Wyszukiwarka aktywności" },
+        ]}
+      />
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">1. Wybierz aktywności</h2>
-        {taxonomy.map((group) => (
-          <div key={group.slug} className="mb-4">
-            <h3 className="font-medium mb-2">{group.name_pl}</h3>
-            <div className="flex flex-wrap gap-3">
-              {group.activities.map((activity) => (
-                <label key={activity.slug} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={selectedActivities.has(activity.slug)}
-                    onChange={() => toggleActivity(activity.slug)}
-                  />
-                  {activity.name_pl}
-                </label>
-              ))}
+      <h1 className="font-display mb-8 text-3xl font-bold text-text-primary">
+        Wyszukiwarka aktywności
+      </h1>
+
+      <Card className="mb-8">
+        <CardHeader title="1. Wybierz aktywności" />
+        <CardBody>
+          {taxonomy.map((group) => (
+            <div key={group.slug} className="mb-6 last:mb-0">
+              <h3 className="mb-3 font-semibold text-text-primary">
+                {group.name_pl}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {group.activities.map((activity) => {
+                  const selected = selectedActivities.has(activity.slug);
+                  return (
+                    <button
+                      key={activity.slug}
+                      type="button"
+                      onClick={() => toggleActivity(activity.slug)}
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                        selected
+                          ? "bg-brand-700 text-white"
+                          : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
+                      }`}
+                    >
+                      {activity.name_pl}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          ))}
+        </CardBody>
+      </Card>
+
+      <Card className="mb-8">
+        <CardHeader title="2. Parametry" />
+        <CardBody className="space-y-4 text-sm">
+          <div>
+            <p className="mb-2 font-medium text-text-primary">Tryb dopasowania</p>
+            <label className="mr-4">
+              <input
+                type="radio"
+                checked={matchMode === "all"}
+                onChange={() => setMatchMode("all")}
+              />{" "}
+              Wszystkie wybrane
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={matchMode === "any"}
+                onChange={() => setMatchMode("any")}
+              />{" "}
+              Dowolna z wybranych
+            </label>
           </div>
-        ))}
-      </section>
+          <div>
+            <label className="font-medium text-text-primary">
+              Maks. promień klastra:{" "}
+              <input
+                type="number"
+                min={5}
+                max={200}
+                value={maxRadius}
+                onChange={(e) => setMaxRadius(Number(e.target.value))}
+                className="ml-2 w-20 rounded-md border border-border-default px-2 py-1"
+              />{" "}
+              km
+            </label>
+          </div>
+          <div>
+            <label className="font-medium text-text-primary">
+              Min. atrakcji per aktywność:{" "}
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={minPerActivity}
+                onChange={(e) => setMinPerActivity(Number(e.target.value))}
+                className="ml-2 w-16 rounded-md border border-border-default px-2 py-1"
+              />
+            </label>
+          </div>
+        </CardBody>
+      </Card>
 
-      <section className="mb-8 space-y-3">
-        <h2 className="text-lg font-semibold">2. Parametry</h2>
-        <p>
-          Tryb dopasowania:{" "}
-          <label className="mr-4">
-            <input
-              type="radio"
-              checked={matchMode === "all"}
-              onChange={() => setMatchMode("all")}
-            />{" "}
-            Wszystkie wybrane
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={matchMode === "any"}
-              onChange={() => setMatchMode("any")}
-            />{" "}
-            Dowolna z wybranych
-          </label>
-        </p>
-        <p>
-          Maks. promień klastra:{" "}
-          <input
-            type="number"
-            min={5}
-            max={200}
-            value={maxRadius}
-            onChange={(e) => setMaxRadius(Number(e.target.value))}
-            className="border px-2 py-1 rounded w-20"
-          />{" "}
-          km
-        </p>
-        <p>
-          Min. atrakcji per aktywność:{" "}
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={minPerActivity}
-            onChange={(e) => setMinPerActivity(Number(e.target.value))}
-            className="border px-2 py-1 rounded w-16"
-          />
-        </p>
-      </section>
-
-      <button
+      <Button
         onClick={() => handleSearch()}
         disabled={isSearching || selectedActivities.size === 0}
-        className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50 mb-6"
+        size="lg"
+        className="mb-6"
       >
         {isSearching
           ? "Szukam..."
           : `Szukaj (${selectedActivities.size} aktywności)`}
-      </button>
+      </Button>
 
       <RefineInput
         searchType="activities"
@@ -228,71 +258,75 @@ export default function SearchPage() {
         }}
       />
 
-      {error && <p className="text-red-600 mb-4">Błąd: {error}</p>}
+      {error && <p className="mb-4 text-danger">Błąd: {error}</p>}
 
       {isSearching && <SkeletonList count={5} />}
 
       {results && !isSearching && (
-        <section>
-          <h2 className="text-lg font-semibold mb-2">
+        <section className="mt-8">
+          <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
             Wyniki ({results.clusters.length} regionów)
           </h2>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="mb-6 text-sm text-text-secondary">
             Czas: {results.duration_ms}ms, rozważono{" "}
             {results.total_attractions_considered} atrakcji
           </p>
 
           {results.clusters.length === 0 && (
-            <p>
-              Nie znaleziono regionów. Spróbuj tryb &quot;Dowolna z
-              wybranych&quot;, zwiększ promień lub wybierz mniej aktywności.
-            </p>
+            <Card>
+              <CardBody>
+                <p className="text-text-secondary">
+                  Nie znaleziono regionów. Spróbuj tryb &quot;Dowolna z
+                  wybranych&quot;, zwiększ promień lub wybierz mniej aktywności.
+                </p>
+              </CardBody>
+            </Card>
           )}
 
           {results.clusters.map((cluster, idx) => (
-            <article
-              key={cluster.id}
-              className="border p-4 rounded mb-4"
-            >
-              <h3 className="font-semibold">
-                #{idx + 1} – Region {cluster.center.lat.toFixed(2)},{" "}
-                {cluster.center.lon.toFixed(2)}
-              </h3>
-              <p className="text-sm mt-1">
-                Score: {cluster.score} | Promień: {cluster.radius_km} km |
-                Atrakcji: {cluster.attractions.length} | Pokryte:{" "}
-                {cluster.covered_activities.length}/{selectedActivities.size}
-              </p>
-              <p className="text-sm mt-1">
-                <strong>Pokrycie:</strong>{" "}
-                {Object.entries(cluster.activity_counts)
-                  .map(([slug, count]) => `${slug}: ${count}`)
-                  .join(", ")}
-              </p>
-              <details className="mt-2">
-                <summary className="cursor-pointer">
-                  Atrakcje ({cluster.attractions.length})
-                </summary>
-                <ul className="mt-2 space-y-1 text-sm">
-                  {cluster.attractions.map((a) => (
-                    <li key={a.id}>
-                      {a.name} ({a.category}) – {Number(a.lat).toFixed(3)},{" "}
-                      {Number(a.lon).toFixed(3)}
-                      {a.address && ` – ${a.address}`}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-              <button
-                onClick={() => openDestination(cluster)}
-                className="mt-3 border px-3 py-1 rounded text-sm bg-black text-white"
-              >
-                Zobacz szczegóły regionu →
-              </button>
-            </article>
+            <Card key={cluster.id} className="card-hover mb-4">
+              <CardBody>
+                <h3 className="font-display text-lg font-bold text-text-primary">
+                  #{idx + 1} – Region {cluster.center.lat.toFixed(2)},{" "}
+                  {cluster.center.lon.toFixed(2)}
+                </h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Score: {cluster.score} · Promień: {cluster.radius_km} km ·
+                  Atrakcji: {cluster.attractions.length} · Pokryte:{" "}
+                  {cluster.covered_activities.length}/{selectedActivities.size}
+                </p>
+                <p className="mt-1 text-sm">
+                  <strong>Pokrycie:</strong>{" "}
+                  {Object.entries(cluster.activity_counts)
+                    .map(([slug, count]) => `${slug}: ${count}`)
+                    .join(", ")}
+                </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm text-brand-700">
+                    Atrakcje ({cluster.attractions.length})
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-sm text-text-secondary">
+                    {cluster.attractions.map((a) => (
+                      <li key={a.id}>
+                        {a.name} ({a.category}) – {Number(a.lat).toFixed(3)},{" "}
+                        {Number(a.lon).toFixed(3)}
+                        {a.address && ` – ${a.address}`}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+                <Button
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => openDestination(cluster)}
+                >
+                  Zobacz szczegóły regionu →
+                </Button>
+              </CardBody>
+            </Card>
           ))}
         </section>
       )}
-    </div>
+    </PageContainer>
   );
 }
