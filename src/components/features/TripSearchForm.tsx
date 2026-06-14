@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Autocomplete } from "@/components/ui/Autocomplete";
 import { DateRangePicker } from "@/components/ui/DatePicker";
+import {
+  PassengerSelector,
+  formatPassengers,
+  parsePassengers,
+} from "@/components/ui/PassengerSelector";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
 import type { TripContext } from "@/lib/search/trip-context";
@@ -59,6 +64,10 @@ export function TripSearchForm({
   );
 
   const minDate = new Date().toISOString().split("T")[0];
+  const passengers = useMemo(
+    () => parsePassengers(trip.passengers),
+    [trip.passengers],
+  );
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -146,20 +155,13 @@ export function TripSearchForm({
           onSearch={searchAirports}
           large={large}
         />
-        <FieldShell label="Ile osób?" icon="users" large={large}>
-          <input
-            type="text"
-            placeholder="2 dorosłych, 1 dziecko"
-            value={trip.passengers}
-            onChange={(e) =>
-              onChange({ ...trip, passengers: e.target.value })
-            }
-            className={cn(
-              "w-full border-0 bg-transparent p-0 font-medium text-text-primary placeholder:text-text-tertiary focus:outline-none",
-              large ? "text-lg font-semibold" : "text-base",
-            )}
-          />
-        </FieldShell>
+        <PassengerSelector
+          value={passengers}
+          onChange={(p) =>
+            onChange({ ...trip, passengers: formatPassengers(p) })
+          }
+          large={large}
+        />
       </div>
     </div>
   );
