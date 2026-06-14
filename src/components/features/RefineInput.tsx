@@ -3,6 +3,9 @@
 import { useState } from "react";
 import type { SearchType } from "@/lib/history/log-search";
 import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card, CardBody } from "@/components/ui/Card";
 
 export function RefineInput<T extends Record<string, unknown>>({
   searchType,
@@ -71,56 +74,68 @@ export function RefineInput<T extends Record<string, unknown>>({
   }
 
   return (
-    <div className="border border-dashed p-3 rounded mb-4 text-sm">
-      <label className="block">
-        <strong>Doprecyzuj wyszukiwanie:</strong>
-        <input
-          type="text"
-          placeholder='np. "a we wrześniu", "bez przesiadek", "taniej"'
+    <Card className="mb-6 border-dashed">
+      <CardBody className="text-sm">
+        <p className="mb-3 font-semibold text-text-primary">
+          Doprecyzuj wyszukiwanie (opcjonalnie)
+        </p>
+        <Input
+          placeholder='np. "zwiększ promień do 80 km", "tryb dowolna z wybranych"'
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          className="w-full border px-2 py-1 rounded mt-1"
         />
-      </label>
-      <button
-        onClick={handleSubmit}
-        disabled={loading || !text.trim()}
-        className="mt-2 border px-3 py-1 rounded disabled:opacity-50"
-      >
-        {loading ? "Analizuję..." : "Zinterpretuj"}
-      </button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="mt-3"
+          onClick={handleSubmit}
+          disabled={loading || !text.trim()}
+        >
+          {loading ? "Analizuję..." : "Zinterpretuj"}
+        </Button>
 
-      {result && (
-        <div className="mt-2">
-          {result.understood ? (
-            <>
-              <p className="flex items-start gap-2">
-                <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
-                {result.explanation}
-              </p>
-              {result.unsupported_changes.length > 0 && (
-                <p className="flex items-start gap-2 text-amber-700">
-                  <Icon name="alert-triangle" size={16} className="mt-0.5 shrink-0" />
-                  Nie obsłużone: {result.unsupported_changes.join(", ")}
+        {result && (
+          <div className="mt-4">
+            {result.understood ? (
+              <>
+                <p className="flex items-start gap-2 text-text-secondary">
+                  <Icon
+                    name="check"
+                    size={16}
+                    className="mt-0.5 shrink-0 text-success"
+                  />
+                  {result.explanation}
                 </p>
-              )}
-              <button
-                onClick={handleApply}
-                className="mt-1 border px-3 py-1 rounded bg-black text-white"
-              >
-                Zastosuj zmianę
-              </button>
-            </>
-          ) : (
-            <p className="flex items-start gap-2">
-              <Icon name="x" size={16} className="mt-0.5 shrink-0 text-danger" />
-              Nie zrozumiałem. Spróbuj inaczej, np. &quot;we wrześniu&quot;
-              lub &quot;bez przesiadek&quot;.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+                {result.unsupported_changes.length > 0 && (
+                  <p className="mt-2 flex items-start gap-2 text-amber-700">
+                    <Icon
+                      name="alert-triangle"
+                      size={16}
+                      className="mt-0.5 shrink-0"
+                    />
+                    Nie obsłużone: {result.unsupported_changes.join(", ")}
+                  </p>
+                )}
+                <Button size="sm" className="mt-3" onClick={handleApply}>
+                  Zastosuj zmianę
+                </Button>
+              </>
+            ) : (
+              <p className="flex items-start gap-2 text-text-secondary">
+                <Icon
+                  name="x"
+                  size={16}
+                  className="mt-0.5 shrink-0 text-danger"
+                />
+                {result.explanation ||
+                  'Nie zrozumiałem. Spróbuj np. "zwiększ promień" lub "tryb dowolna".'}
+              </p>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

@@ -2,6 +2,7 @@
 
 import { deleteGroup } from "@/app/(app)/app/groups/actions";
 import { useTransition } from "react";
+import { Button } from "@/components/ui/Button";
 
 export function DeleteGroupButton({ groupId }: { groupId: string }) {
   const [pending, startTransition] = useTransition();
@@ -21,13 +22,14 @@ export function DeleteGroupButton({ groupId }: { groupId: string }) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="danger"
+      size="sm"
       onClick={handleDelete}
       disabled={pending}
-      className="border px-4 py-2 rounded text-red-600 disabled:opacity-50"
     >
       {pending ? "Usuwam..." : "Usuń grupę"}
-    </button>
+    </Button>
   );
 }

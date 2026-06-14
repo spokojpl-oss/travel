@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { GroupForm } from "@/components/features/group-form";
+import { PageContainer, Breadcrumb } from "@/components/layout/Header";
 import type { FullGroupCreate } from "@/lib/schemas/group";
 
 export default async function EditGroupPage({
@@ -78,9 +79,21 @@ export default async function EditGroupPage({
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Edytuj grupę: {group.name}</h1>
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Grupy", href: "/app/groups" },
+          { label: group.name, href: `/app/groups/${id}` },
+          { label: "Edycja" },
+        ]}
+      />
+
+      <h1 className="font-display mb-8 text-3xl font-bold text-text-primary">
+        Edytuj: {group.name}
+      </h1>
+
       <GroupForm mode="edit" groupId={id} initialData={initialData} />
-    </div>
+    </PageContainer>
   );
 }

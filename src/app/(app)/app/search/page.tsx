@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { RefineInput } from "@/components/features/RefineInput";
 import { HowItWorksGuide } from "@/components/features/HowItWorksGuide";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -17,11 +18,27 @@ import type {
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
+  meta?: {
+    source?: "database" | "fallback";
+    reason?: string;
+    db_error?: string;
+  };
+};
+
+type DataStatus = {
+  activities: number;
+  attractions: number;
+  tags: number;
+  search_ready: boolean;
+  message: string | null;
 };
 
 export default function SearchPage() {
   const router = useRouter();
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [taxonomyMeta, setTaxonomyMeta] = useState<TaxonomyResponse["meta"]>();
+  const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
   );
@@ -34,10 +51,25 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setTaxonomyLoading(true);
     fetch("/api/activities/taxonomy")
+      .then(async (r) => {
+        const data = (await r.json()) as TaxonomyResponse & { error?: string };
+        if (!r.ok) {
+          throw new Error(data.error ?? `HTTP ${r.status}`);
+        }
+        setTaxonomy(data.groups ?? []);
+        setTaxonomyMeta(data.meta);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setTaxonomyLoading(false));
+
+    fetch("/api/activities/status")
       .then((r) => r.json())
-      .then((data: TaxonomyResponse) => setTaxonomy(data.groups ?? []))
-      .catch((e) => setError(String(e)));
+      .then((data: DataStatus) => setDataStatus(data))
+      .catch(() => {
+        /* status optional */
+      });
   }, []);
 
   useEffect(() => {
@@ -91,13 +123,14 @@ export default function SearchPage() {
         body: JSON.stringify(params),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error ?? "Search failed");
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Search failed",
+        );
       }
 
-      const data: ActivitySearchResult = await response.json();
-      setResults(data);
+      setResults(data as ActivitySearchResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -115,6 +148,9 @@ export default function SearchPage() {
     );
   }
 
+  const showDataWarning =
+    dataStatus && !dataStatus.search_ready && !taxonomyLoading;
+
   return (
     <PageContainer>
       <Breadcrumb
@@ -128,37 +164,80 @@ export default function SearchPage() {
         Wyszukiwarka aktywności
       </h1>
 
-      <HowItWorksGuide variant="compact" className="mb-8" />
+      <HowItWorksGuide variant="compact" className="mb-6" />
+
+      {showDataWarning && (
+        <Card className="mb-6 border-warning/40 bg-orange-50/50">
+          <CardBody>
+            <p className="font-medium text-text-primary">
+              Baza atrakcji nie jest jeszcze gotowa
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">
+              {dataStatus.message ??
+                "Możesz wybierać aktywności, ale wyszukiwanie zwróci 0 regionów dopóki nie załadujesz danych OSM."}
+            </p>
+            <p className="mt-2 text-xs text-text-tertiary">
+              W Supabase: migracja 007 + seed{" "}
+              <code className="rounded bg-white px-1">activities.sql</code>, potem{" "}
+              <code className="rounded bg-white px-1">
+                POST /api/admin/initial-scrape
+              </code>{" "}
+              (konto admin). Status: {dataStatus.attractions} atrakcji,{" "}
+              {dataStatus.tags} tagów.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {taxonomyMeta?.source === "fallback" && (
+        <Card className="mb-6 border-brand-200 bg-brand-50/40">
+          <CardBody className="text-sm text-text-secondary">
+            Lista aktywności załadowana z wbudowanego katalogu (baza Supabase
+            pusta lub niedostępna). Wyszukiwanie regionów wymaga seedów i scrape
+            OSM.
+          </CardBody>
+        </Card>
+      )}
 
       <Card className="mb-8">
         <CardHeader title="1. Wybierz aktywności" />
         <CardBody>
-          {taxonomy.map((group) => (
-            <div key={group.slug} className="mb-6 last:mb-0">
-              <h3 className="mb-3 font-semibold text-text-primary">
-                {group.name_pl}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {group.activities.map((activity) => {
-                  const selected = selectedActivities.has(activity.slug);
-                  return (
-                    <button
-                      key={activity.slug}
-                      type="button"
-                      onClick={() => toggleActivity(activity.slug)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                        selected
-                          ? "bg-brand-700 text-white"
-                          : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
-                      }`}
-                    >
-                      {activity.name_pl}
-                    </button>
-                  );
-                })}
+          {taxonomyLoading && <SkeletonList count={3} />}
+
+          {!taxonomyLoading && taxonomy.length === 0 && (
+            <p className="text-sm text-danger">
+              Nie udało się załadować aktywności. Odśwież stronę lub sprawdź
+              połączenie z Supabase.
+            </p>
+          )}
+
+          {!taxonomyLoading &&
+            taxonomy.map((group) => (
+              <div key={group.slug} className="mb-6 last:mb-0">
+                <h3 className="mb-3 font-semibold text-text-primary">
+                  {group.name_pl}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {group.activities.map((activity) => {
+                    const selected = selectedActivities.has(activity.slug);
+                    return (
+                      <button
+                        key={activity.slug}
+                        type="button"
+                        onClick={() => toggleActivity(activity.slug)}
+                        className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                          selected
+                            ? "bg-brand-700 text-white"
+                            : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
+                        }`}
+                      >
+                        {activity.name_pl}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </CardBody>
       </Card>
 
@@ -193,7 +272,7 @@ export default function SearchPage() {
                 max={200}
                 value={maxRadius}
                 onChange={(e) => setMaxRadius(Number(e.target.value))}
-                className="ml-2 w-20 rounded-md border border-border-default px-2 py-1"
+                className="ml-2 w-20 rounded-md border border-border-default px-2 py-1 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />{" "}
               km
             </label>
@@ -207,7 +286,7 @@ export default function SearchPage() {
                 max={10}
                 value={minPerActivity}
                 onChange={(e) => setMinPerActivity(Number(e.target.value))}
-                className="ml-2 w-16 rounded-md border border-border-default px-2 py-1"
+                className="ml-2 w-16 rounded-md border border-border-default px-2 py-1 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />
             </label>
           </div>
@@ -216,7 +295,9 @@ export default function SearchPage() {
 
       <Button
         onClick={() => handleSearch()}
-        disabled={isSearching || selectedActivities.size === 0}
+        disabled={
+          isSearching || selectedActivities.size === 0 || taxonomyLoading
+        }
         size="lg"
         className="mb-6"
       >
@@ -279,9 +360,28 @@ export default function SearchPage() {
             <Card>
               <CardBody>
                 <p className="text-text-secondary">
-                  Nie znaleziono regionów. Spróbuj tryb &quot;Dowolna z
-                  wybranych&quot;, zwiększ promień lub wybierz mniej aktywności.
+                  Nie znaleziono regionów dla wybranych aktywności.
                 </p>
+                {results.total_attractions_considered === 0 ? (
+                  <p className="mt-3 text-sm text-text-secondary">
+                    W bazie nie ma jeszcze otagowanych atrakcji dla tych
+                    aktywności. Uruchom w Supabase seed{" "}
+                    <code>activities.sql</code> i scrape OSM (
+                    <code>/api/admin/initial-scrape</code>). Tymczasem spróbuj
+                    mniej aktywności lub tryb &quot;Dowolna z wybranych&quot;.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm text-text-secondary">
+                    Spróbuj tryb &quot;Dowolna z wybranych&quot;, zwiększ promień
+                    lub wybierz mniej aktywności.
+                  </p>
+                )}
+                <Link
+                  href="/app#guide"
+                  className="mt-4 inline-block text-sm font-semibold text-brand-700 hover:underline"
+                >
+                  Jak działa wyszukiwarka →
+                </Link>
               </CardBody>
             </Card>
           )}

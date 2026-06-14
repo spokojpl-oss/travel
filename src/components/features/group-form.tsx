@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +14,11 @@ import {
 } from "@/lib/schemas/group";
 import type { MemberType, TravelStyle } from "@/types/domain";
 import { MEMBER_TYPE_LABELS, TRAVEL_STYLE_LABELS } from "@/types/domain";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { cn } from "@/lib/utils/cn";
 
 const ENVIRONMENT_OPTIONS = [
   { value: "mountain", label: "Góry" },
@@ -51,6 +57,9 @@ const EXCLUSION_OPTIONS = [
   { value: "no_party_hotels", label: "Bez hoteli imprezowych" },
 ];
 
+const fieldClass =
+  "block w-full rounded-md border border-border-default bg-white px-3 py-2.5 text-base text-text-primary transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 focus-visible:outline-none";
+
 type GroupFormProps = {
   mode: "create" | "edit";
   groupId?: string;
@@ -63,7 +72,7 @@ function toggleArrayValue(arr: string[], value: string): string[] {
     : [...arr, value];
 }
 
-function CheckboxGroup({
+function PillCheckboxGroup({
   label,
   options,
   selected,
@@ -75,21 +84,29 @@ function CheckboxGroup({
   onChange: (values: string[]) => void;
 }) {
   return (
-    <fieldset className="mb-4">
-      <legend className="font-medium mb-2">{label}</legend>
-      <div className="flex flex-wrap gap-3">
-        {options.map((opt) => (
-          <label key={opt.value} className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={selected.includes(opt.value)}
-              onChange={() => onChange(toggleArrayValue(selected, opt.value))}
-            />
-            {opt.label}
-          </label>
-        ))}
+    <div>
+      <p className="mb-2 text-sm font-medium text-text-primary">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const active = selected.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(toggleArrayValue(selected, opt.value))}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-brand-700 text-white"
+                  : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
-    </fieldset>
+    </div>
   );
 }
 
@@ -178,88 +195,106 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
     }
   }
 
+  const cancelHref =
+    mode === "edit" ? `/app/groups/${groupId}` : "/app/groups";
+
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Grupa</h2>
-        <div className="space-y-3">
+    <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+      <Card>
+        <CardHeader title="Grupa" />
+        <CardBody className="space-y-4">
+          <Input
+            label="Nazwa *"
+            type="text"
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            required
+            placeholder="np. Rodzina Kowalskich"
+          />
           <div>
-            <label className="block mb-1">Nazwa *</label>
-            <input
-              type="text"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              required
-              className="border px-3 py-2 rounded w-full"
-            />
-          </div>
-          <div>
-            <label className="block mb-1">Opis</label>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Opis
+            </label>
             <textarea
               value={groupDescription}
               onChange={(e) => setGroupDescription(e.target.value)}
               rows={2}
-              className="border px-3 py-2 rounded w-full"
+              placeholder="Opcjonalnie — kto to jest, jak podróżujecie"
+              className={fieldClass}
             />
           </div>
-        </div>
-      </section>
+        </CardBody>
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Członkowie</h2>
-        {members.map((member, index) => (
-          <div key={index} className="border p-4 rounded mb-3 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Członek {index + 1}</span>
-              {members.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeMember(index)}
-                  className="text-red-600 text-sm underline"
-                >
-                  Usuń
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm">Imię</label>
-                <input
+      <Card>
+        <CardHeader
+          title="Członkowie"
+          action={
+            <Button type="button" variant="ghost" size="sm" onClick={addMember}>
+              <Icon name="plus" size={14} />
+              Dodaj
+            </Button>
+          }
+        />
+        <CardBody className="space-y-4">
+          {members.map((member, index) => (
+            <div
+              key={index}
+              className="rounded-xl border border-border-default bg-bg-soft/50 p-4"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <span className="font-display font-semibold text-text-primary">
+                  Członek {index + 1}
+                </span>
+                {members.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeMember(index)}
+                    className="flex items-center gap-1 text-sm text-danger hover:underline"
+                  >
+                    <Icon name="x" size={14} />
+                    Usuń
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Imię"
                   type="text"
                   value={member.name ?? ""}
                   onChange={(e) =>
                     updateMember(index, "name", e.target.value || null)
                   }
-                  className="border px-3 py-2 rounded w-full"
                 />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm">Typ *</label>
-                <select
-                  value={member.member_type}
-                  onChange={(e) =>
-                    updateMember(
-                      index,
-                      "member_type",
-                      e.target.value as MemberType,
-                    )
-                  }
-                  className="border px-3 py-2 rounded w-full"
-                >
-                  {(
-                    Object.entries(MEMBER_TYPE_LABELS) as [MemberType, string][]
-                  ).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-1 text-sm">
-                  Wiek {member.member_type === "child" ? "*" : ""}
-                </label>
-                <input
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                    Typ *
+                  </label>
+                  <select
+                    value={member.member_type}
+                    onChange={(e) =>
+                      updateMember(
+                        index,
+                        "member_type",
+                        e.target.value as MemberType,
+                      )
+                    }
+                    className={fieldClass}
+                  >
+                    {(
+                      Object.entries(MEMBER_TYPE_LABELS) as [
+                        MemberType,
+                        string,
+                      ][]
+                    ).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label={`Wiek${member.member_type === "child" ? " *" : ""}`}
                   type="number"
                   min={0}
                   max={120}
@@ -272,37 +307,29 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
                     )
                   }
                   required={member.member_type === "child"}
-                  className="border px-3 py-2 rounded w-full"
                 />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm">Notatki</label>
-                <input
+                <Input
+                  label="Notatki"
                   type="text"
                   value={member.notes ?? ""}
                   onChange={(e) =>
                     updateMember(index, "notes", e.target.value || null)
                   }
-                  className="border px-3 py-2 rounded w-full"
+                  placeholder="np. nie lubi wysokości"
                 />
               </div>
             </div>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addMember}
-          className="underline text-sm"
-        >
-          + Dodaj członka
-        </button>
-      </section>
+          ))}
+        </CardBody>
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Preferencje</h2>
-        <div className="space-y-3">
+      <Card>
+        <CardHeader title="Preferencje" />
+        <CardBody className="space-y-6">
           <div>
-            <label className="block mb-1">Styl wyjazdu</label>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Styl wyjazdu
+            </label>
             <select
               value={preferences.travel_style}
               onChange={(e) =>
@@ -311,7 +338,7 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
                   travel_style: e.target.value as TravelStyle,
                 }))
               }
-              className="border px-3 py-2 rounded"
+              className={fieldClass}
             >
               {(
                 Object.entries(TRAVEL_STYLE_LABELS) as [TravelStyle, string][]
@@ -323,7 +350,7 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             </select>
           </div>
 
-          <CheckboxGroup
+          <PillCheckboxGroup
             label="Środowisko"
             options={ENVIRONMENT_OPTIONS}
             selected={preferences.environment_preferences}
@@ -335,80 +362,65 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             }
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block mb-1">Budżet całkowity (PLN)</label>
-              <input
-                type="number"
-                min={1}
-                value={preferences.budget_total_pln ?? ""}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    budget_total_pln: e.target.value
-                      ? Number(e.target.value)
-                      : null,
-                  }))
-                }
-                className="border px-3 py-2 rounded w-full"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Budżet na osobę (PLN)</label>
-              <input
-                type="number"
-                min={1}
-                value={preferences.budget_per_person_pln ?? ""}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    budget_per_person_pln: e.target.value
-                      ? Number(e.target.value)
-                      : null,
-                  }))
-                }
-                className="border px-3 py-2 rounded w-full"
-              />
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Budżet całkowity (PLN)"
+              type="number"
+              min={1}
+              value={preferences.budget_total_pln ?? ""}
+              onChange={(e) =>
+                setPreferences((p) => ({
+                  ...p,
+                  budget_total_pln: e.target.value
+                    ? Number(e.target.value)
+                    : null,
+                }))
+              }
+            />
+            <Input
+              label="Budżet na osobę (PLN)"
+              type="number"
+              min={1}
+              value={preferences.budget_per_person_pln ?? ""}
+              onChange={(e) =>
+                setPreferences((p) => ({
+                  ...p,
+                  budget_per_person_pln: e.target.value
+                    ? Number(e.target.value)
+                    : null,
+                }))
+              }
+            />
+            <Input
+              label="Max przesiadki"
+              type="number"
+              min={0}
+              max={5}
+              value={preferences.max_flight_stops}
+              onChange={(e) =>
+                setPreferences((p) => ({
+                  ...p,
+                  max_flight_stops: Number(e.target.value),
+                }))
+              }
+            />
+            <Input
+              label="Max czas lotu (h)"
+              type="number"
+              min={1}
+              value={preferences.max_flight_duration_hours ?? ""}
+              onChange={(e) =>
+                setPreferences((p) => ({
+                  ...p,
+                  max_flight_duration_hours: e.target.value
+                    ? Number(e.target.value)
+                    : null,
+                }))
+              }
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block mb-1">Max przesiadki</label>
-              <input
-                type="number"
-                min={0}
-                max={5}
-                value={preferences.max_flight_stops}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    max_flight_stops: Number(e.target.value),
-                  }))
-                }
-                className="border px-3 py-2 rounded w-full"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Max czas lotu (h)</label>
-              <input
-                type="number"
-                min={1}
-                value={preferences.max_flight_duration_hours ?? ""}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    max_flight_duration_hours: e.target.value
-                      ? Number(e.target.value)
-                      : null,
-                  }))
-                }
-                className="border px-3 py-2 rounded w-full"
-              />
-            </div>
-          </div>
-
-          <CheckboxGroup
+          <PillCheckboxGroup
             label="Zakwaterowanie"
             options={ACCOMMODATION_OPTIONS}
             selected={preferences.accommodation_types}
@@ -417,7 +429,7 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             }
           />
 
-          <CheckboxGroup
+          <PillCheckboxGroup
             label="Wyżywienie"
             options={MEAL_OPTIONS}
             selected={preferences.meal_plan_preferences}
@@ -426,7 +438,7 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             }
           />
 
-          <CheckboxGroup
+          <PillCheckboxGroup
             label="Dieta"
             options={DIETARY_OPTIONS}
             selected={preferences.dietary_restrictions}
@@ -435,7 +447,7 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             }
           />
 
-          <CheckboxGroup
+          <PillCheckboxGroup
             label="Wykluczenia"
             options={EXCLUSION_OPTIONS}
             selected={preferences.exclusions}
@@ -444,24 +456,25 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
             }
           />
 
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={preferences.polish_speaking_guide_required}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    polish_speaking_guide_required: e.target.checked,
-                  }))
-                }
-              />
-              Wymagany polskojęzyczny przewodnik
-            </label>
-          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-text-primary">
+            <input
+              type="checkbox"
+              checked={preferences.polish_speaking_guide_required}
+              onChange={(e) =>
+                setPreferences((p) => ({
+                  ...p,
+                  polish_speaking_guide_required: e.target.checked,
+                }))
+              }
+              className="rounded border-border-default text-brand-700 focus:ring-brand-100"
+            />
+            Wymagany polskojęzyczny przewodnik
+          </label>
 
           <div>
-            <label className="block mb-1">Potrzeby dostępności</label>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Potrzeby dostępności
+            </label>
             <textarea
               value={preferences.accessibility_needs ?? ""}
               onChange={(e) =>
@@ -471,12 +484,14 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
                 }))
               }
               rows={2}
-              className="border px-3 py-2 rounded w-full"
+              className={fieldClass}
             />
           </div>
 
           <div>
-            <label className="block mb-1">Notatki</label>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary">
+              Notatki
+            </label>
             <textarea
               value={preferences.notes ?? ""}
               onChange={(e) =>
@@ -486,36 +501,40 @@ export function GroupForm({ mode, groupId, initialData }: GroupFormProps) {
                 }))
               }
               rows={2}
-              className="border px-3 py-2 rounded w-full"
+              className={fieldClass}
             />
           </div>
-        </div>
-      </section>
+        </CardBody>
+      </Card>
 
       {error && (
-        <div className="text-red-600">
-          <p>Błąd: {error}</p>
-          {fieldErrors.length > 0 && (
-            <ul className="list-disc ml-5 mt-1">
-              {fieldErrors.map((fe) => (
-                <li key={fe}>{fe}</li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <Card className="border-danger/30 bg-red-50/40">
+          <CardBody>
+            <p className="text-sm text-danger">Błąd: {error}</p>
+            {fieldErrors.length > 0 && (
+              <ul className="mt-2 list-disc pl-5 text-sm text-danger">
+                {fieldErrors.map((fe) => (
+                  <li key={fe}>{fe}</li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
       )}
 
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-        >
-          {submitting ? "Zapisuję..." : mode === "create" ? "Utwórz grupę" : "Zapisz zmiany"}
-        </button>
-        <a href={mode === "edit" ? `/app/groups/${groupId}` : "/app/groups"} className="underline py-2">
-          Anuluj
-        </a>
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={submitting}>
+          {submitting
+            ? "Zapisuję..."
+            : mode === "create"
+              ? "Utwórz grupę"
+              : "Zapisz zmiany"}
+        </Button>
+        <Link href={cancelHref}>
+          <Button type="button" variant="ghost">
+            Anuluj
+          </Button>
+        </Link>
       </div>
     </form>
   );
