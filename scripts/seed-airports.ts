@@ -1,14 +1,12 @@
 /**
- * Pobiera CSV z OurAirports, filtruje sensowne lotniska, zapisuje do Supabase.
+ * Pobiera CSV z OurAirports i zapisuje do Supabase.
  * Uruchom: pnpm seed:airports
+ *
+ * Wymaga prawdziwych kluczy w .env.local (nie placeholdery).
+ * Alternatywa bez lokalnego env: POST /api/admin/seed-airports na produkcji (jako admin).
  */
 
-import { createClient } from "@supabase/supabase-js";
-
-const OURAIRPORTS_CSV =
-  "https://davidmegginson.github.io/ourairports-data/airports.csv";
-
-type CsvRow = Record<string, string>;
+import { seedAirportsFromOurAirports } from "../src/lib/flights/seed-airports";
 
 async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -20,102 +18,27 @@ async function main() {
     );
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  console.log("Fetching OurAirports CSV...");
-  const res = await fetch(OURAIRPORTS_CSV);
-  const text = await res.text();
-  const rows = parseCsv(text);
-
-  console.log(`Total rows: ${rows.length}`);
-
-  const filtered = rows.filter((r) => {
-    const iata = r.iata_code?.trim();
-    if (!iata || iata.length !== 3) return false;
-    if (r.scheduled_service !== "yes") return false;
-    const type = r.type;
-    if (!["large_airport", "medium_airport", "small_airport"].includes(type)) {
-      return false;
-    }
-    return true;
-  });
-
-  console.log(`Filtered (with IATA + scheduled service): ${filtered.length}`);
-
-  const typeMap: Record<string, string> = {
-    large_airport: "large",
-    medium_airport: "medium",
-    small_airport: "small",
-  };
-
-  const airports = filtered.map((r) => ({
-    iata_code: r.iata_code.trim(),
-    icao_code: r.ident?.trim() || null,
-    name: r.name?.trim() || "",
-    city: r.municipality?.trim() || null,
-    country_code: r.iso_country?.trim() || "",
-    lat: parseFloat(r.latitude_deg),
-    lon: parseFloat(r.longitude_deg),
-    airport_type: typeMap[r.type] ?? "small",
-    scheduled_service: true,
-    timezone: null,
-  }));
-
-  const batchSize = 500;
-  let inserted = 0;
-  for (let i = 0; i < airports.length; i += batchSize) {
-    const batch = airports.slice(i, i + batchSize);
-    const { error } = await supabase
-      .from("airports")
-      .upsert(batch, { onConflict: "iata_code" });
-
-    if (error) {
-      console.error(`Batch ${i / batchSize} failed:`, error.message);
-    } else {
-      inserted += batch.length;
-      console.log(`Inserted ${inserted}/${airports.length}`);
-    }
+  if (/twoj-projekt|your-project|example/i.test(supabaseUrl)) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL to placeholder.\n" +
+        "Opcja A: wklej klucze z Vercel do .env.local\n" +
+        "Opcja B: uruchom POST https://travel.mpai.pl/api/admin/seed-airports (zalogowany jako admin)\n" +
+        "Opcja C: wklej supabase/seeds/airports.sql w Supabase SQL Editor",
+    );
   }
 
-  console.log("Done!");
-}
-
-function parseCsv(text: string): CsvRow[] {
-  const lines = text.split("\n");
-  const headers = parseCsvLine(lines[0]);
-  return lines
-    .slice(1)
-    .filter((l) => l.trim())
-    .map((line) => {
-      const values = parseCsvLine(line);
-      const row: CsvRow = {};
-      headers.forEach((h, i) => {
-        row[h] = values[i] ?? "";
-      });
-      return row;
-    });
-}
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
-      result.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
+  if (!supabaseKey.startsWith("eyJ")) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY wygląda na placeholder (musi zaczynać się od eyJ).",
+    );
   }
-  result.push(current);
-  return result;
+
+  console.log(`Supabase: ${new URL(supabaseUrl).hostname}`);
+  const result = await seedAirportsFromOurAirports();
+  console.log("Done!", result);
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e instanceof Error ? e.message : e);
   process.exit(1);
 });
