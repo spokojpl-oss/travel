@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const REQUIRED_TABLES = [
+  "user_profiles",
+  "travel_groups",
+  "group_members",
+  "group_preferences",
+] as const;
+
 export async function GET() {
   const checks: Record<string, { ok: boolean; message?: string }> = {};
 
@@ -14,16 +21,30 @@ export async function GET() {
 
   try {
     const supabase = createAdminClient();
-    const { error } = await supabase.from("_health").select("*").limit(1);
+    const { error } = await supabase.from("user_profiles").select("id").limit(1);
     checks.supabase = {
-      ok: error?.code === "42P01" || !error,
+      ok: !error,
       message: error?.message,
     };
+
+    checks.tables = { ok: true };
+    for (const table of REQUIRED_TABLES) {
+      const { error: tableError } = await supabase.from(table).select("*").limit(0);
+
+      if (tableError && tableError.code !== "PGRST116") {
+        checks.tables = {
+          ok: false,
+          message: `Table ${table}: ${tableError.message}`,
+        };
+        break;
+      }
+    }
   } catch (e) {
     checks.supabase = {
       ok: false,
       message: e instanceof Error ? e.message : "Unknown error",
     };
+    checks.tables = { ok: false, message: "Supabase check failed" };
   }
 
   const allOk = Object.values(checks).every((c) => c.ok);
