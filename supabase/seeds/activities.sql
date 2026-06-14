@@ -1,4 +1,4 @@
--- Seed: grupy aktywności
+-- Seed: grupy aktywności (idempotentny — bezpieczny do wielokrotnego uruchomienia)
 insert into activity_groups (slug, name_pl, name_en, description, sort_order) values
   ('water_sports', 'Sporty wodne', 'Water sports', 'Kajaki, snorkeling, surfing i inne', 10),
   ('motorsports', 'Sporty motorowe', 'Motor sports', 'Quady, buggies, off-road', 20),
@@ -8,7 +8,12 @@ insert into activity_groups (slug, name_pl, name_en, description, sort_order) va
   ('culture', 'Kultura i historia', 'Culture & history', 'Zamki, muzea, miasteczka', 60),
   ('kids', 'Dla dzieci', 'For kids', 'Parki rozrywki, zoo, akwaria', 70),
   ('wellness', 'Wellness i relaks', 'Wellness', 'Termy, spa, joga', 80),
-  ('beaches', 'Plaże', 'Beaches', 'Plaże piaszczyste, kamieniste, dzikie', 90);
+  ('beaches', 'Plaże', 'Beaches', 'Plaże piaszczyste, kamieniste, dzikie', 90)
+on conflict (slug) do update set
+  name_pl = excluded.name_pl,
+  name_en = excluded.name_en,
+  description = excluded.description,
+  sort_order = excluded.sort_order;
 
 -- Seed: aktywności
 insert into activities (slug, group_slug, name_pl, name_en, intensity, weather_dependency, min_recommended_age, sort_order) values
@@ -41,9 +46,26 @@ insert into activities (slug, group_slug, name_pl, name_en, intensity, weather_d
   ('aquarium', 'kids', 'Akwaria', 'Aquarium', 'low', 'none', 2, 30),
   ('water_parks', 'kids', 'Aquaparki', 'Water parks', 'medium', 'low', 4, 40),
   ('sandy_beaches', 'beaches', 'Plaże piaszczyste', 'Sandy beaches', 'low', 'high', 0, 10),
-  ('rocky_beaches', 'beaches', 'Plaże kamieniste', 'Rocky beaches', 'low', 'high', 0, 20);
+  ('rocky_beaches', 'beaches', 'Plaże kamieniste', 'Rocky beaches', 'low', 'high', 0, 20)
+on conflict (slug) do update set
+  group_slug = excluded.group_slug,
+  name_pl = excluded.name_pl,
+  name_en = excluded.name_en,
+  intensity = excluded.intensity,
+  weather_dependency = excluded.weather_dependency,
+  min_recommended_age = excluded.min_recommended_age,
+  sort_order = excluded.sort_order;
 
--- Seed: OSM mappings
+-- Seed: OSM mappings (idempotentny — zastępuje mapowania dla znanych aktywności)
+delete from activity_osm_mappings
+where activity_slug in (
+  'kayaking', 'paddleboard', 'snorkeling', 'diving', 'surfing', 'jet_ski', 'boat_tour',
+  'quads', 'buggies', 'paragliding', 'bike_rental', 'mountain_biking', 'ebike_rental',
+  'hiking_trails', 'climbing', 'caves', 'waterfalls', 'canyons', 'viewpoints',
+  'national_parks', 'castles', 'museums', 'old_towns', 'archaeology', 'theme_parks',
+  'zoo', 'aquarium', 'water_parks', 'sandy_beaches', 'rocky_beaches'
+);
+
 insert into activity_osm_mappings (activity_slug, osm_query, priority) values
   ('kayaking', '["sport"="canoe"]', 1),
   ('kayaking', '["leisure"="water_park"]["sport"~"kayak|canoe"]', 1),
