@@ -654,6 +654,17 @@ function SearchPageContent() {
                       ? ` w okolicy ${trip.destination_label}`
                       : ""}
                     .
+                    {results.meta && (
+                      <>
+                        {" "}
+                        (w promieniu: {results.meta.attractions_in_bbox} miejsc
+                        OSM, {results.meta.tag_rows_fetched} tagów
+                        {results.meta.geo_radius_km_used
+                          ? `, szukano do ${results.meta.geo_radius_km_used} km`
+                          : ""}
+                        )
+                      </>
+                    )}
                   </p>
                 )}
                 {results.total_attractions_considered > 0 && (

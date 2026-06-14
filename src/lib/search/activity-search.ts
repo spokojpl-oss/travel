@@ -8,8 +8,31 @@ import type {
   AttractionWithActivities,
 } from "@/types/domain";
 
-const MAX_TAG_ROWS = 8000;
+const MAX_TAG_ROWS_GLOBAL = 8000;
 const MAX_ATTRACTIONS_TO_CLUSTER = 1200;
+const ID_CHUNK_SIZE = 200;
+
+const ATTRACTION_FIELDS = `
+  id,
+  name,
+  description,
+  category,
+  subcategories,
+  lat,
+  lon,
+  address,
+  phone,
+  website,
+  opening_hours,
+  tags,
+  min_age,
+  duration_minutes,
+  destination_id,
+  source,
+  external_id,
+  created_at,
+  updated_at
+`;
 
 type TagRow = {
   attraction_id: string;
@@ -39,70 +62,93 @@ function hasNearPoint(query: ActivitySearchQuery): query is ActivitySearchQuery 
   );
 }
 
-export async function searchActivities(
-  query: ActivitySearchQuery,
-): Promise<ActivitySearchResult> {
-  const startTime = Date.now();
-  const supabase = createAdminClient();
+function latLonBBox(lat: number, lon: number, radiusKm: number) {
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  return {
+    minLat: lat - latDelta,
+    maxLat: lat + latDelta,
+    minLon: lon - lonDelta,
+    maxLon: lon + lonDelta,
+  };
+}
 
-  const dbStart = Date.now();
-  const { data: tagRows } = await supabase
-    .from("attraction_activity_tags")
-    .select(
-      `
-      attraction_id,
-      activity_slug,
-      confidence,
-      attraction:attractions (
-        id,
-        name,
-        description,
-        category,
-        subcategories,
-        lat,
-        lon,
-        address,
-        phone,
-        website,
-        opening_hours,
-        tags,
-        min_age,
-        duration_minutes,
-        destination_id,
-        source,
-        external_id,
-        created_at,
-        updated_at
-      )
-    `,
+async function fetchAttractionIdsNear(
+  supabase: ReturnType<typeof createAdminClient>,
+  center: { lat: number; lon: number },
+  radiusKm: number,
+): Promise<string[]> {
+  const bbox = latLonBBox(center.lat, center.lon, radiusKm);
+  const { data } = await supabase
+    .from("attractions")
+    .select("id, lat, lon")
+    .gte("lat", bbox.minLat)
+    .lte("lat", bbox.maxLat)
+    .gte("lon", bbox.minLon)
+    .lte("lon", bbox.maxLon)
+    .limit(5000);
+
+  if (!data?.length) return [];
+
+  return data
+    .filter(
+      (a) =>
+        distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }) <=
+        radiusKm,
     )
-    .in("activity_slug", query.activities)
-    .limit(MAX_TAG_ROWS);
+    .map((a) => a.id);
+}
 
-  agentLog(
-    "activity-search.ts:db",
-    "tag rows fetched",
-    {
-      tag_rows: tagRows?.length ?? 0,
-      db_ms: Date.now() - dbStart,
-      activities: query.activities,
-      has_near: hasNearPoint(query),
-    },
-    "A",
-  );
+async function fetchTagRows(
+  supabase: ReturnType<typeof createAdminClient>,
+  activities: string[],
+  attractionIds?: string[],
+): Promise<TagRow[]> {
+  if (attractionIds && attractionIds.length === 0) return [];
 
-  if (!tagRows || tagRows.length === 0) {
-    return {
-      query,
-      clusters: [],
-      total_attractions_considered: 0,
-      duration_ms: Date.now() - startTime,
-    };
+  const rows: TagRow[] = [];
+
+  if (!attractionIds) {
+    const { data } = await supabase
+      .from("attraction_activity_tags")
+      .select(
+        `
+        attraction_id,
+        activity_slug,
+        confidence,
+        attraction:attractions (${ATTRACTION_FIELDS})
+      `,
+      )
+      .in("activity_slug", activities)
+      .limit(MAX_TAG_ROWS_GLOBAL);
+    return (data as TagRow[]) ?? [];
   }
 
+  for (let i = 0; i < attractionIds.length; i += ID_CHUNK_SIZE) {
+    const chunk = attractionIds.slice(i, i + ID_CHUNK_SIZE);
+    const { data } = await supabase
+      .from("attraction_activity_tags")
+      .select(
+        `
+        attraction_id,
+        activity_slug,
+        confidence,
+        attraction:attractions (${ATTRACTION_FIELDS})
+      `,
+      )
+      .in("activity_slug", activities)
+      .in("attraction_id", chunk);
+
+    if (data?.length) rows.push(...(data as TagRow[]));
+  }
+
+  return rows;
+}
+
+function buildAttractionMap(tagRows: TagRow[]): AttractionWithActivities[] {
   const attractionMap = new Map<string, AttractionWithActivities>();
 
-  for (const row of tagRows as TagRow[]) {
+  for (const row of tagRows) {
     if (!row.attraction) continue;
 
     const existing = attractionMap.get(row.attraction.id);
@@ -124,21 +170,95 @@ export async function searchActivities(
     }
   }
 
-  let attractions = Array.from(attractionMap.values());
+  return Array.from(attractionMap.values());
+}
+
+export async function searchActivities(
+  query: ActivitySearchQuery,
+): Promise<ActivitySearchResult> {
+  const startTime = Date.now();
+  const supabase = createAdminClient();
+
+  let tagRows: TagRow[] = [];
+  let geoRadiusUsed: number | null = null;
+  let attractionsInBbox = 0;
+
+  const dbStart = Date.now();
 
   if (hasNearPoint(query)) {
     const center = { lat: query.near_lat, lon: query.near_lon };
-    const radius = query.near_radius_km ?? 150;
-    attractions = attractions.filter(
-      (a) => distanceKm(center, { lat: a.lat, lon: a.lon }) <= radius,
-    );
-  } else if (attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
+    const radii = [
+      query.near_radius_km ?? 150,
+      250,
+      400,
+    ];
+
+    for (const radiusKm of radii) {
+      const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
+      attractionsInBbox = ids.length;
+
+      agentLog(
+        "activity-search.ts:bbox",
+        "attractions in radius",
+        {
+          radius_km: radiusKm,
+          attraction_ids: ids.length,
+          center_lat: center.lat,
+          center_lon: center.lon,
+          activities: query.activities,
+        },
+        "I",
+      );
+
+      if (ids.length === 0) continue;
+
+      tagRows = await fetchTagRows(supabase, query.activities, ids);
+      if (tagRows.length > 0) {
+        geoRadiusUsed = radiusKm;
+        break;
+      }
+    }
+  } else {
+    tagRows = await fetchTagRows(supabase, query.activities);
+  }
+
+  agentLog(
+    "activity-search.ts:db",
+    "tag rows fetched",
+    {
+      tag_rows: tagRows.length,
+      db_ms: Date.now() - dbStart,
+      activities: query.activities,
+      has_near: hasNearPoint(query),
+      geo_radius_km_used: geoRadiusUsed,
+      attractions_in_bbox: attractionsInBbox,
+    },
+    "A",
+  );
+
+  if (tagRows.length === 0) {
+    return {
+      query,
+      clusters: [],
+      total_attractions_considered: 0,
+      duration_ms: Date.now() - startTime,
+      meta: {
+        tag_rows_fetched: 0,
+        geo_radius_km_used: geoRadiusUsed,
+        attractions_in_bbox: attractionsInBbox,
+      },
+    };
+  }
+
+  let attractions = buildAttractionMap(tagRows);
+
+  if (!hasNearPoint(query) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
     attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
   }
 
   agentLog(
     "activity-search.ts:geo",
-    "attractions after geo filter",
+    "attractions ready for cluster",
     {
       count: attractions.length,
       elapsed_ms: Date.now() - startTime,
@@ -152,6 +272,11 @@ export async function searchActivities(
       clusters: [],
       total_attractions_considered: 0,
       duration_ms: Date.now() - startTime,
+      meta: {
+        tag_rows_fetched: tagRows.length,
+        geo_radius_km_used: geoRadiusUsed,
+        attractions_in_bbox: attractionsInBbox,
+      },
     };
   }
 
@@ -183,7 +308,7 @@ export async function searchActivities(
   let filtered = topClusters;
   if (hasNearPoint(query)) {
     const center = { lat: query.near_lat, lon: query.near_lon };
-    const radius = query.near_radius_km ?? 200;
+    const radius = geoRadiusUsed ?? query.near_radius_km ?? 200;
     filtered = topClusters
       .map((cluster) => ({
         cluster,
@@ -199,5 +324,10 @@ export async function searchActivities(
     clusters: filtered,
     total_attractions_considered: attractions.length,
     duration_ms: Date.now() - startTime,
+    meta: {
+      tag_rows_fetched: tagRows.length,
+      geo_radius_km_used: geoRadiusUsed,
+      attractions_in_bbox: attractionsInBbox,
+    },
   };
 }

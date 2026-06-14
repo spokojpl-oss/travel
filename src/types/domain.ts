@@ -141,4 +141,9 @@ export type ActivitySearchResult = {
   clusters: GeoCluster[];
   total_attractions_considered: number;
   duration_ms: number;
+  meta?: {
+    tag_rows_fetched: number;
+    geo_radius_km_used: number | null;
+    attractions_in_bbox: number;
+  };
 };
