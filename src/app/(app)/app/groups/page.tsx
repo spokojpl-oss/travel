@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { PageContainer, Breadcrumb } from "@/components/layout/Header";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { EmptyStateGuide } from "@/components/features/HowItWorksGuide";
+import { Icon } from "@/components/ui/Icon";
 
 export default async function GroupsListPage() {
   const supabase = await createClient();
@@ -9,28 +14,63 @@ export default async function GroupsListPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Moje grupy podróżne</h1>
-      <Link href="/app/groups/new" className="underline mb-4 inline-block">
-        + Nowa grupa
-      </Link>
+    <PageContainer>
+      <Breadcrumb
+        items={[
+          { label: "Start", href: "/app" },
+          { label: "Grupy podróżne" },
+        ]}
+      />
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-text-primary">
+            Moje grupy podróżne
+          </h1>
+          <p className="mt-2 text-sm text-text-secondary">
+            Zapisz kto jedzie — wiek dzieci, liczba dorosłych — żeby koszty i hotele
+            liczyły się per osoba.
+          </p>
+        </div>
+        <Link href="/app/groups/new">
+          <Button size="sm">
+            <Icon name="plus" size={16} />
+            Nowa grupa
+          </Button>
+        </Link>
+      </div>
 
       {(!groups || groups.length === 0) && (
-        <p className="mt-4">
-          Nie masz jeszcze żadnej grupy. Stwórz pierwszą żeby zacząć planowanie.
-        </p>
+        <EmptyStateGuide
+          title="Nie masz jeszcze żadnej grupy"
+          description="Grupa to profil rodziny: kto jedzie, ile osób, wiek dzieci. Nie jest wymagana na start — możesz najpierw wyszukać aktywności, a grupę dodać później."
+          actionHref="/app/groups/new"
+          actionLabel="Stwórz pierwszą grupę"
+        />
       )}
 
-      <ul className="mt-4 space-y-2">
+      <ul className="space-y-3">
         {groups?.map((group) => (
           <li key={group.id}>
-            <Link href={`/app/groups/${group.id}`} className="underline">
-              {group.name}
-            </Link>{" "}
-            ({group.group_members[0]?.count ?? 0} osób)
+            <Card className="card-hover">
+              <CardBody className="flex items-center justify-between gap-4">
+                <div>
+                  <Link
+                    href={`/app/groups/${group.id}`}
+                    className="font-display text-lg font-bold text-brand-700 hover:underline"
+                  >
+                    {group.name}
+                  </Link>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {group.group_members[0]?.count ?? 0} osób
+                  </p>
+                </div>
+                <Icon name="chevron-right" size={20} className="text-text-tertiary" />
+              </CardBody>
+            </Card>
           </li>
         ))}
       </ul>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,30 +1,22 @@
 import { cn } from "@/lib/utils/cn";
 import type { AdvisorySeverity } from "@/lib/advisors/types";
+import { Icon, IconBox, type IconName } from "@/components/ui/Icon";
+
+const severityIcons: Record<AdvisorySeverity, IconName> = {
+  critical: "siren",
+  warning: "alert-triangle",
+  suggestion: "lightbulb",
+  info: "info",
+};
 
 const severityStyles: Record<
   AdvisorySeverity,
-  { border: string; bg: string; icon: string }
+  { border: string; bg: string }
 > = {
-  critical: {
-    border: "border-danger",
-    bg: "bg-red-50/60",
-    icon: "🚨",
-  },
-  warning: {
-    border: "border-warning",
-    bg: "bg-orange-50/60",
-    icon: "⚠️",
-  },
-  suggestion: {
-    border: "border-brand-700",
-    bg: "bg-brand-50/60",
-    icon: "💡",
-  },
-  info: {
-    border: "border-border-strong",
-    bg: "bg-bg-soft",
-    icon: "ℹ️",
-  },
+  critical: { border: "border-danger", bg: "bg-red-50/60" },
+  warning: { border: "border-warning", bg: "bg-orange-50/60" },
+  suggestion: { border: "border-brand-700", bg: "bg-brand-50/60" },
+  info: { border: "border-border-strong", bg: "bg-bg-soft" },
 };
 
 export function AdvisoryCard({
@@ -55,8 +47,8 @@ export function AdvisoryCard({
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 text-lg">
-          {style.icon}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 text-brand-700">
+          <Icon name={severityIcons[severity]} size={20} />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-display font-bold text-text-primary">{title}</h3>
@@ -70,7 +62,7 @@ export function AdvisoryCard({
           )}
           {savings != null && savings > 0 && (
             <p className="numeric mt-2 text-sm font-semibold text-success">
-              💰 Potencjalne oszczędności: {savings} PLN
+              Potencjalne oszczędności: {savings} PLN
             </p>
           )}
           {sourceFacts && Object.keys(sourceFacts).length > 0 && (
@@ -91,7 +83,7 @@ export function AdvisoryCard({
             className="shrink-0 text-text-tertiary transition-colors hover:text-text-primary"
             title="Odrzuć"
           >
-            ✕
+            <Icon name="x" size={18} />
           </button>
         )}
       </div>
@@ -107,30 +99,19 @@ export function FeatureCard({
   accent = "brand",
 }: {
   number: string;
-  icon: string;
+  icon: IconName;
   title: string;
   text: string;
   accent?: "brand" | "accent" | "success";
 }) {
-  const iconBg = {
-    brand: "bg-brand-700",
-    accent: "bg-accent-500",
-    success: "bg-success",
-  }[accent];
-
   return (
     <div className="card-hover relative rounded-2xl border border-border-default bg-white p-8">
       <div className="absolute top-4 right-6 font-display text-7xl font-bold text-brand-50">
         {number}
       </div>
       <div className="relative">
-        <div
-          className={cn(
-            "mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl text-2xl text-white",
-            iconBg,
-          )}
-        >
-          {icon}
+        <div className="mb-4">
+          <IconBox name={icon} accent={accent} />
         </div>
         <h3 className="font-display mb-2 text-xl font-bold text-text-primary">
           {title}

@@ -10,6 +10,7 @@ import type { DiagramLine, DiagramPoint } from "@/components/features/LocationDi
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
@@ -281,7 +282,10 @@ export default function DestinationPage() {
               <h3 className="font-medium mb-2">Ostrzeżenia</h3>
               <ul className="list-disc pl-5 mb-4">
                 {summary.warnings.map((w, i) => (
-                  <li key={i}>⚠️ {w}</li>
+                  <li key={i} className="flex items-start gap-2">
+                    <Icon name="alert-triangle" size={14} className="mt-0.5 shrink-0 text-warning" />
+                    {w}
+                  </li>
                 ))}
               </ul>
             </>
@@ -413,8 +417,9 @@ export default function DestinationPage() {
       )}
 
       {isComplete && (
-        <p className="text-sm text-success">
-          ✓ Strona kompletna. Następnym razem załaduje się szybciej z cache.
+        <p className="flex items-center gap-2 text-sm text-success">
+          <Icon name="check" size={16} />
+          Strona kompletna. Następnym razem załaduje się szybciej z cache.
         </p>
       )}
     </PageContainer>

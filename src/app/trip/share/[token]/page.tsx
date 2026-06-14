@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TripDocumentsView } from "@/components/features/TripDocumentsView";
+import { Icon } from "@/components/ui/Icon";
 
 export default async function SharedTripPage({
   params,
@@ -33,8 +34,9 @@ export default async function SharedTripPage({
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-4xl mx-auto p-8">
-        <p className="text-sm text-gray-500 mb-4">
-          👁️ Tryb tylko do odczytu (link udostępniony)
+        <p className="mb-4 flex items-center gap-2 text-sm text-text-secondary">
+          <Icon name="eye" size={16} />
+          Tryb tylko do odczytu (link udostępniony)
         </p>
         <h1 className="text-2xl font-bold mb-2">{trip.name}</h1>
         <p className="text-sm text-gray-600 mb-8">

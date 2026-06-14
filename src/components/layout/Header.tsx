@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/app/trips", label: "Moje wyjazdy" },
   { href: "/app/compare", label: "Porównaj" },
   { href: "/app/history", label: "Historia" },
+  { href: "/app#guide", label: "Jak to działa?" },
 ];
 
 export function Header({

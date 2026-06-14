@@ -1,8 +1,42 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { HeroSearch } from "@/components/features/HeroSearch";
+import { HowItWorksGuide } from "@/components/features/HowItWorksGuide";
 import { PageContainer } from "@/components/layout/Header";
 import { Card, CardBody } from "@/components/ui/Card";
+import { Icon, type IconName } from "@/components/ui/Icon";
+
+const quickLinks: Array<{
+  href: string;
+  title: string;
+  desc: string;
+  icon: IconName;
+}> = [
+  {
+    href: "/app/search",
+    title: "Wyszukiwarka aktywności",
+    desc: "Znajdź regiony pasujące do Twoich zainteresowań",
+    icon: "target",
+  },
+  {
+    href: "/app/trips",
+    title: "Moje wyjazdy",
+    desc: "Plany, dokumenty i inteligentne porady",
+    icon: "folder",
+  },
+  {
+    href: "/app/compare",
+    title: "Porównaj tripy",
+    desc: "Madera vs Mallorca vs Kreta — liczby zamiast domysłów",
+    icon: "scale",
+  },
+  {
+    href: "/app/groups",
+    title: "Grupy podróżne",
+    desc: "Profil rodziny i preferencje",
+    icon: "users",
+  },
+];
 
 export default async function AppHome() {
   const supabase = await createClient();
@@ -14,33 +48,6 @@ export default async function AppHome() {
     .select("*")
     .eq("id", user!.id)
     .single();
-
-  const quickLinks = [
-    {
-      href: "/app/search",
-      title: "Wyszukiwarka aktywności",
-      desc: "Znajdź regiony pasujące do Twoich zainteresowań",
-      icon: "🎯",
-    },
-    {
-      href: "/app/trips",
-      title: "Moje wyjazdy",
-      desc: "Plany, dokumenty i inteligentne porady",
-      icon: "🗂️",
-    },
-    {
-      href: "/app/compare",
-      title: "Porównaj tripy",
-      desc: "Madera vs Mallorca vs Kreta — liczby zamiast domysłów",
-      icon: "⚖️",
-    },
-    {
-      href: "/app/groups",
-      title: "Grupy podróżne",
-      desc: "Profil rodziny i preferencje",
-      icon: "👥",
-    },
-  ];
 
   return (
     <>
@@ -54,12 +61,16 @@ export default async function AppHome() {
           ! Gdzie dziś planujemy?
         </p>
 
+        <HowItWorksGuide className="mb-10" />
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {quickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <Card className="card-hover h-full transition-shadow hover:shadow-cardHover">
                 <CardBody>
-                  <div className="mb-3 text-2xl">{link.icon}</div>
+                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                    <Icon name={link.icon} size={22} />
+                  </div>
                   <h2 className="font-display text-lg font-bold text-text-primary">
                     {link.title}
                   </h2>

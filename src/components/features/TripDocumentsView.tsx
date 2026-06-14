@@ -3,6 +3,7 @@
 import type { GeneratedItinerary } from "@/lib/trips/generate-itinerary";
 import type { GeneratedPackingList } from "@/lib/trips/generate-packing-list";
 import type { GeneratedPreTripTodo } from "@/lib/trips/generate-pre-trip-todo";
+import { Icon } from "@/components/ui/Icon";
 
 type TripDocument = {
   document_type: "itinerary" | "packing_list" | "pre_trip_todo";
@@ -38,8 +39,9 @@ export function TripDocumentsView({
           <h2 className="text-lg font-semibold mb-3">Plan dzień po dniu</h2>
           <p className="mb-4">{itinerary.introduction}</p>
           {itinerary.unassigned_attractions?.length > 0 && (
-            <p className="text-amber-700 mb-4">
-              ⚠️ {itinerary.unassigned_attractions.length} atrakcji nie zmieściło
+            <p className="mb-4 flex items-start gap-2 text-amber-700">
+              <Icon name="alert-triangle" size={16} className="mt-0.5 shrink-0" />
+              {itinerary.unassigned_attractions.length} atrakcji nie zmieściło
               się w planie – rozważ wydłużenie pobytu.
             </p>
           )}
@@ -71,8 +73,9 @@ export function TripDocumentsView({
                   </div>
                 )}
                 {day.warnings?.map((w, i) => (
-                  <p key={i} className="text-amber-700 mt-1">
-                    ⚠️ {w}
+                  <p key={i} className="mt-1 flex items-start gap-2 text-amber-700">
+                    <Icon name="alert-triangle" size={14} className="mt-0.5 shrink-0" />
+                    {w}
                   </p>
                 ))}
                 {day.notes?.map((n, i) => (

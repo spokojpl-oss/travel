@@ -100,20 +100,20 @@ export function WhyUsSection() {
       <div className="grid gap-6 md:grid-cols-3">
         <FeatureCard
           number="01"
-          icon="🎯"
+          icon="target"
           title="Od aktywności, nie destynacji"
           text="Powiedz co lubicie robić. System znajdzie regiony świata gdzie wszystkie aktywności są blisko siebie."
         />
         <FeatureCard
           number="02"
-          icon="💡"
+          icon="lightbulb"
           title="Inteligentne porady"
           text="Wykrywamy że hotel jest 2h jazdy od atrakcji. Sugerujemy open-jaw lot żeby zaoszczędzić 500 zł."
           accent="accent"
         />
         <FeatureCard
           number="03"
-          icon="🗂️"
+          icon="folder"
           title="Folder wycieczki dla rodziny"
           text="Plan dzień po dniu, lista do spakowania, pre-trip todo. Wyślij linkiem rodzinie."
           accent="success"

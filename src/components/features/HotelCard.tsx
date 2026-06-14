@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
 
 export function HotelCard({
@@ -52,8 +53,8 @@ export function HotelCard({
               sizes="(max-width: 768px) 100vw, 40vw"
             />
           ) : (
-            <div className="flex h-full min-h-[14rem] items-center justify-center bg-gradient-to-br from-brand-50 to-bg-soft text-4xl">
-              🏨
+            <div className="flex h-full min-h-[14rem] items-center justify-center bg-gradient-to-br from-brand-50 to-bg-soft text-brand-700">
+              <Icon name="hotel" size={48} strokeWidth={1.5} />
             </div>
           )}
           {showHighRating && (
@@ -102,7 +103,7 @@ export function HotelCard({
           </div>
 
           <p className="mb-4 flex items-center gap-2 text-sm text-text-secondary">
-            <span>📍</span>
+            <Icon name="map-pin" size={16} className="text-brand-700" />
             <span>
               <strong className="numeric text-text-primary">
                 {proximity.avg_distance_km} km

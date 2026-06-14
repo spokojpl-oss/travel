@@ -7,6 +7,7 @@ import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -131,9 +132,14 @@ export default function HistoryPage() {
           <li key={entry.id}>
             <Card className="card-hover">
               <CardBody>
-                <div>
+                <div className="flex items-center gap-2">
+                  <Icon
+                    name={translateType(entry.search_type).icon}
+                    size={18}
+                    className="text-brand-700"
+                  />
                   <strong className="text-text-primary">
-                    {translateType(entry.search_type)}
+                    {translateType(entry.search_type).label}
                   </strong>
                   <small className="ml-2 text-text-tertiary">
                     – {new Date(entry.executed_at).toLocaleString("pl-PL")}
@@ -148,14 +154,15 @@ export default function HistoryPage() {
                     size="sm"
                     onClick={() => restoreSearch(entry)}
                   >
-                    ↺ Przywróć
+                    Przywróć
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(entry.id)}
                   >
-                    ✕ Usuń
+                    <Icon name="x" size={14} />
+                    Usuń
                   </Button>
                 </div>
               </CardBody>
@@ -167,20 +174,20 @@ export default function HistoryPage() {
   );
 }
 
-function translateType(t: string): string {
+function translateType(t: string): { label: string; icon: IconName } {
   switch (t) {
     case "activities":
-      return "🎯 Aktywności";
+      return { label: "Aktywności", icon: "target" };
     case "destination_build":
-      return "📍 Destynacja";
+      return { label: "Destynacja", icon: "map-pin" };
     case "flights":
-      return "✈️ Loty";
+      return { label: "Loty", icon: "plane" };
     case "hotels":
-      return "🏨 Hotele";
+      return { label: "Hotele", icon: "hotel" };
     case "transport":
-      return "🚗 Transport";
+      return { label: "Transport", icon: "car" };
     default:
-      return t;
+      return { label: t, icon: "info" };
   }
 }
 

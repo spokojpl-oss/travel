@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { POLISH_AIRPORTS } from "@/lib/flights/polish-airports";
 import { RefineInput } from "@/components/features/RefineInput";
 import { SkeletonList } from "@/components/ui/Skeleton";
+import { Icon } from "@/components/ui/Icon";
 
 type FlightOffer = {
   origin_iata: string;
@@ -222,7 +223,10 @@ export function FlightsSection({ destinationId }: { destinationId: string }) {
               <h3 className="font-medium mb-1">Podpowiedzi cenowe</h3>
               <ul className="list-disc pl-5">
                 {results.result.suggestions.map((s, i) => (
-                  <li key={i}>💡 {s.message}</li>
+                  <li key={i} className="flex items-start gap-2">
+                    <Icon name="lightbulb" size={14} className="mt-0.5 shrink-0 text-brand-700" />
+                    {s.message}
+                  </li>
                 ))}
               </ul>
             </div>

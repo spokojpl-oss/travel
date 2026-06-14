@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefineInput } from "@/components/features/RefineInput";
+import { HowItWorksGuide } from "@/components/features/HowItWorksGuide";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -123,9 +124,11 @@ export default function SearchPage() {
         ]}
       />
 
-      <h1 className="font-display mb-8 text-3xl font-bold text-text-primary">
+      <h1 className="font-display mb-4 text-3xl font-bold text-text-primary">
         Wyszukiwarka aktywności
       </h1>
+
+      <HowItWorksGuide variant="compact" className="mb-8" />
 
       <Card className="mb-8">
         <CardHeader title="1. Wybierz aktywności" />

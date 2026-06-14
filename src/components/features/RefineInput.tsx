@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SearchType } from "@/lib/history/log-search";
+import { Icon } from "@/components/ui/Icon";
 
 export function RefineInput<T extends Record<string, unknown>>({
   searchType,
@@ -94,10 +95,14 @@ export function RefineInput<T extends Record<string, unknown>>({
         <div className="mt-2">
           {result.understood ? (
             <>
-              <p>✓ {result.explanation}</p>
+              <p className="flex items-start gap-2">
+                <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
+                {result.explanation}
+              </p>
               {result.unsupported_changes.length > 0 && (
-                <p className="text-amber-700">
-                  ⚠️ Nie obsłużone: {result.unsupported_changes.join(", ")}
+                <p className="flex items-start gap-2 text-amber-700">
+                  <Icon name="alert-triangle" size={16} className="mt-0.5 shrink-0" />
+                  Nie obsłużone: {result.unsupported_changes.join(", ")}
                 </p>
               )}
               <button
@@ -108,8 +113,9 @@ export function RefineInput<T extends Record<string, unknown>>({
               </button>
             </>
           ) : (
-            <p>
-              ❌ Nie zrozumiałem. Spróbuj inaczej, np. &quot;we wrześniu&quot;
+            <p className="flex items-start gap-2">
+              <Icon name="x" size={16} className="mt-0.5 shrink-0 text-danger" />
+              Nie zrozumiałem. Spróbuj inaczej, np. &quot;we wrześniu&quot;
               lub &quot;bez przesiadek&quot;.
             </p>
           )}

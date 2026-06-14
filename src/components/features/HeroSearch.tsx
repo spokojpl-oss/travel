@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 export function HeroSearch({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
@@ -78,13 +79,13 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
               active={tab === "activities"}
               onClick={() => setTab("activities")}
               label="Od aktywności"
-              icon="🎯"
+              icon="target"
             />
             <TabButton
               active={tab === "destination"}
               onClick={() => setTab("destination")}
               label="Od destynacji"
-              icon="📍"
+              icon="map-pin"
             />
           </div>
 
@@ -96,14 +97,14 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
                   ? "np. quady, rowery, jaskinie"
                   : "Madera, Mallorca, Kreta..."
               }
-              icon="🎯"
+              icon={tab === "activities" ? "target" : "map-pin"}
               large
             />
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <SearchField label="Kiedy?" placeholder="Sierpień 2026" icon="📅" />
-              <SearchField label="Skąd?" placeholder="Warszawa" icon="✈️" />
-              <SearchField label="Ile osób?" placeholder="2 dorosłych" icon="👥" />
+              <SearchField label="Kiedy?" placeholder="Sierpień 2026" icon="calendar" />
+              <SearchField label="Skąd?" placeholder="Warszawa" icon="plane" />
+              <SearchField label="Ile osób?" placeholder="2 dorosłych" icon="users" />
             </div>
 
             <button
@@ -115,7 +116,8 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
               }
               className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent-500 px-8 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99]"
             >
-              🔍 Szukaj wakacji
+              <Icon name="search" size={20} />
+              Szukaj wakacji
             </button>
 
             <div className="mt-4 flex flex-wrap gap-2 px-1">
@@ -129,9 +131,9 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
 
         {!compact && (
           <div className="mt-12 flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm text-white/70">
-            <span>✓ Bez ukrytych kosztów</span>
-            <span>✓ Bezpośrednie linki do partnerów</span>
-            <span>✓ Inteligentne porady przed wyjazdem</span>
+            <TrustBadge>Bez ukrytych kosztów</TrustBadge>
+            <TrustBadge>Bezpośrednie linki do partnerów</TrustBadge>
+            <TrustBadge>Inteligentne porady przed wyjazdem</TrustBadge>
           </div>
         )}
       </div>
@@ -148,7 +150,7 @@ function TabButton({
   active: boolean;
   onClick: () => void;
   label: string;
-  icon: string;
+  icon: IconName;
 }) {
   return (
     <button
@@ -161,7 +163,7 @@ function TabButton({
           : "border-transparent text-text-secondary hover:text-text-primary",
       )}
     >
-      <span>{icon}</span>
+      <Icon name={icon} size={16} />
       {label}
     </button>
   );
@@ -175,7 +177,7 @@ function SearchField({
 }: {
   label: string;
   placeholder: string;
-  icon: string;
+  icon: IconName;
   large?: boolean;
 }) {
   return (
@@ -188,7 +190,7 @@ function SearchField({
       )}
     >
       <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-        <span>{icon}</span>
+        <Icon name={icon} size={14} />
         <span>{label}</span>
       </div>
       <input
@@ -211,5 +213,14 @@ function QuickFilter({ children }: { children: React.ReactNode }) {
     >
       {children}
     </button>
+  );
+}
+
+function TrustBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon name="check" size={16} className="text-success" />
+      {children}
+    </span>
   );
 }
