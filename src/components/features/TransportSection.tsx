@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { defaultDateRangeFromToday } from "@/lib/search/trip-context";
 
 type DestinationAirport = {
   iata_code: string;
@@ -80,13 +81,9 @@ export function TransportSection({
 
   useEffect(() => {
     if (!pickupDate) {
-      const today = new Date();
-      const start = new Date(today);
-      start.setDate(today.getDate() + 30);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 7);
-      setPickupDate(start.toISOString().split("T")[0]);
-      setReturnDate(end.toISOString().split("T")[0]);
+      const { from, to } = defaultDateRangeFromToday(30, 7);
+      setPickupDate(from);
+      setReturnDate(to);
     }
   }, [pickupDate]);
 

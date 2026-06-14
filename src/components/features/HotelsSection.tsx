@@ -7,7 +7,8 @@ import { SkeletonList } from "@/components/ui/Skeleton";
 import { HotelCard } from "@/components/features/HotelCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { defaultDateRangeFromToday } from "@/lib/search/trip-context";
+import { agentLog } from "@/lib/debug/agent-log";
 
 type HotelSearchResult = {
   hotels: Array<{
@@ -62,17 +63,31 @@ type HotelSearchResult = {
 export function HotelsSection({
   destinationId,
   attractions,
+  checkIn: initialCheckIn,
+  checkOut: initialCheckOut,
+  adults: initialAdults = 2,
+  childrenAges: initialChildrenAges = [],
 }: {
   destinationId: string;
   attractions: Pick<Attraction, "id" | "name">[];
+  checkIn?: string;
+  checkOut?: string;
+  adults?: number;
+  childrenAges?: number[];
 }) {
+  const defaults = defaultDateRangeFromToday(30, 7);
+  const resolvedCheckIn = initialCheckIn || defaults.from;
+  const resolvedCheckOut = initialCheckOut || defaults.to;
+
   const [selectedAttractionIds, setSelectedAttractionIds] = useState<Set<string>>(
     new Set(attractions.slice(0, 10).map((a) => a.id)),
   );
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [adults, setAdults] = useState(2);
-  const [childrenAges, setChildrenAges] = useState("");
+  const [checkIn, setCheckIn] = useState(resolvedCheckIn);
+  const [checkOut, setCheckOut] = useState(resolvedCheckOut);
+  const [adults, setAdults] = useState(initialAdults);
+  const [childrenAges, setChildrenAges] = useState(
+    initialChildrenAges.length > 0 ? initialChildrenAges.join(", ") : "",
+  );
   const [hasRentalCar, setHasRentalCar] = useState(true);
   const [propertyFilter, setPropertyFilter] = useState<
     "all" | "hotel" | "apartment" | "villa"
@@ -82,14 +97,22 @@ export function HotelsSection({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() + 30);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    setCheckIn(start.toISOString().split("T")[0]);
-    setCheckOut(end.toISOString().split("T")[0]);
-  }, []);
+    // #region agent log
+    agentLog(
+      "HotelsSection.tsx:init",
+      "hotel dates initialized",
+      {
+        initialCheckIn,
+        initialCheckOut,
+        checkIn,
+        checkOut,
+        adults,
+        fromTrip: Boolean(initialCheckIn),
+      },
+      "H2",
+    );
+    // #endregion
+  }, [initialCheckIn, initialCheckOut, checkIn, checkOut, adults]);
 
   useEffect(() => {
     if (attractions.length > 0 && selectedAttractionIds.size === 0) {

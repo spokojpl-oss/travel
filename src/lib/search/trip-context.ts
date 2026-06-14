@@ -15,12 +15,42 @@ export type TripContext = {
 export const TRIP_CONTEXT_KEY = "trip_search_context";
 export const HERO_SEARCH_KEY = "hero_search_params";
 
-export function defaultTripContext(): TripContext {
+/** ISO YYYY-MM-DD w lokalnej strefie (bez przesunięcia UTC z toISOString). */
+export function localIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function parseIsoDateLocal(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(value + "T12:00:00");
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function daysBetweenIso(from: string, to: string): number {
+  const a = parseIsoDateLocal(from);
+  const b = parseIsoDateLocal(to);
+  if (!a || !b) return 7;
+  const diff = Math.round((b.getTime() - a.getTime()) / 86_400_000);
+  return Math.max(1, diff);
+}
+
+export function defaultDateRangeFromToday(
+  offsetDays = 30,
+  lengthDays = 7,
+): { from: string; to: string } {
   const today = new Date();
   const start = new Date(today);
-  start.setDate(today.getDate() + 30);
+  start.setDate(today.getDate() + offsetDays);
   const end = new Date(start);
-  end.setDate(start.getDate() + 7);
+  end.setDate(start.getDate() + lengthDays);
+  return { from: localIsoDate(start), to: localIsoDate(end) };
+}
+
+export function defaultTripContext(): TripContext {
+  const { from, to } = defaultDateRangeFromToday(30, 7);
 
   return {
     mode: "activities",
@@ -29,8 +59,8 @@ export function defaultTripContext(): TripContext {
     destination_label: null,
     destination_lat: null,
     destination_lon: null,
-    departure_date: start.toISOString().split("T")[0],
-    return_date: end.toISOString().split("T")[0],
+    departure_date: from,
+    return_date: to,
     origin_iata: "WAW",
     origin_label: "Warszawa Chopin (WAW)",
     passengers: "2 dorosłych",
@@ -103,18 +133,18 @@ export function mergeTripContext(
 
 export function formatTripDateRange(trip: TripContext): string {
   const from = trip.departure_date
-    ? new Date(trip.departure_date).toLocaleDateString("pl-PL", {
+    ? parseIsoDateLocal(trip.departure_date)?.toLocaleDateString("pl-PL", {
         day: "numeric",
         month: "short",
         year: "numeric",
-      })
+      }) ?? "—"
     : "—";
   const to = trip.return_date
-    ? new Date(trip.return_date).toLocaleDateString("pl-PL", {
+    ? parseIsoDateLocal(trip.return_date)?.toLocaleDateString("pl-PL", {
         day: "numeric",
         month: "short",
         year: "numeric",
-      })
+      }) ?? null
     : null;
   return to ? `${from} – ${to}` : from;
 }

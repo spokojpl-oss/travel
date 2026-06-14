@@ -11,12 +11,19 @@ import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
 import type { WikivoyageDestinationContent } from "@/lib/api/wikivoyage";
 import type { GooglePlace } from "@/lib/api/google-places";
+import {
+  defaultTripContext,
+  mergeTripContext,
+  tripContextFromParams,
+} from "@/lib/search/trip-context";
+import { parsePassengers } from "@/components/ui/PassengerSelector";
+import { agentLog } from "@/lib/debug/agent-log";
 
 type BuildEvent = {
   type: string;
@@ -45,6 +52,33 @@ export default function DestinationPage() {
 
   const clusterData = searchParams.get("cluster");
   const activitiesParam = searchParams.get("activities");
+
+  const trip = useMemo(
+    () =>
+      mergeTripContext(
+        defaultTripContext(),
+        tripContextFromParams(searchParams),
+      ),
+    [searchParams],
+  );
+  const passengers = useMemo(
+    () => parsePassengers(trip.passengers),
+    [trip.passengers],
+  );
+
+  useEffect(() => {
+    agentLog(
+      "destination/page.tsx:trip",
+      "trip context from URL",
+      {
+        from_date: trip.departure_date,
+        to_date: trip.return_date,
+        passengers: trip.passengers,
+        has_from_date: searchParams.has("from_date"),
+      },
+      "H1",
+    );
+  }, [trip.departure_date, trip.return_date, trip.passengers, searchParams]);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -382,7 +416,11 @@ export default function DestinationPage() {
 
       {destination && (
         <ErrorBoundary>
-          <FlightsSection destinationId={destination.id} />
+          <FlightsSection
+            destinationId={destination.id}
+            departureDate={trip.departure_date}
+            returnDate={trip.return_date}
+          />
         </ErrorBoundary>
       )}
 
@@ -391,6 +429,10 @@ export default function DestinationPage() {
           <HotelsSection
             destinationId={destination.id}
             attractions={attractions}
+            checkIn={trip.departure_date}
+            checkOut={trip.return_date ?? undefined}
+            adults={passengers.adults}
+            childrenAges={passengers.childAges}
           />
         </ErrorBoundary>
       )}
@@ -402,6 +444,10 @@ export default function DestinationPage() {
             destinationLat={Number(destination.center_lat)}
             destinationLon={Number(destination.center_lon)}
             destinationName={destination.name}
+            pickupDate={trip.departure_date}
+            returnDate={trip.return_date ?? undefined}
+            adults={passengers.adults}
+            childrenAges={passengers.childAges}
           />
         </ErrorBoundary>
       )}

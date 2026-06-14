@@ -352,8 +352,19 @@ function SearchPageContent() {
     const activitiesParam = encodeURIComponent(
       JSON.stringify(Array.from(selectedActivities)),
     );
+    const tripParams = tripContextToParams(trip);
+    agentLog(
+      "search/page.tsx:openDestination",
+      "navigate with trip dates",
+      {
+        from_date: trip.departure_date,
+        to_date: trip.return_date,
+        passengers: trip.passengers,
+      },
+      "H1",
+    );
     router.push(
-      `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}`,
+      `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}&${tripParams.toString()}`,
     );
   }
 

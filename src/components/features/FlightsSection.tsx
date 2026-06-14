@@ -5,6 +5,11 @@ import { POLISH_AIRPORTS } from "@/lib/flights/polish-airports";
 import { RefineInput } from "@/components/features/RefineInput";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Icon } from "@/components/ui/Icon";
+import {
+  daysBetweenIso,
+  defaultDateRangeFromToday,
+} from "@/lib/search/trip-context";
+import { agentLog } from "@/lib/debug/agent-log";
 
 type FlightOffer = {
   origin_iata: string;
@@ -53,23 +58,44 @@ function polishAirportLabel(iata: string): string {
   return polish ? `${iata} (${polish.name})` : iata;
 }
 
-export function FlightsSection({ destinationId }: { destinationId: string }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [tripLength, setTripLength] = useState(7);
+export function FlightsSection({
+  destinationId,
+  departureDate,
+  returnDate,
+}: {
+  destinationId: string;
+  departureDate?: string;
+  returnDate?: string | null;
+}) {
+  const defaults = defaultDateRangeFromToday(30, 14);
+  const resolvedFrom = departureDate || defaults.from;
+  const resolvedTo = returnDate || defaults.to;
+  const resolvedLength = daysBetweenIso(resolvedFrom, resolvedTo);
+
+  const [dateFrom, setDateFrom] = useState(resolvedFrom);
+  const [dateTo, setDateTo] = useState(resolvedTo);
+  const [tripLength, setTripLength] = useState(resolvedLength);
   const [results, setResults] = useState<FlightSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() + 30);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 14);
-    setDateFrom(start.toISOString().split("T")[0]);
-    setDateTo(end.toISOString().split("T")[0]);
-  }, []);
+    // #region agent log
+    agentLog(
+      "FlightsSection.tsx:init",
+      "flight dates initialized",
+      {
+        departureDate,
+        returnDate,
+        dateFrom,
+        dateTo,
+        tripLength,
+        fromTrip: Boolean(departureDate),
+      },
+      "H2",
+    );
+    // #endregion
+  }, [departureDate, returnDate, dateFrom, dateTo, tripLength]);
 
   function buildSearchParams() {
     return {
