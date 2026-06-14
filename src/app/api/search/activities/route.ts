@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { searchActivities } from "@/lib/search/activity-search";
+import { logSearch } from "@/lib/history/log-search";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,16 @@ export async function POST(request: Request) {
 
   try {
     const result = await searchActivities(parsed.data);
+    logSearch({
+      userId: user.id,
+      searchType: "activities",
+      params: parsed.data,
+      resultSummary: {
+        clusters_count: result.clusters.length,
+        total_attractions: result.total_attractions_considered,
+        duration_ms: result.duration_ms,
+      },
+    }).catch(() => {});
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

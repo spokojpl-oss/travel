@@ -46,6 +46,15 @@ export type TransportOfferCacheRow =
   Database["public"]["Tables"]["transport_offers_cache"]["Row"];
 export type Trip = Database["public"]["Tables"]["trips"]["Row"];
 export type TripDocument = Database["public"]["Tables"]["trip_documents"]["Row"];
+export type TripAdvisory = Database["public"]["Tables"]["trip_advisories"]["Row"];
+export type CountryHoliday = Database["public"]["Tables"]["country_holidays"]["Row"];
+export type SearchHistoryEntry =
+  Database["public"]["Tables"]["search_history"]["Row"];
+export type TripComparisonRow =
+  Database["public"]["Tables"]["trip_comparisons"]["Row"];
+export type SearchType = Database["public"]["Enums"]["search_type"];
+export type AdvisoryCategory = Database["public"]["Enums"]["advisory_category"];
+export type AdvisorySeverity = Database["public"]["Enums"]["advisory_severity"];
 export type TripStatus = Database["public"]["Enums"]["trip_status"];
 export type DocumentType = Database["public"]["Enums"]["document_type"];
 export type AirportSize = Database["public"]["Enums"]["airport_size"];

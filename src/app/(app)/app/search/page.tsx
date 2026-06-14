@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RefineInput } from "@/components/features/RefineInput";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import type {
   Activity,
   ActivityGroup,
@@ -34,6 +36,27 @@ export default function SearchPage() {
       .catch((e) => setError(String(e)));
   }, []);
 
+  useEffect(() => {
+    const restored = sessionStorage.getItem("restore_search_activities");
+    if (restored) {
+      try {
+        const params = JSON.parse(restored) as {
+          activities?: string[];
+          match_mode?: "all" | "any";
+          max_radius_km?: number;
+          min_per_activity?: number;
+        };
+        setSelectedActivities(new Set(params.activities ?? []));
+        setMatchMode(params.match_mode ?? "all");
+        setMaxRadius(params.max_radius_km ?? 50);
+        setMinPerActivity(params.min_per_activity ?? 1);
+        sessionStorage.removeItem("restore_search_activities");
+      } catch {
+        // ignore invalid restore data
+      }
+    }
+  }, []);
+
   function toggleActivity(slug: string) {
     const next = new Set(selectedActivities);
     if (next.has(slug)) next.delete(slug);
@@ -41,8 +64,18 @@ export default function SearchPage() {
     setSelectedActivities(next);
   }
 
-  async function handleSearch() {
-    if (selectedActivities.size === 0) return;
+  function getSearchParams() {
+    return {
+      activities: Array.from(selectedActivities),
+      match_mode: matchMode,
+      max_radius_km: maxRadius,
+      min_per_activity: minPerActivity,
+    };
+  }
+
+  async function handleSearch(overrideParams?: ReturnType<typeof getSearchParams>) {
+    const params = overrideParams ?? getSearchParams();
+    if (params.activities.length === 0) return;
     setIsSearching(true);
     setError(null);
     setResults(null);
@@ -51,12 +84,7 @@ export default function SearchPage() {
       const response = await fetch("/api/search/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activities: Array.from(selectedActivities),
-          match_mode: matchMode,
-          max_radius_km: maxRadius,
-          min_per_activity: minPerActivity,
-        }),
+        body: JSON.stringify(params),
       });
 
       if (!response.ok) {
@@ -155,7 +183,7 @@ export default function SearchPage() {
       </section>
 
       <button
-        onClick={handleSearch}
+        onClick={() => handleSearch()}
         disabled={isSearching || selectedActivities.size === 0}
         className="border px-4 py-2 rounded bg-black text-white disabled:opacity-50 mb-6"
       >
@@ -164,9 +192,47 @@ export default function SearchPage() {
           : `Szukaj (${selectedActivities.size} aktywności)`}
       </button>
 
+      <RefineInput
+        searchType="activities"
+        currentParams={getSearchParams()}
+        onApply={(newParams) => {
+          if (Array.isArray(newParams.activities)) {
+            setSelectedActivities(new Set(newParams.activities as string[]));
+          }
+          if (newParams.match_mode === "all" || newParams.match_mode === "any") {
+            setMatchMode(newParams.match_mode);
+          }
+          if (typeof newParams.max_radius_km === "number") {
+            setMaxRadius(newParams.max_radius_km);
+          }
+          if (typeof newParams.min_per_activity === "number") {
+            setMinPerActivity(newParams.min_per_activity);
+          }
+          handleSearch({
+            activities: Array.isArray(newParams.activities)
+              ? (newParams.activities as string[])
+              : Array.from(selectedActivities),
+            match_mode:
+              newParams.match_mode === "all" || newParams.match_mode === "any"
+                ? newParams.match_mode
+                : matchMode,
+            max_radius_km:
+              typeof newParams.max_radius_km === "number"
+                ? newParams.max_radius_km
+                : maxRadius,
+            min_per_activity:
+              typeof newParams.min_per_activity === "number"
+                ? newParams.min_per_activity
+                : minPerActivity,
+          });
+        }}
+      />
+
       {error && <p className="text-red-600 mb-4">Błąd: {error}</p>}
 
-      {results && (
+      {isSearching && <SkeletonList count={5} />}
+
+      {results && !isSearching && (
         <section>
           <h2 className="text-lg font-semibold mb-2">
             Wyniki ({results.clusters.length} regionów)

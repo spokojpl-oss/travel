@@ -941,6 +941,140 @@ export type Database = {
           },
         ];
       };
+      trip_advisories: {
+        Row: {
+          id: string;
+          trip_id: string;
+          category: Database["public"]["Enums"]["advisory_category"];
+          severity: Database["public"]["Enums"]["advisory_severity"];
+          title: string;
+          reasoning: string;
+          suggested_action: string | null;
+          source_facts: Json;
+          estimated_savings_pln: number | null;
+          dismissed_at: string | null;
+          dismissed_reason: string | null;
+          generated_at: string;
+        };
+        Insert: {
+          id?: string;
+          trip_id: string;
+          category: Database["public"]["Enums"]["advisory_category"];
+          severity: Database["public"]["Enums"]["advisory_severity"];
+          title: string;
+          reasoning: string;
+          suggested_action?: string | null;
+          source_facts?: Json;
+          estimated_savings_pln?: number | null;
+          dismissed_at?: string | null;
+          dismissed_reason?: string | null;
+          generated_at?: string;
+        };
+        Update: {
+          id?: string;
+          trip_id?: string;
+          category?: Database["public"]["Enums"]["advisory_category"];
+          severity?: Database["public"]["Enums"]["advisory_severity"];
+          title?: string;
+          reasoning?: string;
+          suggested_action?: string | null;
+          source_facts?: Json;
+          estimated_savings_pln?: number | null;
+          dismissed_at?: string | null;
+          dismissed_reason?: string | null;
+          generated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "trip_advisories_trip_id_fkey";
+            columns: ["trip_id"];
+            isOneToOne: false;
+            referencedRelation: "trips";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      country_holidays: {
+        Row: {
+          id: string;
+          country_code: string;
+          holiday_date: string;
+          holiday_name_pl: string;
+          is_recurring_yearly: boolean;
+          impact: string | null;
+          severity: Database["public"]["Enums"]["advisory_severity"];
+        };
+        Insert: {
+          id?: string;
+          country_code: string;
+          holiday_date: string;
+          holiday_name_pl: string;
+          is_recurring_yearly?: boolean;
+          impact?: string | null;
+          severity?: Database["public"]["Enums"]["advisory_severity"];
+        };
+        Update: {
+          id?: string;
+          country_code?: string;
+          holiday_date?: string;
+          holiday_name_pl?: string;
+          is_recurring_yearly?: boolean;
+          impact?: string | null;
+          severity?: Database["public"]["Enums"]["advisory_severity"];
+        };
+        Relationships: [];
+      };
+      search_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          search_type: Database["public"]["Enums"]["search_type"];
+          params: Json;
+          result_summary: Json;
+          executed_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          search_type: Database["public"]["Enums"]["search_type"];
+          params: Json;
+          result_summary?: Json;
+          executed_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          search_type?: Database["public"]["Enums"]["search_type"];
+          params?: Json;
+          result_summary?: Json;
+          executed_at?: string;
+        };
+        Relationships: [];
+      };
+      trip_comparisons: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          trip_ids: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          trip_ids: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          trip_ids?: string[];
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       trips: {
         Row: {
           created_at: string;
@@ -1185,6 +1319,22 @@ export type Database = {
       };
     };
     Enums: {
+      advisory_category:
+        | "flights_dates"
+        | "airport_choice"
+        | "open_jaw"
+        | "accommodation_location"
+        | "seasonal_event"
+        | "weather_plan_b"
+        | "review_red_flag"
+        | "timing_concern";
+      advisory_severity: "info" | "suggestion" | "warning" | "critical";
+      search_type:
+        | "activities"
+        | "destination_build"
+        | "flights"
+        | "hotels"
+        | "transport";
       airport_size: "large" | "medium" | "small";
       build_status: "in_progress" | "completed" | "failed";
       document_type: "itinerary" | "packing_list" | "pre_trip_todo";

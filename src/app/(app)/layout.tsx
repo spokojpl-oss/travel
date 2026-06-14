@@ -33,6 +33,12 @@ export default async function AppLayout({
         <a href="/app/trips" className="underline">
           Moje wyjazdy
         </a>
+        <a href="/app/history" className="underline">
+          Historia
+        </a>
+        <a href="/app/compare" className="underline">
+          Porównaj
+        </a>
         <form action="/auth/logout" method="POST" className="ml-auto">
           <button type="submit" className="underline">
             Wyloguj

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toggleTripShare, deleteTrip } from "../actions";
 import { TripDocumentsView } from "@/components/features/TripDocumentsView";
+import { TripAdvisoriesSection } from "@/components/features/TripAdvisoriesSection";
 
 type TripWithDocs = {
   id: string;
@@ -147,6 +148,8 @@ export default function TripDetailPage() {
           <code className="text-xs break-all">{shareUrl}</code>
         </div>
       )}
+
+      <TripAdvisoriesSection tripId={tripId} />
 
       <TripDocumentsView documents={trip.documents} />
     </div>

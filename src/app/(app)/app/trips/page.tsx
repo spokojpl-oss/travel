@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { TripsCompareSelector } from "@/components/features/TripsCompareSelector";
 
 export default async function TripsListPage() {
   const supabase = await createClient();
@@ -7,6 +8,16 @@ export default async function TripsListPage() {
     .from("trips")
     .select("id, name, date_from, date_to, status, destination:destinations (name)")
     .order("created_at", { ascending: false });
+
+  const compareTrips =
+    trips?.map((trip) => ({
+      id: trip.id,
+      name: trip.name,
+      destinationName:
+        (trip.destination as { name: string } | null)?.name ?? "—",
+      dateFrom: trip.date_from,
+      dateTo: trip.date_to,
+    })) ?? [];
 
   return (
     <div className="max-w-3xl">
@@ -17,6 +28,8 @@ export default async function TripsListPage() {
           wyjazd.
         </p>
       )}
+
+      <TripsCompareSelector trips={compareTrips} />
       <ul className="space-y-2">
         {trips?.map((trip) => (
           <li key={trip.id} className="border p-3 rounded">

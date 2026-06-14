@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getTransportOptionsFromAirport } from "@/lib/transport/airport-transport";
 import { recommendGroupVehicles } from "@/lib/cars/group-vehicle-recommender";
 import { buildDiscoverCarsDeepLink } from "@/lib/api/discovercars";
+import { logSearch } from "@/lib/history/log-search";
 
 const schema = z.object({
   airport_iata: z.string().length(3),
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
     ),
   }));
 
-  return NextResponse.json({
+  const responseBody = {
     airport: {
       iata: airport.iata_code,
       name: airport.name,
@@ -123,5 +124,17 @@ export async function POST(request: Request) {
       children_under_12: childrenUnder12,
       has_sports_baggage: parsed.data.has_sports_baggage,
     },
-  });
+  };
+
+  logSearch({
+    userId: user.id,
+    searchType: "transport",
+    params: parsed.data,
+    resultSummary: {
+      transport_options: transportWithLinks.length,
+      vehicle_options: vehicleOptionsWithLinks.length,
+    },
+  }).catch(() => {});
+
+  return NextResponse.json(responseBody);
 }

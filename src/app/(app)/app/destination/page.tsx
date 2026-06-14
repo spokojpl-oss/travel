@@ -4,6 +4,7 @@ import { FlightsSection } from "@/components/features/FlightsSection";
 import { HotelsSection } from "@/components/features/HotelsSection";
 import { TransportSection } from "@/components/features/TransportSection";
 import { SaveTripSection } from "@/components/features/SaveTripSection";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination } from "@/types/domain";
@@ -344,31 +345,39 @@ export default function DestinationPage() {
       )}
 
       {destination && (
-        <FlightsSection destinationId={destination.id} />
+        <ErrorBoundary>
+          <FlightsSection destinationId={destination.id} />
+        </ErrorBoundary>
       )}
 
       {destination && attractions.length > 0 && (
-        <HotelsSection
-          destinationId={destination.id}
-          attractions={attractions}
-        />
+        <ErrorBoundary>
+          <HotelsSection
+            destinationId={destination.id}
+            attractions={attractions}
+          />
+        </ErrorBoundary>
       )}
 
       {destination && (
-        <TransportSection
-          destinationId={destination.id}
-          destinationLat={Number(destination.center_lat)}
-          destinationLon={Number(destination.center_lon)}
-          destinationName={destination.name}
-        />
+        <ErrorBoundary>
+          <TransportSection
+            destinationId={destination.id}
+            destinationLat={Number(destination.center_lat)}
+            destinationLon={Number(destination.center_lon)}
+            destinationName={destination.name}
+          />
+        </ErrorBoundary>
       )}
 
       {destination && attractions.length > 0 && (
-        <SaveTripSection
-          destinationId={destination.id}
-          destinationName={destination.name}
-          attractions={attractions}
-        />
+        <ErrorBoundary>
+          <SaveTripSection
+            destinationId={destination.id}
+            destinationName={destination.name}
+            attractions={attractions}
+          />
+        </ErrorBoundary>
       )}
 
       {isComplete && (

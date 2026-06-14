@@ -5,7 +5,9 @@ import { flexibleFlightSearch } from "@/lib/flights/flexible-search";
 import { POLISH_AIRPORT_IATAS } from "@/lib/flights/polish-airports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logSearch } from "@/lib/history/log-search";
 import type { BoundingBox } from "@/types/domain";
+import type { FlightOffer } from "@/lib/api/travelpayouts";
 
 export const dynamic = "force-dynamic";
 
@@ -103,21 +105,100 @@ export async function POST(request: Request) {
           : undefined,
     });
 
-    return NextResponse.json({
-      result,
-      meta: {
-        destination_id: destination.id,
-        destination_name: destination.name,
-        destination_airports: destinationAirports,
-        searched_origins: origins.slice(0, parsed.data.max_origins),
+    const meta = {
+      destination_id: destination.id,
+      destination_name: destination.name,
+      destination_airports: destinationAirports,
+      searched_origins: origins.slice(0, parsed.data.max_origins),
+    };
+
+    logSearch({
+      userId: user.id,
+      searchType: "flights",
+      params: { ...parsed.data, origins: origins.slice(0, parsed.data.max_origins) },
+      resultSummary: {
+        offers_count: result.all_offers.length,
+        cheapest_count: result.cheapest.length,
       },
-    });
+    }).catch(() => {});
+
+    return NextResponse.json({ result, meta });
   } catch (error) {
+    const { data: cached } = await admin
+      .from("flight_offers_cache")
+      .select("*")
+      .in("origin_iata", origins.slice(0, parsed.data.max_origins))
+      .in("destination_iata", destinations)
+      .gte("departure_date", parsed.data.departure_date_from)
+      .lte("departure_date", parsed.data.departure_date_to)
+      .order("price_pln", { ascending: true })
+      .limit(20);
+
+    if (cached && cached.length > 0) {
+      const offers = cached.map(cacheRowToFlightOffer);
+      logSearch({
+        userId: user.id,
+        searchType: "flights",
+        params: parsed.data,
+        resultSummary: { offers_count: offers.length, fallback: true },
+      }).catch(() => {});
+
+      return NextResponse.json({
+        result: {
+          all_offers: offers,
+          cheapest: offers.slice(0, 5),
+          price_calendar: [],
+          suggestions: [],
+        },
+        meta: {
+          destination_id: destination.id,
+          destination_name: destination.name,
+          destination_airports: destinationAirports,
+          searched_origins: origins.slice(0, parsed.data.max_origins),
+          warning:
+            "API niedostępne, pokazuję ostatnie znane ceny. Dane mogą być nieaktualne.",
+          fallback_used: true,
+          oldest_fetched_at: cached[cached.length - 1]?.fetched_at,
+        },
+      });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Flight search failed",
+        fallback_used: false,
       },
-      { status: 500 },
+      { status: 503 },
     );
   }
+}
+
+function cacheRowToFlightOffer(
+  row: {
+    origin_iata: string;
+    destination_iata: string;
+    price_pln: number;
+    airline_code: string | null;
+    departure_date: string;
+    return_date: string | null;
+    transfers: number;
+    duration_minutes: number | null;
+    deep_link: string;
+  },
+): FlightOffer {
+  return {
+    origin_iata: row.origin_iata,
+    destination_iata: row.destination_iata,
+    price_pln: row.price_pln,
+    currency_original: "PLN",
+    price_original: row.price_pln,
+    airline_code: row.airline_code,
+    flight_number: null,
+    departure_date: row.departure_date,
+    return_date: row.return_date,
+    transfers: row.transfers,
+    duration_minutes: row.duration_minutes,
+    deep_link: row.deep_link,
+    source: "aviasales",
+  };
 }

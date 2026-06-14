@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Attraction } from "@/types/domain";
+import { RefineInput } from "@/components/features/RefineInput";
+import { SkeletonList } from "@/components/ui/Skeleton";
 
 type HotelSearchResult = {
   hotels: Array<{
@@ -47,6 +49,9 @@ type HotelSearchResult = {
     total_found: number;
     after_filter: number;
     used_location_name: string;
+    warning?: string;
+    fallback_used?: boolean;
+    oldest_fetched_at?: string;
   };
 };
 
@@ -97,32 +102,47 @@ export function HotelsSection({
     setSelectedAttractionIds(next);
   }
 
-  async function handleSearch() {
-    if (selectedAttractionIds.size === 0) {
+  function buildSearchParams() {
+    const ages = childrenAges
+      .split(",")
+      .map((s) => parseInt(s.trim()))
+      .filter((n) => !isNaN(n));
+    return {
+      destination_id: destinationId,
+      selected_attraction_ids: Array.from(selectedAttractionIds),
+      check_in: checkIn,
+      check_out: checkOut,
+      adults,
+      children_ages: ages,
+      has_rental_car: hasRentalCar,
+      property_type_filter: propertyFilter,
+    };
+  }
+
+  async function handleSearch(
+    override?: ReturnType<typeof buildSearchParams>,
+  ) {
+    const params = override ?? buildSearchParams();
+    if (params.selected_attraction_ids.length === 0) {
       setError("Wybierz co najmniej 1 atrakcję");
       return;
+    }
+    if (override) {
+      setSelectedAttractionIds(new Set(params.selected_attraction_ids));
+      setCheckIn(params.check_in);
+      setCheckOut(params.check_out);
+      setAdults(params.adults);
+      setChildrenAges(params.children_ages.join(", "));
+      setHasRentalCar(params.has_rental_car);
+      setPropertyFilter(params.property_type_filter);
     }
     setLoading(true);
     setError(null);
     try {
-      const ages = childrenAges
-        .split(",")
-        .map((s) => parseInt(s.trim()))
-        .filter((n) => !isNaN(n));
-
       const res = await fetch("/api/search/hotels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destination_id: destinationId,
-          selected_attraction_ids: Array.from(selectedAttractionIds),
-          check_in: checkIn,
-          check_out: checkOut,
-          adults,
-          children_ages: ages,
-          has_rental_car: hasRentalCar,
-          property_type_filter: propertyFilter,
-        }),
+        body: JSON.stringify(params),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -242,7 +262,7 @@ export function HotelsSection({
           Mam/będę miał wynajęte auto
         </label>
         <button
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           disabled={loading || !checkIn || !checkOut}
           className="border px-3 py-1 rounded bg-black text-white disabled:opacity-50"
         >
@@ -250,10 +270,57 @@ export function HotelsSection({
         </button>
       </div>
 
+      <RefineInput
+        searchType="hotels"
+        currentParams={buildSearchParams()}
+        onApply={(newParams) => {
+          handleSearch({
+            destination_id: destinationId,
+            selected_attraction_ids: Array.isArray(
+              newParams.selected_attraction_ids,
+            )
+              ? (newParams.selected_attraction_ids as string[])
+              : Array.from(selectedAttractionIds),
+            check_in: (newParams.check_in as string) ?? checkIn,
+            check_out: (newParams.check_out as string) ?? checkOut,
+            adults: (newParams.adults as number) ?? adults,
+            children_ages: Array.isArray(newParams.children_ages)
+              ? (newParams.children_ages as number[])
+              : childrenAges
+                  .split(",")
+                  .map((s) => parseInt(s.trim()))
+                  .filter((n) => !isNaN(n)),
+            has_rental_car:
+              typeof newParams.has_rental_car === "boolean"
+                ? newParams.has_rental_car
+                : hasRentalCar,
+            property_type_filter:
+              (newParams.property_type_filter as typeof propertyFilter) ??
+              propertyFilter,
+          });
+        }}
+      />
+
       {error && <p className="text-red-600 mb-4">Błąd: {error}</p>}
 
-      {results && (
+      {loading && <SkeletonList count={4} />}
+
+      {results && !loading && (
         <div className="space-y-4 text-sm">
+          {results.meta.warning && (
+            <p className="text-amber-700 border p-2 rounded bg-amber-50">
+              {results.meta.warning}
+              {results.meta.oldest_fetched_at && (
+                <span className="block text-xs mt-1">
+                  Ostatnia aktualizacja cache:{" "}
+                  {new Date(results.meta.oldest_fetched_at).toLocaleString(
+                    "pl-PL",
+                  )}
+                </span>
+              )}
+            </p>
+          )}
+
           <div className="border p-3 rounded bg-gray-50">
             <h3 className="font-medium mb-1">Rekomendacja typu noclegu</h3>
             <p>

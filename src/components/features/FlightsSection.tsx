@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { POLISH_AIRPORTS } from "@/lib/flights/polish-airports";
+import { RefineInput } from "@/components/features/RefineInput";
+import { SkeletonList } from "@/components/ui/Skeleton";
 
 type FlightOffer = {
   origin_iata: string;
@@ -40,6 +42,8 @@ type FlightSearchResult = {
     }>;
     searched_origins: string[];
     warning?: string;
+    fallback_used?: boolean;
+    oldest_fetched_at?: string;
   };
 };
 
@@ -66,22 +70,34 @@ export function FlightsSection({ destinationId }: { destinationId: string }) {
     setDateTo(end.toISOString().split("T")[0]);
   }, []);
 
-  async function handleSearch() {
+  function buildSearchParams() {
+    return {
+      destination_id: destinationId,
+      departure_date_from: dateFrom,
+      departure_date_to: dateTo,
+      trip_length_min_days: tripLength,
+      trip_length_max_days: tripLength,
+      max_origins: 4,
+      max_destinations: 3,
+    };
+  }
+
+  async function handleSearch(
+    override?: ReturnType<typeof buildSearchParams>,
+  ) {
+    const params = override ?? buildSearchParams();
+    if (override) {
+      setDateFrom(params.departure_date_from);
+      setDateTo(params.departure_date_to);
+      setTripLength(params.trip_length_min_days);
+    }
     setIsSearching(true);
     setError(null);
     try {
       const response = await fetch("/api/search/flights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destination_id: destinationId,
-          departure_date_from: dateFrom,
-          departure_date_to: dateTo,
-          trip_length_min_days: tripLength,
-          trip_length_max_days: tripLength,
-          max_origins: 4,
-          max_destinations: 3,
-        }),
+        body: JSON.stringify(params),
       });
 
       if (!response.ok) {
@@ -135,7 +151,7 @@ export function FlightsSection({ destinationId }: { destinationId: string }) {
           />
         </label>
         <button
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           disabled={isSearching || !dateFrom || !dateTo}
           className="border px-3 py-1 rounded bg-black text-white disabled:opacity-50"
         >
@@ -143,12 +159,44 @@ export function FlightsSection({ destinationId }: { destinationId: string }) {
         </button>
       </div>
 
+      <RefineInput
+        searchType="flights"
+        currentParams={buildSearchParams()}
+        onApply={(newParams) => {
+          handleSearch({
+            destination_id: destinationId,
+            departure_date_from:
+              (newParams.departure_date_from as string) ?? dateFrom,
+            departure_date_to:
+              (newParams.departure_date_to as string) ?? dateTo,
+            trip_length_min_days:
+              (newParams.trip_length_min_days as number) ?? tripLength,
+            trip_length_max_days:
+              (newParams.trip_length_max_days as number) ?? tripLength,
+            max_origins: (newParams.max_origins as number) ?? 4,
+            max_destinations: (newParams.max_destinations as number) ?? 3,
+          });
+        }}
+      />
+
       {error && <p className="text-red-600 mb-4">Błąd: {error}</p>}
 
-      {results && (
+      {isSearching && <SkeletonList count={4} />}
+
+      {results && !isSearching && (
         <div className="space-y-4 text-sm">
           {results.meta.warning && (
-            <p className="text-amber-700">{results.meta.warning}</p>
+            <p className="text-amber-700">
+              {results.meta.warning}
+              {results.meta.oldest_fetched_at && (
+                <span className="block text-xs mt-1">
+                  Ostatnia aktualizacja cache:{" "}
+                  {new Date(results.meta.oldest_fetched_at).toLocaleString(
+                    "pl-PL",
+                  )}
+                </span>
+              )}
+            </p>
           )}
 
           <div>

@@ -29,6 +29,10 @@ const REQUIRED_TABLES = [
   "trips",
   "trip_documents",
   "trip_share_views",
+  "trip_advisories",
+  "country_holidays",
+  "search_history",
+  "trip_comparisons",
 ] as const;
 
 export async function GET() {
