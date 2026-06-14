@@ -9,6 +9,135 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      airports: {
+        Row: {
+          airport_type: Database["public"]["Enums"]["airport_size"];
+          city: string | null;
+          country_code: string;
+          iata_code: string;
+          icao_code: string | null;
+          lat: number;
+          lon: number;
+          name: string;
+          scheduled_service: boolean;
+          timezone: string | null;
+        };
+        Insert: {
+          airport_type: Database["public"]["Enums"]["airport_size"];
+          city?: string | null;
+          country_code: string;
+          iata_code: string;
+          icao_code?: string | null;
+          lat: number;
+          lon: number;
+          name: string;
+          scheduled_service?: boolean;
+          timezone?: string | null;
+        };
+        Update: {
+          airport_type?: Database["public"]["Enums"]["airport_size"];
+          city?: string | null;
+          country_code?: string;
+          iata_code?: string;
+          icao_code?: string | null;
+          lat?: number;
+          lon?: number;
+          name?: string;
+          scheduled_service?: boolean;
+          timezone?: string | null;
+        };
+        Relationships: [];
+      };
+      destination_airports: {
+        Row: {
+          airport_iata: string;
+          destination_id: string;
+          distance_km: number;
+          priority: number;
+        };
+        Insert: {
+          airport_iata: string;
+          destination_id: string;
+          distance_km: number;
+          priority?: number;
+        };
+        Update: {
+          airport_iata?: string;
+          destination_id?: string;
+          distance_km?: number;
+          priority?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destination_airports_airport_iata_fkey";
+            columns: ["airport_iata"];
+            isOneToOne: false;
+            referencedRelation: "airports";
+            referencedColumns: ["iata_code"];
+          },
+          {
+            foreignKeyName: "destination_airports_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      flight_offers_cache: {
+        Row: {
+          airline_code: string | null;
+          cache_key: string;
+          deep_link: string;
+          departure_date: string;
+          destination_iata: string;
+          duration_minutes: number | null;
+          expires_at: string;
+          fetched_at: string;
+          id: string;
+          origin_iata: string;
+          price_pln: number;
+          raw_data: Json;
+          return_date: string | null;
+          source: string;
+          transfers: number;
+        };
+        Insert: {
+          airline_code?: string | null;
+          cache_key: string;
+          deep_link: string;
+          departure_date: string;
+          destination_iata: string;
+          duration_minutes?: number | null;
+          expires_at: string;
+          fetched_at?: string;
+          id?: string;
+          origin_iata: string;
+          price_pln: number;
+          raw_data?: Json;
+          return_date?: string | null;
+          source: string;
+          transfers?: number;
+        };
+        Update: {
+          airline_code?: string | null;
+          cache_key?: string;
+          deep_link?: string;
+          departure_date?: string;
+          destination_iata?: string;
+          duration_minutes?: number | null;
+          expires_at?: string;
+          fetched_at?: string;
+          id?: string;
+          origin_iata?: string;
+          price_pln?: number;
+          raw_data?: Json;
+          return_date?: string | null;
+          source?: string;
+          transfers?: number;
+        };
+        Relationships: [];
+      };
       api_cache: {
         Row: {
           cache_key: string;
@@ -658,6 +787,7 @@ export type Database = {
       };
     };
     Enums: {
+      airport_size: "large" | "medium" | "small";
       build_status: "in_progress" | "completed" | "failed";
       destination_type: "country" | "region" | "city" | "island" | "area";
       intensity_level: "low" | "medium" | "high";

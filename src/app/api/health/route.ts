@@ -19,6 +19,9 @@ const REQUIRED_TABLES = [
   "attraction_activity_tags",
   "destination_summaries",
   "destination_builds",
+  "airports",
+  "destination_airports",
+  "flight_offers_cache",
 ] as const;
 
 export async function GET() {
@@ -52,12 +55,22 @@ export async function GET() {
         break;
       }
     }
+
+    const { count: airportCount } = await supabase
+      .from("airports")
+      .select("*", { count: "exact", head: true });
+
+    checks.airports = {
+      ok: (airportCount ?? 0) > 1000,
+      message: `${airportCount ?? 0} airports`,
+    };
   } catch (e) {
     checks.supabase = {
       ok: false,
       message: e instanceof Error ? e.message : "Unknown error",
     };
     checks.tables = { ok: false, message: "Supabase check failed" };
+    checks.airports = { ok: false, message: "Airport check failed" };
   }
 
   const allOk = Object.values(checks).every((c) => c.ok);

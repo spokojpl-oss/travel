@@ -14,7 +14,11 @@ let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!client) {
-    client = new Anthropic({ apiKey: apiEnv.ANTHROPIC_API_KEY });
+    const key = apiEnv.ANTHROPIC_API_KEY;
+    if (!key) {
+      throw new Error("ANTHROPIC_API_KEY nie skonfigurowany");
+    }
+    client = new Anthropic({ apiKey: key });
   }
   return client;
 }

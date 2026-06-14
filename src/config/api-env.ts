@@ -1,8 +1,11 @@
 import { z } from "zod";
 
 const apiEnvSchema = z.object({
-  GOOGLE_PLACES_API_KEY: z.string().min(1),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  TRAVELPAYOUTS_TOKEN: z.string().min(1).optional(),
+  TRAVELPAYOUTS_MARKER_AVIASALES: z.string().min(1).optional(),
+  TRAVELPAYOUTS_MARKER_BOOKING: z.string().min(1).optional(),
 });
 
 type ApiEnv = z.infer<typeof apiEnvSchema>;

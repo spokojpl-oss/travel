@@ -1,5 +1,6 @@
 "use client";
 
+import { FlightsSection } from "@/components/features/FlightsSection";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Destination } from "@/types/domain";
@@ -314,6 +315,10 @@ export default function DestinationPage() {
             {JSON.stringify(weather, null, 2)}
           </pre>
         </section>
+      )}
+
+      {destination && (
+        <FlightsSection destinationId={destination.id} />
       )}
 
       {isComplete && (

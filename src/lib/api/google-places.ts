@@ -4,6 +4,14 @@ import type { BoundingBox, GeoPoint } from "@/types/domain";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1";
 
+function requireGooglePlacesKey(): string {
+  const key = apiEnv.GOOGLE_PLACES_API_KEY;
+  if (!key) {
+    throw new Error("GOOGLE_PLACES_API_KEY nie skonfigurowany");
+  }
+  return key;
+}
+
 type GooglePlaceSearchTextResponse = {
   places?: Array<{
     id: string;
@@ -59,7 +67,7 @@ export async function searchPlacesByText({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": apiEnv.GOOGLE_PLACES_API_KEY,
+          "X-Goog-Api-Key": requireGooglePlacesKey(),
           "X-Goog-FieldMask": [
             "places.id",
             "places.displayName",
@@ -122,7 +130,7 @@ export async function searchPlacesNearby({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": apiEnv.GOOGLE_PLACES_API_KEY,
+          "X-Goog-Api-Key": requireGooglePlacesKey(),
           "X-Goog-FieldMask": [
             "places.id",
             "places.displayName",
