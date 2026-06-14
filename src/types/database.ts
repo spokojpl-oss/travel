@@ -9,6 +9,160 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_cache: {
+        Row: {
+          cache_key: string;
+          created_at: string;
+          data: Json;
+          expires_at: string;
+          source: string;
+        };
+        Insert: {
+          cache_key: string;
+          created_at?: string;
+          data: Json;
+          expires_at: string;
+          source: string;
+        };
+        Update: {
+          cache_key?: string;
+          created_at?: string;
+          data?: Json;
+          expires_at?: string;
+          source?: string;
+        };
+        Relationships: [];
+      };
+      attractions: {
+        Row: {
+          address: string | null;
+          category: string;
+          created_at: string;
+          description: string | null;
+          destination_id: string | null;
+          duration_minutes: number | null;
+          external_id: string;
+          id: string;
+          lat: number;
+          lon: number;
+          min_age: number | null;
+          name: string;
+          opening_hours: string | null;
+          phone: string | null;
+          source: string;
+          subcategories: string[];
+          tags: Json;
+          updated_at: string;
+          website: string | null;
+        };
+        Insert: {
+          address?: string | null;
+          category: string;
+          created_at?: string;
+          description?: string | null;
+          destination_id?: string | null;
+          duration_minutes?: number | null;
+          external_id: string;
+          id?: string;
+          lat: number;
+          lon: number;
+          min_age?: number | null;
+          name: string;
+          opening_hours?: string | null;
+          phone?: string | null;
+          source: string;
+          subcategories?: string[];
+          tags?: Json;
+          updated_at?: string;
+          website?: string | null;
+        };
+        Update: {
+          address?: string | null;
+          category?: string;
+          created_at?: string;
+          description?: string | null;
+          destination_id?: string | null;
+          duration_minutes?: number | null;
+          external_id?: string;
+          id?: string;
+          lat?: number;
+          lon?: number;
+          min_age?: number | null;
+          name?: string;
+          opening_hours?: string | null;
+          phone?: string | null;
+          source?: string;
+          subcategories?: string[];
+          tags?: Json;
+          updated_at?: string;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attractions_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      destinations: {
+        Row: {
+          bounding_box: Json;
+          center_lat: number;
+          center_lon: number;
+          country_code: string;
+          created_at: string;
+          description: string | null;
+          destination_type: Database["public"]["Enums"]["destination_type"];
+          id: string;
+          name: string;
+          parent_destination_id: string | null;
+          slug: string;
+          timezone: string;
+          updated_at: string;
+        };
+        Insert: {
+          bounding_box: Json;
+          center_lat: number;
+          center_lon: number;
+          country_code: string;
+          created_at?: string;
+          description?: string | null;
+          destination_type: Database["public"]["Enums"]["destination_type"];
+          id?: string;
+          name: string;
+          parent_destination_id?: string | null;
+          slug: string;
+          timezone: string;
+          updated_at?: string;
+        };
+        Update: {
+          bounding_box?: Json;
+          center_lat?: number;
+          center_lon?: number;
+          country_code?: string;
+          created_at?: string;
+          description?: string | null;
+          destination_type?: Database["public"]["Enums"]["destination_type"];
+          id?: string;
+          name?: string;
+          parent_destination_id?: string | null;
+          slug?: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destinations_parent_destination_id_fkey";
+            columns: ["parent_destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       group_members: {
         Row: {
           age: number | null;
@@ -109,6 +263,27 @@ export type Database = {
           },
         ];
       };
+      scrape_locks: {
+        Row: {
+          acquired_at: string;
+          acquired_by: string;
+          expires_at: string;
+          lock_key: string;
+        };
+        Insert: {
+          acquired_at?: string;
+          acquired_by: string;
+          expires_at: string;
+          lock_key: string;
+        };
+        Update: {
+          acquired_at?: string;
+          acquired_by?: string;
+          expires_at?: string;
+          lock_key?: string;
+        };
+        Relationships: [];
+      };
       travel_groups: {
         Row: {
           created_at: string;
@@ -140,6 +315,59 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      weather_cache: {
+        Row: {
+          destination_id: string;
+          fetched_at: string;
+          forecast_date: string;
+          id: string;
+          precipitation_mm: number | null;
+          precipitation_probability: number | null;
+          source: string;
+          temp_max: number | null;
+          temp_min: number | null;
+          uv_index_max: number | null;
+          weather_code: number | null;
+          wind_speed_kmh: number | null;
+        };
+        Insert: {
+          destination_id: string;
+          fetched_at?: string;
+          forecast_date: string;
+          id?: string;
+          precipitation_mm?: number | null;
+          precipitation_probability?: number | null;
+          source: string;
+          temp_max?: number | null;
+          temp_min?: number | null;
+          uv_index_max?: number | null;
+          weather_code?: number | null;
+          wind_speed_kmh?: number | null;
+        };
+        Update: {
+          destination_id?: string;
+          fetched_at?: string;
+          forecast_date?: string;
+          id?: string;
+          precipitation_mm?: number | null;
+          precipitation_probability?: number | null;
+          source?: string;
+          temp_max?: number | null;
+          temp_min?: number | null;
+          uv_index_max?: number | null;
+          weather_code?: number | null;
+          wind_speed_kmh?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "weather_cache_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
             referencedColumns: ["id"];
           },
         ];
@@ -188,9 +416,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      cleanup_expired_cache: {
+        Args: Record<string, never>;
+        Returns: {
+          api_cache_deleted: number;
+          scrape_locks_deleted: number;
+        }[];
+      };
     };
     Enums: {
+      destination_type: "country" | "region" | "city" | "island" | "area";
       member_type: "adult" | "child" | "infant" | "senior";
       travel_style: "active" | "relax" | "mixed";
     };

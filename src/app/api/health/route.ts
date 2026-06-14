@@ -8,6 +8,11 @@ const REQUIRED_TABLES = [
   "travel_groups",
   "group_members",
   "group_preferences",
+  "destinations",
+  "attractions",
+  "api_cache",
+  "weather_cache",
+  "scrape_locks",
 ] as const;
 
 export async function GET() {
