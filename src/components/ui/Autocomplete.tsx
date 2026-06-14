@@ -42,6 +42,7 @@ export function Autocomplete({
 }) {
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -79,12 +80,14 @@ export function Autocomplete({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        containerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
       ) {
-        setOpen(false);
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -125,7 +128,14 @@ export function Autocomplete({
     };
   }, [open, displayedOptions.length]);
 
+  function formatOptionLabel(option: AutocompleteOption): string {
+    return option.sublabel
+      ? `${option.label}, ${option.sublabel}`
+      : option.label;
+  }
+
   function selectOption(option: AutocompleteOption) {
+    onValueChange(formatOptionLabel(option));
     onSelect(option);
     setOpen(false);
   }
@@ -151,6 +161,7 @@ export function Autocomplete({
 
   const dropdown = showDropdown ? (
     <ul
+      ref={dropdownRef}
       id={listId}
       role="listbox"
       style={dropdownStyle}
@@ -158,6 +169,7 @@ export function Autocomplete({
         "overflow-auto rounded-xl border border-border-default bg-white py-1 shadow-2xl",
         openUpward && "mb-1",
       )}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {isLoading && (
         <li className="px-4 py-3 text-sm text-text-tertiary">Szukam...</li>
@@ -167,8 +179,10 @@ export function Autocomplete({
           <li key={opt.id} role="option" aria-selected={i === highlight}>
             <button
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectOption(opt)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectOption(opt);
+              }}
               onMouseEnter={() => setHighlight(i)}
               className={cn(
                 "flex w-full flex-col px-4 py-3 text-left transition-colors",
