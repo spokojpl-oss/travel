@@ -4,12 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Logo } from "@/components/ui/Logo";
-
-const NAV_LINKS_AFTER_PLAN = [
-  { href: "/app/trips", label: "Moje wyjazdy" },
-  { href: "/app/compare", label: "Porównaj" },
-  { href: "/app#guide", label: "Jak to działa?" },
-] as const;
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { useT } from "@/i18n/locale-provider";
 
 export function Header({
   userEmail,
@@ -18,11 +14,14 @@ export function Header({
   userEmail?: string;
   variant?: "app" | "public";
 }) {
+  const t = useT();
   const [mobileOpen, setMobileOpen] = useState(false);
   const homeHref = variant === "app" ? "/app" : "/";
   const navLinks = [
-    { href: homeHref, label: "Zaplanuj" },
-    ...NAV_LINKS_AFTER_PLAN,
+    { href: homeHref, label: t("nav.plan") },
+    { href: "/app/trips", label: t("nav.trips") },
+    { href: "/app/compare", label: t("nav.compare") },
+    { href: "/app#guide", label: t("nav.howItWorks") },
   ];
 
   return (
@@ -45,12 +44,14 @@ export function Header({
               href="/app/groups"
               className="rounded-md px-3.5 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
-              Grupy
+              {t("nav.groups")}
             </Link>
           )}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageSwitcher className="hidden sm:inline-flex" />
+
           {userEmail ? (
             <div className="hidden items-center gap-3 md:flex">
               <span className="max-w-[180px] truncate text-sm text-white/70">
@@ -60,23 +61,23 @@ export function Header({
                 href="/app/profile"
                 className="rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/15"
               >
-                Profil
+                {t("nav.profile")}
               </Link>
               <form action="/auth/logout" method="POST">
                 <button
                   type="submit"
                   className="text-sm text-white/70 hover:text-white"
                 >
-                  Wyloguj
+                  {t("nav.logout")}
                 </button>
               </form>
             </div>
           ) : (
             <Link
               href="/login"
-              className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold hover:bg-accent-600"
+              className="hidden rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold hover:bg-accent-600 sm:inline-flex"
             >
-              Zaloguj się
+              {t("nav.login")}
             </Link>
           )}
 
@@ -84,7 +85,7 @@ export function Header({
             type="button"
             className="md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Menu"
+            aria-label={t("nav.menu")}
           >
             <svg
               className="h-6 w-6"
@@ -105,6 +106,9 @@ export function Header({
 
       {mobileOpen && (
         <div className="border-t border-white/10 md:hidden">
+          <div className="flex justify-end px-4 pt-3 sm:hidden">
+            <LanguageSwitcher />
+          </div>
           <nav className="space-y-1 px-4 py-3">
             {navLinks.map((link) => (
               <Link
@@ -123,23 +127,32 @@ export function Header({
                   className="block rounded-md px-3 py-2 text-base font-medium hover:bg-white/10"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Grupy
+                  {t("nav.groups")}
                 </Link>
                 <Link
                   href="/app/profile"
                   className="block rounded-md px-3 py-2 text-base font-medium hover:bg-white/10"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Profil
+                  {t("nav.profile")}
                 </Link>
                 {userEmail && (
                   <form action="/auth/logout" method="POST" className="px-3 py-2">
                     <button type="submit" className="text-white/80">
-                      Wyloguj
+                      {t("nav.logout")}
                     </button>
                   </form>
                 )}
               </>
+            )}
+            {!userEmail && (
+              <Link
+                href="/login"
+                className="block rounded-md bg-accent-500 px-3 py-2 text-center text-base font-semibold"
+                onClick={() => setMobileOpen(false)}
+              >
+                {t("nav.login")}
+              </Link>
             )}
           </nav>
         </div>

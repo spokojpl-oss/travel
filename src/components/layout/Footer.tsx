@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
+import { useT } from "@/i18n/locale-provider";
 
 export function Footer() {
+  const t = useT();
+
   return (
     <footer className="mt-auto border-t border-border-default bg-bg-soft">
       <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8">
@@ -11,13 +16,13 @@ export function Footer() {
               <Logo variant="footer" href="/" />
             </div>
             <p className="text-sm leading-relaxed text-text-secondary">
-              Twoje narzędzie do planowania wyjazdów rodzinnych.
+              {t("footer.tagline")}
             </p>
           </div>
 
           <div>
             <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-text-primary">
-              Narzędzia
+              {t("footer.tools")}
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
@@ -25,7 +30,7 @@ export function Footer() {
                   href="/app#search"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
-                  Wyszukiwarka
+                  {t("footer.search")}
                 </Link>
               </li>
               <li>
@@ -33,7 +38,7 @@ export function Footer() {
                   href="/app/trips"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
-                  Moje wyjazdy
+                  {t("nav.trips")}
                 </Link>
               </li>
               <li>
@@ -41,7 +46,7 @@ export function Footer() {
                   href="/app/compare"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
-                  Porównaj
+                  {t("nav.compare")}
                 </Link>
               </li>
             </ul>
@@ -49,7 +54,7 @@ export function Footer() {
 
           <div>
             <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-text-primary">
-              Konto
+              {t("footer.account")}
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
@@ -57,7 +62,7 @@ export function Footer() {
                   href="/app/profile"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
-                  Profil
+                  {t("nav.profile")}
                 </Link>
               </li>
               <li>
@@ -65,7 +70,7 @@ export function Footer() {
                   href="/app/groups"
                   className="text-text-secondary transition-colors hover:text-brand-700"
                 >
-                  Grupy podróżne
+                  {t("footer.travelGroups")}
                 </Link>
               </li>
             </ul>
@@ -73,21 +78,21 @@ export function Footer() {
 
           <div>
             <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-text-primary">
-              Pomoc
+              {t("footer.help")}
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <span className="text-text-tertiary">FAQ (wkrótce)</span>
+                <span className="text-text-tertiary">{t("footer.faqSoon")}</span>
               </li>
               <li>
-                <span className="text-text-tertiary">Prywatność (wkrótce)</span>
+                <span className="text-text-tertiary">{t("footer.privacySoon")}</span>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 border-t border-border-default pt-6 text-sm text-text-tertiary">
-          © {new Date().getFullYear()} Travel.app · Personal tool
+          © {new Date().getFullYear()} Travel.app · {t("footer.copyright")}
         </div>
       </div>
     </footer>

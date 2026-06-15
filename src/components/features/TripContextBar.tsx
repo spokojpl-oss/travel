@@ -1,6 +1,8 @@
 "use client";
 
-import { formatTripDateRange, formatTravelOrigin, travelModeIcon, type TripContext } from "@/lib/search/trip-context";
+import { formatTripDateRange, travelModeIcon, type TripContext } from "@/lib/search/trip-context";
+import { localeToIntl } from "@/i18n/config";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
@@ -14,20 +16,41 @@ export function TripContextBar({
   onEdit?: () => void;
   compact?: boolean;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const intl = localeToIntl(locale);
+
+  function formatOrigin(trip: TripContext): string {
+    const origin = trip.origin_label ?? trip.origin_iata ?? "—";
+    if (trip.travel_mode === "car" && trip.vehicle_source) {
+      const vehicle =
+        trip.vehicle_source === "own" ? t("context.ownCar") : t("context.rentalCar");
+      return `${origin} (${vehicle} ${t("context.carWord")})`;
+    }
+    const modeLabel =
+      {
+        car: t("travel.car"),
+        train: t("travel.train"),
+        bus: t("travel.bus"),
+        flight: t("travel.flight"),
+      }[trip.travel_mode] ?? trip.travel_mode;
+    return `${origin} (${modeLabel.toLowerCase()})`;
+  }
+
   const items: Array<{ icon: IconName; label: string; value: string }> = [
     {
       icon: travelModeIcon(trip.travel_mode),
-      label: "Podróż",
-      value: formatTravelOrigin(trip),
+      label: t("context.travel"),
+      value: formatOrigin(trip),
     },
     {
       icon: "calendar",
-      label: "Kiedy",
-      value: formatTripDateRange(trip),
+      label: t("context.when"),
+      value: formatTripDateRange(trip, intl),
     },
     {
       icon: "users",
-      label: "Kto",
+      label: t("context.who"),
       value: trip.passengers || "—",
     },
   ];
@@ -35,7 +58,7 @@ export function TripContextBar({
   if (trip.mode === "destination" && trip.destination_label) {
     items.unshift({
       icon: "map-pin",
-      label: "Dokąd",
+      label: t("context.where"),
       value: trip.destination_label,
     });
   }
@@ -43,7 +66,7 @@ export function TripContextBar({
   if (trip.mode === "activities" && trip.interests) {
     items.unshift({
       icon: "target",
-      label: "Zainteresowania",
+      label: t("context.interests"),
       value: trip.interests,
     });
   }
@@ -72,7 +95,7 @@ export function TripContextBar({
         </div>
         {onEdit && (
           <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
-            Zmień
+            {t("context.edit")}
           </Button>
         )}
       </CardBody>

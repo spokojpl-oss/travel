@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
 import { RegionMapMini } from "@/components/features/RegionMap";
 import {
@@ -48,6 +49,8 @@ type DataStatus = {
 };
 
 function SearchPageContent() {
+  const t = useT();
+  const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -274,8 +277,7 @@ function SearchPageContent() {
         "E",
       );
       setError(
-        dataStatus?.message ??
-          "Baza atrakcji nie jest gotowa — uruchom tagowanie w panelu admina.",
+        dataStatus?.message ?? t("search.dbNotReady"),
       );
       return;
     }
@@ -339,9 +341,7 @@ function SearchPageContent() {
         "A",
       );
       if (e instanceof Error && e.name === "AbortError") {
-        setError(
-          "Szukanie trwało zbyt długo — spróbuj mniej aktywności lub zawęź destynację.",
-        );
+        setError(t("search.timeout"));
       } else {
         setError(e instanceof Error ? e.message : "Unknown error");
       }
@@ -384,18 +384,16 @@ function SearchPageContent() {
     <PageContainer>
       <Breadcrumb
         items={[
-          { label: "Start", href: "/app" },
-          { label: "Wyniki wyszukiwania" },
+          { label: t("common.home"), href: "/app" },
+          { label: t("search.breadcrumb") },
         ]}
       />
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
-        {step === 3 ? "Wyniki wyszukiwania" : "Wybierz aktywności"}
+        {step === 3 ? t("search.titleResults") : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
-        {step === 3
-          ? "Regiony dopasowane do Twojej podróży i wybranych aktywności."
-          : "Dane podróży uzupełniłeś na stronie głównej — zaznacz co chcecie robić i szukaj regionów."}
+        {step === 3 ? t("search.subtitleResults") : t("search.subtitleActivities")}
       </p>
 
       <SearchStepIndicator
@@ -447,7 +445,7 @@ function SearchPageContent() {
           )}
 
           <Card className="mb-8">
-            <CardHeader title="Aktywności" />
+            <CardHeader title={t("search.activities")} />
             <CardBody>
               {pageLoading && <SkeletonList count={3} />}
               {!pageLoading && taxonomy.length === 0 && (
@@ -467,7 +465,7 @@ function SearchPageContent() {
                 taxonomy.map((group) => (
                   <div key={group.slug} className="mb-6 last:mb-0">
                     <h3 className="mb-3 font-semibold text-text-primary">
-                      {group.name_pl}
+                      {locale === "en" ? group.name_en : group.name_pl}
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {group.activities.map((activity) => {
@@ -483,7 +481,7 @@ function SearchPageContent() {
                                 : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
                             }`}
                           >
-                            {activity.name_pl}
+                            {locale === "en" ? activity.name_en : activity.name_pl}
                           </button>
                         );
                       })}
@@ -564,13 +562,13 @@ function SearchPageContent() {
               size="lg"
             >
               {isSearching
-                ? "Szukam regionów..."
+                ? t("search.searching")
                 : !dbReady
-                  ? "Brak danych OSM — uruchom scrape"
-                  : `Szukaj (${selectedActivities.size} aktywności)`}
+                  ? t("search.noOsm")
+                  : t("search.searchWithCount", { n: selectedActivities.size })}
             </Button>
             <Button variant="ghost" onClick={editTripOnHome}>
-              ← Zmień podróż na stronie głównej
+              {t("search.editTrip")}
             </Button>
           </div>
 

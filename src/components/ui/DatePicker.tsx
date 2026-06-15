@@ -5,22 +5,29 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
 import { agentLog } from "@/lib/debug/agent-log";
+import { useLocale, useT } from "@/i18n/locale-provider";
+import { localeToIntl } from "@/i18n/config";
 
-const WEEKDAYS = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
-const MONTHS = [
-  "Styczeń",
-  "Luty",
-  "Marzec",
-  "Kwiecień",
-  "Maj",
-  "Czerwiec",
-  "Lipiec",
-  "Sierpień",
-  "Wrzesień",
-  "Październik",
-  "Listopad",
-  "Grudzień",
-];
+const WEEKDAYS_PL = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+const WEEKDAYS_EN = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+function useDatePickerLocale() {
+  const t = useT();
+  const { locale } = useLocale();
+  const intlLocale = localeToIntl(locale);
+  const weekdays = locale === "en" ? WEEKDAYS_EN : WEEKDAYS_PL;
+  return {
+    intlLocale,
+    weekdays,
+    pickDateLabel: t("form.pickDate"),
+    choosingLabel: t("form.calendarChoosing"),
+    formatMonthYear: (month: number, year: number) =>
+      new Date(year, month, 1).toLocaleDateString(intlLocale, {
+        month: "long",
+        year: "numeric",
+      }),
+  };
+}
 
 function parseDate(value: string | null): Date | null {
   if (!value) return null;
@@ -57,10 +64,10 @@ function addDays(d: Date, days: number): Date {
   return next;
 }
 
-function formatDisplay(value: string): string {
+function formatDisplay(value: string, intlLocale: string, pickDateLabel: string): string {
   const selected = parseDate(value);
-  if (!selected) return "Wybierz datę";
-  return selected.toLocaleDateString("pl-PL", {
+  if (!selected) return pickDateLabel;
+  return selected.toLocaleDateString(intlLocale, {
     weekday: "short",
     day: "numeric",
     month: "long",
@@ -84,6 +91,7 @@ export function DatePicker({
   large?: boolean;
   className?: string;
 }) {
+  const calendar = useDatePickerLocale();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -102,6 +110,10 @@ export function DatePicker({
         }}
         onClose={() => setOpen(false)}
         headerHint={label}
+        intlLocale={calendar.intlLocale}
+        weekdays={calendar.weekdays}
+        choosingLabel={calendar.choosingLabel}
+        formatMonthYear={calendar.formatMonthYear}
       />
     ) : null;
 
@@ -110,7 +122,7 @@ export function DatePicker({
       <DateFieldButton
         label={label}
         value={value}
-        display={formatDisplay(value)}
+        display={formatDisplay(value, calendar.intlLocale, calendar.pickDateLabel)}
         large={large}
         className={className}
         open={open}
@@ -143,6 +155,7 @@ export function DateRangePicker({
   min?: string;
   className?: string;
 }) {
+  const calendar = useDatePickerLocale();
   const [activeField, setActiveField] = useState<"from" | "to" | null>(null);
   const fromRef = useRef<HTMLButtonElement>(null);
   const toRef = useRef<HTMLButtonElement>(null);
@@ -207,6 +220,10 @@ export function DateRangePicker({
         onSelect={handleDaySelect}
         onClose={() => setActiveField(null)}
         headerHint={activeField === "from" ? labelFrom ?? "Wyjazd" : labelTo ?? "Powrót"}
+        intlLocale={calendar.intlLocale}
+        weekdays={calendar.weekdays}
+        choosingLabel={calendar.choosingLabel}
+        formatMonthYear={calendar.formatMonthYear}
       />
     ) : null;
 
@@ -215,7 +232,7 @@ export function DateRangePicker({
       <DateFieldButton
         label={labelFrom ?? "Wyjazd"}
         value={fromValue}
-        display={formatDisplay(fromValue)}
+        display={formatDisplay(fromValue, calendar.intlLocale, calendar.pickDateLabel)}
         open={activeField === "from"}
         triggerRef={fromRef}
         onToggle={() =>
@@ -225,7 +242,7 @@ export function DateRangePicker({
       <DateFieldButton
         label={labelTo ?? "Powrót"}
         value={toValue}
-        display={formatDisplay(toValue)}
+        display={formatDisplay(toValue, calendar.intlLocale, calendar.pickDateLabel)}
         open={activeField === "to"}
         triggerRef={toRef}
         onToggle={() => setActiveField((f) => (f === "to" ? null : "to"))}
@@ -304,6 +321,10 @@ function CalendarPanel({
   onSelect,
   onClose,
   headerHint,
+  intlLocale,
+  weekdays,
+  choosingLabel,
+  formatMonthYear,
 }: {
   panelRef: React.RefObject<HTMLDivElement | null>;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
@@ -312,6 +333,10 @@ function CalendarPanel({
   onSelect: (iso: string) => void;
   onClose: () => void;
   headerHint?: string;
+  intlLocale: string;
+  weekdays: string[];
+  choosingLabel: string;
+  formatMonthYear: (month: number, year: number) => string;
 }) {
   const panelId = useId();
   const [viewMonth, setViewMonth] = useState(() =>
@@ -377,7 +402,7 @@ function CalendarPanel({
     >
       {headerHint && (
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Wybierasz: {headerHint}
+          {choosingLabel} {headerHint}
         </p>
       )}
       <div className="mb-4 flex items-center justify-between">
@@ -390,7 +415,7 @@ function CalendarPanel({
           ←
         </button>
         <span className="font-display text-lg font-bold text-text-primary">
-          {MONTHS[month]} {year}
+          {formatMonthYear(month, year)}
         </span>
         <button
           type="button"
@@ -403,7 +428,7 @@ function CalendarPanel({
       </div>
 
       <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-text-tertiary">
-        {WEEKDAYS.map((d) => (
+        {weekdays.map((d) => (
           <div key={d} className="py-1">
             {d}
           </div>

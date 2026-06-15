@@ -251,16 +251,19 @@ export function mergeTripContext(
   return normalizeTripContext({ ...base, ...partial });
 }
 
-export function formatTripDateRange(trip: TripContext): string {
+export function formatTripDateRange(
+  trip: TripContext,
+  intlLocale = "pl-PL",
+): string {
   const from = trip.departure_date
-    ? parseIsoDateLocal(trip.departure_date)?.toLocaleDateString("pl-PL", {
+    ? parseIsoDateLocal(trip.departure_date)?.toLocaleDateString(intlLocale, {
         day: "numeric",
         month: "short",
         year: "numeric",
       }) ?? "—"
     : "—";
   const to = trip.return_date
-    ? parseIsoDateLocal(trip.return_date)?.toLocaleDateString("pl-PL", {
+    ? parseIsoDateLocal(trip.return_date)?.toLocaleDateString(intlLocale, {
         day: "numeric",
         month: "short",
         year: "numeric",

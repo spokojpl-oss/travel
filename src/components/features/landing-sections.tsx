@@ -1,6 +1,10 @@
+"use client";
+
+import Link from "next/link";
 import { DestinationCard } from "./DestinationCard";
 import type { DestinationCardProps } from "./DestinationCard";
 import { FeatureCard } from "./AdvisoryCard";
+import { useT } from "@/i18n/locale-provider";
 
 export const POPULAR_DESTINATIONS = [
   {
@@ -50,6 +54,7 @@ export const POPULAR_DESTINATIONS = [
 ] satisfies DestinationCardProps[];
 
 export function PopularDestinationsSection() {
+  const t = useT();
   const [featured, ...rest] = POPULAR_DESTINATIONS;
 
   return (
@@ -58,13 +63,13 @@ export function PopularDestinationsSection() {
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="mb-3 inline-block text-xs font-semibold tracking-[0.2em] text-brand-700 uppercase">
-              Trending now
+              {t("landing.trending")}
             </div>
             <h2 className="font-display text-4xl font-bold tracking-tight text-text-primary md:text-5xl">
-              Popularne kierunki
+              {t("landing.popularTitle")}
             </h2>
             <p className="mt-3 text-text-secondary">
-              Co planują inni w sezonie lato 2026
+              {t("landing.popularSubtitle")}
             </p>
           </div>
         </div>
@@ -82,18 +87,19 @@ export function PopularDestinationsSection() {
 }
 
 export function WhyUsSection() {
+  const t = useT();
+
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-24 lg:px-8">
       <div className="relative mb-16 text-center">
         <div className="mb-3 inline-block text-xs font-semibold tracking-[0.2em] text-brand-700 uppercase">
-          Jak to działa
+          {t("landing.howLabel")}
         </div>
         <h2 className="font-display text-4xl font-bold tracking-tight text-text-primary md:text-5xl">
-          Inny niż wszystkie inne
+          {t("landing.whyTitle")}
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-text-secondary">
-          Większość portali zaczyna od pytania &quot;Dokąd?&quot;. My pytamy
-          &quot;Co chcecie robić?&quot;.
+          {t("landing.whyBody")}
         </p>
       </div>
 
@@ -101,21 +107,21 @@ export function WhyUsSection() {
         <FeatureCard
           number="01"
           icon="target"
-          title="Od aktywności, nie destynacji"
-          text="Powiedz co lubicie robić. System znajdzie regiony świata gdzie wszystkie aktywności są blisko siebie."
+          title={t("landing.feature1Title")}
+          text={t("landing.feature1Text")}
         />
         <FeatureCard
           number="02"
           icon="lightbulb"
-          title="Inteligentne porady"
-          text="Wykrywamy że hotel jest 2h jazdy od atrakcji. Sugerujemy open-jaw lot żeby zaoszczędzić 500 zł."
+          title={t("landing.feature2Title")}
+          text={t("landing.feature2Text")}
           accent="accent"
         />
         <FeatureCard
           number="03"
           icon="folder"
-          title="Folder wycieczki dla rodziny"
-          text="Plan dzień po dniu, lista do spakowania, pre-trip todo. Wyślij linkiem rodzinie."
+          title={t("landing.feature3Title")}
+          text={t("landing.feature3Text")}
           accent="success"
         />
       </div>

@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/i18n/locale-provider";
 
 type LoginMode = "password" | "magic_link";
 
 export default function LoginPage() {
+  const t = useT();
   const router = useRouter();
   const [mode, setMode] = useState<LoginMode>("password");
   const [email, setEmail] = useState("");
@@ -19,6 +21,19 @@ export default function LoginPage() {
     "idle" | "loading" | "sent" | "error"
   >("idle");
   const [errorMessage, setErrorMessage] = useState("");
+
+  function translateAuthError(message: string): string {
+    if (message.includes("Invalid login credentials")) {
+      return t("login.invalidCredentials");
+    }
+    if (message.includes("Email not confirmed")) {
+      return t("login.emailNotConfirmed");
+    }
+    if (message.includes("rate limit")) {
+      return t("login.rateLimit");
+    }
+    return message;
+  }
 
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +51,7 @@ export default function LoginPage() {
 
       if (!response.ok) {
         setStatus("error");
-        setErrorMessage(translateAuthError(data.error ?? "Logowanie nieudane"));
+        setErrorMessage(translateAuthError(data.error ?? t("login.loginFailed")));
         return;
       }
 
@@ -45,7 +60,7 @@ export default function LoginPage() {
     } catch (err) {
       setStatus("error");
       setErrorMessage(
-        err instanceof Error ? err.message : "Błąd połączenia z serwerem",
+        err instanceof Error ? err.message : t("login.connectionError"),
       );
     }
   }
@@ -66,7 +81,7 @@ export default function LoginPage() {
 
       if (!response.ok) {
         setStatus("error");
-        setErrorMessage(translateAuthError(data.error ?? "Wysyłka nieudana"));
+        setErrorMessage(translateAuthError(data.error ?? t("login.sendFailed")));
         return;
       }
 
@@ -74,7 +89,7 @@ export default function LoginPage() {
     } catch (err) {
       setStatus("error");
       setErrorMessage(
-        err instanceof Error ? err.message : "Błąd połączenia z serwerem",
+        err instanceof Error ? err.message : t("login.connectionError"),
       );
     }
   }
@@ -85,10 +100,10 @@ export default function LoginPage() {
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md rounded-2xl border border-border-default bg-white p-8 shadow-card">
           <h1 className="font-display mb-2 text-2xl font-bold text-text-primary">
-            Zaloguj się
+            {t("login.title")}
           </h1>
           <p className="mb-6 text-sm text-text-secondary">
-            Planuj wakacje dopasowane do Twojej rodziny
+            {t("login.subtitle")}
           </p>
 
           <div className="mb-6 flex gap-2 rounded-lg bg-bg-soft p-1 text-sm">
@@ -105,7 +120,7 @@ export default function LoginPage() {
                   : "text-text-secondary"
               }`}
             >
-              Email i hasło
+              {t("login.passwordTab")}
             </button>
             <button
               type="button"
@@ -120,20 +135,20 @@ export default function LoginPage() {
                   : "text-text-secondary"
               }`}
             >
-              Magic link
+              {t("login.magicTab")}
             </button>
           </div>
 
           {status === "sent" && mode === "magic_link" ? (
             <p className="text-text-secondary">
-              Sprawdź email – wysłaliśmy link do logowania na{" "}
+              {t("login.magicSent")}{" "}
               <strong className="text-text-primary">{email}</strong>
             </p>
           ) : mode === "password" ? (
             <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
               <Input
                 type="email"
-                label="Email"
+                label={t("login.email")}
                 placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -143,7 +158,7 @@ export default function LoginPage() {
               />
               <Input
                 type="password"
-                label="Hasło"
+                label={t("login.password")}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -152,14 +167,14 @@ export default function LoginPage() {
                 disabled={status === "loading"}
               />
               <Button type="submit" disabled={status === "loading"} className="w-full">
-                {status === "loading" ? "Loguję..." : "Zaloguj się"}
+                {status === "loading" ? t("login.submitting") : t("login.submit")}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleMagicLink} className="flex flex-col gap-4">
               <Input
                 type="email"
-                label="Email"
+                label={t("login.email")}
                 placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -167,22 +182,21 @@ export default function LoginPage() {
                 disabled={status === "loading"}
               />
               <Button type="submit" disabled={status === "loading"} className="w-full">
-                {status === "loading" ? "Wysyłam..." : "Wyślij link logowania"}
+                {status === "loading" ? t("login.sending") : t("login.sendLink")}
               </Button>
-              <p className="text-xs text-text-tertiary">
-                Magic link wymaga działającej poczty w Supabase. Na darmowym planie
-                limit to ~4 maile/godz. Jeśli nie przychodzi – użyj email i hasło.
-              </p>
+              <p className="text-xs text-text-tertiary">{t("login.magicHint")}</p>
             </form>
           )}
 
           {status === "error" && (
-            <p className="mt-4 text-sm text-danger">Błąd: {errorMessage}</p>
+            <p className="mt-4 text-sm text-danger">
+              {t("login.error")} {errorMessage}
+            </p>
           )}
 
           <p className="mt-6 text-center text-sm">
             <Link href="/" className="text-brand-700 hover:underline">
-              ← Strona główna
+              {t("login.backHome")}
             </Link>
           </p>
         </div>
@@ -190,17 +204,4 @@ export default function LoginPage() {
       <Footer />
     </div>
   );
-}
-
-function translateAuthError(message: string): string {
-  if (message.includes("Invalid login credentials")) {
-    return "Nieprawidłowy email lub hasło.";
-  }
-  if (message.includes("Email not confirmed")) {
-    return "Email nie został potwierdzony. W Supabase wyłącz „Confirm email” lub potwierdź konto.";
-  }
-  if (message.includes("rate limit")) {
-    return "Za dużo prób. Poczekaj chwilę i spróbuj ponownie.";
-  }
-  return message;
 }

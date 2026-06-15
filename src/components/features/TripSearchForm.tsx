@@ -18,6 +18,7 @@ import {
   type TripContext,
   type VehicleSource,
 } from "@/lib/search/trip-context";
+import { useT } from "@/i18n/locale-provider";
 
 async function searchPlacesApi(
   query: string,
@@ -91,6 +92,7 @@ export function TripSearchForm({
   large?: boolean;
   className?: string;
 }) {
+  const t = useT();
   const searchAirports = useCallback(
     (q: string) => searchPlacesApi(q, "airport"),
     [],
@@ -109,13 +111,26 @@ export function TripSearchForm({
   const isFlight = trip.travel_mode === "flight";
   const isCar = trip.travel_mode === "car";
 
+  const travelModeLabel = (mode: TravelMode) => {
+    const map: Record<TravelMode, string> = {
+      car: t("travel.car"),
+      train: t("travel.train"),
+      bus: t("travel.bus"),
+      flight: t("travel.flight"),
+    };
+    return map[mode];
+  };
+
+  const vehicleSourceLabel = (source: VehicleSource) =>
+    source === "own" ? t("travel.own") : t("travel.rental");
+
   return (
     <div className={cn("space-y-3", className)}>
       {showInterests && (
-        <FieldShell label="Co chcecie robić?" icon="target" large={large}>
+        <FieldShell label={t("form.interests")} icon="target" large={large}>
           <input
             type="text"
-            placeholder="np. quady, rowery, jaskinie"
+            placeholder={t("form.interestsPlaceholder")}
             value={trip.interests}
             onChange={(e) => onChange({ ...trip, interests: e.target.value })}
             className={cn(
@@ -128,9 +143,9 @@ export function TripSearchForm({
 
       {showDestination && trip.mode === "destination" && (
         <Autocomplete
-          label="Dokąd?"
+          label={t("form.destination")}
           icon="map-pin"
-          placeholder="Dowolne miejsce na świecie..."
+          placeholder={t("form.destinationPlaceholder")}
           value={trip.destination_label ?? trip.destination ?? ""}
           onValueChange={(v) =>
             onChange({
@@ -159,8 +174,8 @@ export function TripSearchForm({
       )}
 
       <DateRangePicker
-        labelFrom="Wyjazd"
-        labelTo="Powrót"
+        labelFrom={t("form.departure")}
+        labelTo={t("form.return")}
         fromValue={trip.departure_date}
         toValue={trip.return_date ?? ""}
         onFromChange={(v, suggestedTo) => {
@@ -183,14 +198,14 @@ export function TripSearchForm({
         min={minDate}
       />
 
-      <FieldShell label="Jak jedziecie?" icon="route" large={large}>
+      <FieldShell label={t("form.howTravel")} icon="route" large={large}>
         <div className="flex flex-wrap gap-2">
           {TRAVEL_MODE_OPTIONS.map((option) => (
             <ChoiceChip
               key={option.value}
               active={trip.travel_mode === option.value}
               icon={travelModeIcon(option.value)}
-              label={option.label}
+              label={travelModeLabel(option.value)}
               onClick={() => onChange(applyTravelModeChange(trip, option.value))}
             />
           ))}
@@ -198,14 +213,14 @@ export function TripSearchForm({
       </FieldShell>
 
       {isCar && (
-        <FieldShell label="Samochód" icon="car" large={large}>
+        <FieldShell label={t("form.car")} icon="car" large={large}>
           <div className="flex flex-wrap gap-2">
             {VEHICLE_SOURCE_OPTIONS.map((option) => (
               <ChoiceChip
                 key={option.value}
                 active={trip.vehicle_source === option.value}
                 icon={option.value === "own" ? "car" : "route"}
-                label={option.label}
+                label={vehicleSourceLabel(option.value)}
                 onClick={() =>
                   onChange({
                     ...trip,
@@ -221,9 +236,9 @@ export function TripSearchForm({
       <div className="grid gap-3 sm:grid-cols-2">
         {isFlight ? (
           <Autocomplete
-            label="Skąd lecisz?"
+            label={t("form.fromFlight")}
             icon="plane"
-            placeholder="Warszawa, Berlin, Bangkok..."
+            placeholder={t("form.originFlightPlaceholder")}
             value={trip.origin_label ?? trip.origin_iata ?? ""}
             onValueChange={(v) =>
               onChange({
@@ -250,9 +265,9 @@ export function TripSearchForm({
           />
         ) : (
           <Autocomplete
-            label="Skąd wyjeżdżacie?"
+            label={t("form.fromGround")}
             icon="map-pin"
-            placeholder="Warszawa, Kraków, Gdańsk..."
+            placeholder={t("form.originGroundPlaceholder")}
             value={trip.origin_label ?? ""}
             onValueChange={(v) =>
               onChange({

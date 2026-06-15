@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
+import { useT } from "@/i18n/locale-provider";
 
 export type PassengerBreakdown = {
   adults: number;
@@ -115,6 +116,8 @@ export function PassengerSelector({
   large?: boolean;
   className?: string;
 }) {
+  const t = useT();
+
   function setChildren(count: number) {
     const ages = [...value.childAges];
     while (ages.length < count) ages.push(8);
@@ -137,19 +140,19 @@ export function PassengerSelector({
     >
       <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
         <Icon name="users" size={14} />
-        <span>Kto jedzie?</span>
+        <span>{t("passengers.whoTravels")}</span>
       </div>
 
       <div className="space-y-3">
         <Stepper
-          label="Dorośli (18+)"
+          label={t("passengers.adultsLabel")}
           value={value.adults}
           min={1}
           max={9}
           onChange={(adults) => onChange({ ...value, adults })}
         />
         <Stepper
-          label="Dzieci (0–17 lat)"
+          label={t("passengers.childrenLabel")}
           value={value.children}
           min={0}
           max={6}

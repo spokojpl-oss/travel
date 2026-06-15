@@ -14,8 +14,10 @@ import {
   type TripContext,
 } from "@/lib/search/trip-context";
 import { agentLog } from "@/lib/debug/agent-log";
+import { useT } from "@/i18n/locale-provider";
 
 function HeroSearchContent({ compact = false }: { compact?: boolean }) {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
@@ -164,14 +166,13 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
                 : "text-4xl md:text-5xl lg:text-6xl",
             )}
           >
-            Zaplanuj wakacje
+            {t("hero.title1")}
             <br />
-            <span className="text-accent-500">dopasowane do rodziny</span>
+            <span className="text-accent-500">{t("hero.title2")}</span>
           </h1>
           {!compact && (
             <p className="mx-auto mt-6 max-w-2xl text-lg text-white/70">
-              Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i
-              transport dopasowany do Waszego sposobu podróżowania.
+              {t("hero.subtitle")}
             </p>
           )}
         </div>
@@ -181,13 +182,13 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             <TabButton
               active={trip.mode === "activities"}
               onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
-              label="Od aktywności"
+              label={t("hero.tabActivities")}
               icon="target"
             />
             <TabButton
               active={trip.mode === "destination"}
               onClick={() => setTrip((t) => ({ ...t, mode: "destination" }))}
-              label="Od destynacji"
+              label={t("hero.tabDestination")}
               icon="map-pin"
             />
           </div>
@@ -208,16 +209,16 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
               className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent-500 px-8 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99] disabled:opacity-70"
             >
               <Icon name="search" size={20} />
-              {submitting ? "Przygotowuję wyszukiwanie..." : "Szukaj wakacji"}
+              {submitting ? t("hero.searching") : t("hero.search")}
             </button>
           </div>
         </div>
 
         {!compact && (
           <div className="mt-12 flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm text-white/70">
-            <TrustBadge>Bez ukrytych kosztów</TrustBadge>
-            <TrustBadge>Bezpośrednie linki do partnerów</TrustBadge>
-            <TrustBadge>Inteligentne porady przed wyjazdem</TrustBadge>
+            <TrustBadge>{t("hero.trustNoFees")}</TrustBadge>
+            <TrustBadge>{t("hero.trustDirectLinks")}</TrustBadge>
+            <TrustBadge>{t("hero.trustAdvisories")}</TrustBadge>
           </div>
         )}
       </div>
