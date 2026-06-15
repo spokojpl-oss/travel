@@ -124,6 +124,13 @@ export type GeoCluster = {
   covered_activities: string[];
   score: number;
   activity_counts: Record<string, number>;
+  /** Miejscowość bazowa na nocleg — centrum klastra jest tu, nie w „środku lasu”. */
+  settlement?: {
+    name: string;
+    lat: number;
+    lon: number;
+    country_code?: string;
+  };
 };
 
 export type ActivitySearchQuery = {

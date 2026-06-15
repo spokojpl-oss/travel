@@ -21,7 +21,9 @@ export function buildClusterMapData(cluster: GeoCluster): {
     {
       id: "centroid",
       type: "centroid",
-      label: "Centrum regionu",
+      label: cluster.settlement?.name
+        ? `Baza pobytu: ${cluster.settlement.name}`
+        : "Centrum regionu",
       lat: center.lat,
       lon: center.lon,
       badge:

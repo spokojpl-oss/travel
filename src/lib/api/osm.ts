@@ -132,8 +132,12 @@ function normalizeOsmElement(
   const addressParts = [
     tags["addr:street"],
     tags["addr:housenumber"],
+    tags["addr:city"] ??
+      tags["is_in:city"] ??
+      tags["is_in:municipality"] ??
+      tags["is_in:town"] ??
+      tags["is_in:village"],
     tags["addr:postcode"],
-    tags["addr:city"],
   ].filter(Boolean);
   const address = addressParts.length > 0 ? addressParts.join(", ") : null;
 

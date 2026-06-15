@@ -1,10 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
+import { enrichClusterWithSettlement } from "./settlement-resolver";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
   Attraction,
   AttractionWithActivities,
+  GeoCluster,
 } from "@/types/domain";
 
 const MAX_TAG_ROWS_GLOBAL = 8000;
@@ -265,11 +267,18 @@ export async function searchActivities(
     attractions: cluster.attractions.slice(0, 12),
   }));
 
-  let filtered = topClusters;
+  const enrichedClusters: GeoCluster[] = [];
+  for (const cluster of topClusters) {
+    enrichedClusters.push(await enrichClusterWithSettlement(cluster));
+  }
+
+  const withSettlement = enrichedClusters.filter((c) => c.settlement?.name);
+
+  let filtered = withSettlement;
   if (hasNearPoint(query)) {
     const center = { lat: query.near_lat, lon: query.near_lon };
     const radius = geoRadiusUsed ?? query.near_radius_km ?? 200;
-    filtered = topClusters
+    filtered = enrichedClusters
       .map((cluster) => ({
         cluster,
         dist: distanceKm(cluster.center, center),

@@ -8,6 +8,7 @@ import {
   type WikivoyageDestinationContent,
 } from "@/lib/api/wikivoyage";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { enrichClusterWithSettlement } from "@/lib/search/settlement-resolver";
 import {
   getOrCreateDestinationSummary,
   type DestinationSummary,
@@ -58,8 +59,9 @@ export async function* buildDestinationPage(
   const supabase = createAdminClient();
   const buildId = crypto.randomUUID();
 
-  const destinationName = generateDestinationName(input.cluster);
-  const slug = generateSlug(input.cluster);
+  const cluster = await enrichClusterWithSettlement(input.cluster);
+  const destinationName = generateDestinationName(cluster);
+  const slug = generateSlug(cluster);
 
   yield { type: "started", destination_name: destinationName };
 
@@ -68,11 +70,11 @@ export async function* buildDestinationPage(
     destination = await findOrCreateDestination({
       slug,
       name: destinationName,
-      countryCode: detectCountryFromCluster(input.cluster) ?? "XX",
-      type: "area",
-      centerLat: input.cluster.center.lat,
-      centerLon: input.cluster.center.lon,
-      boundingBox: input.cluster.bbox,
+      countryCode: detectCountryFromCluster(cluster) ?? "XX",
+      type: cluster.settlement ? "city" : "area",
+      centerLat: cluster.center.lat,
+      centerLon: cluster.center.lon,
+      boundingBox: cluster.bbox,
       timezone: "UTC",
     });
   } catch (error) {
@@ -94,7 +96,7 @@ export async function* buildDestinationPage(
   if (input.trip?.dateFrom && input.trip.dateTo) {
     try {
       weatherSummary = await fetchWeatherForRange({
-        location: input.cluster.center,
+        location: cluster.center,
         destinationId: destination.id,
         dateFrom: input.trip.dateFrom,
         dateTo: input.trip.dateTo,
@@ -109,7 +111,7 @@ export async function* buildDestinationPage(
   let wikivoyage: WikivoyageDestinationContent | null = null;
   try {
     wikivoyage = await fetchWikivoyageDestination({
-      pageName: guessWikivoyagePageName(destinationName, input.cluster),
+      pageName: guessWikivoyagePageName(destinationName, cluster),
     });
     await markStepComplete(buildId, "wikivoyage");
   } catch (error) {
@@ -117,7 +119,7 @@ export async function* buildDestinationPage(
   }
   yield { type: "wikivoyage_loaded", wikivoyage };
 
-  const matchingAttractions: AttractionWithActivities[] = input.cluster.attractions;
+  const matchingAttractions: AttractionWithActivities[] = cluster.attractions;
   const allAttractions = matchingAttractions;
 
   if (matchingAttractions.length > 0) {
@@ -147,7 +149,7 @@ export async function* buildDestinationPage(
       placeQueries
         .slice(0, 5)
         .map((q) =>
-          searchPlacesByText({ textQuery: q, bbox: input.cluster.bbox }),
+          searchPlacesByText({ textQuery: q, bbox: cluster.bbox }),
         ),
     );
     googlePlaces = placeResults.flat();
@@ -286,6 +288,8 @@ function errorMsg(error: unknown): string {
 }
 
 function generateDestinationName(cluster: GeoCluster): string {
+  if (cluster.settlement?.name) return cluster.settlement.name;
+
   const topAttractions = cluster.attractions
     .filter((a) => a.address)
     .slice(0, 3);
@@ -295,7 +299,7 @@ function generateDestinationName(cluster: GeoCluster): string {
       .map((a) => extractCityFromAddress(a.address ?? ""))
       .filter(Boolean) as string[];
     if (cities.length > 0) {
-      return `Region: ${cities[0]}`;
+      return cities[0];
     }
   }
 
@@ -309,10 +313,20 @@ function extractCityFromAddress(address: string): string | null {
 }
 
 export function generateSlug(cluster: GeoCluster): string {
+  if (cluster.settlement?.name) {
+    const base = cluster.settlement.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    return `${base}-${cluster.id.slice(0, 6)}`;
+  }
   return `region-${cluster.id}`;
 }
 
 function detectCountryFromCluster(cluster: GeoCluster): string | null {
+  if (cluster.settlement?.country_code) return cluster.settlement.country_code;
   for (const a of cluster.attractions) {
     if (a.address) {
       const lastPart = a.address.split(",").pop()?.trim();

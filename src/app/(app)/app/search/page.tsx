@@ -11,6 +11,7 @@ import {
   TripContextBar,
 } from "@/components/features/TripContextBar";
 import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
+import { clusterDisplayName } from "@/lib/search/settlement-resolver";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -602,10 +603,12 @@ function SearchPageContent() {
               />
               <CardBody>
                 <h3 className="font-display text-lg font-bold text-text-primary">
-                  #{idx + 1} – Region {cluster.center.lat.toFixed(2)},{" "}
-                  {cluster.center.lon.toFixed(2)}
+                  #{idx + 1} – {clusterDisplayName(cluster)}
                 </h3>
                 <p className="mt-1 text-sm text-text-secondary">
+                  {cluster.settlement?.name
+                    ? `Baza pobytu: ${cluster.settlement.name} · `
+                    : ""}
                   Score: {cluster.score} · Rozpiętość: {cluster.radius_km} km ·
                   Atrakcji: {cluster.attractions.length}
                   {cluster.radius_km > 25 && (
