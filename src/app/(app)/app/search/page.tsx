@@ -278,6 +278,7 @@ function SearchPageContent() {
       near_lon?: number;
       near_radius_km?: number;
       exploration_scope?: ExplorationScope;
+      destination_label?: string;
     } = {
       activities: Array.from(selectedActivities),
       match_mode: matchMode,
@@ -304,6 +305,10 @@ function SearchPageContent() {
         : trip.mode === "destination"
           ? 150
           : 250;
+    }
+
+    if (trip.destination_label) {
+      params.destination_label = trip.destination_label;
     }
 
     return params;

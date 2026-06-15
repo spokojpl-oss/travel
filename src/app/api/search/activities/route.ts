@@ -20,6 +20,7 @@ const searchRequestSchema = z.object({
   exploration_scope: z
     .enum(["local", "region", "island", "roadtrip"])
     .optional(),
+  destination_label: z.string().optional(),
 });
 
 export async function POST(request: Request) {

@@ -1,8 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  countActivitiesNearPoint,
-  fillDestinationAttractionsFromOsm,
-} from "@/lib/api/destination-osm-fill";
+import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
+import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
 import {
   applyExplorationScopeToQuery,
@@ -191,6 +189,95 @@ function countBy<T>(items: T[], keyFn: (item: T) => string): Record<string, numb
   return out;
 }
 
+function mergeTagRows(a: TagRow[], b: TagRow[]): TagRow[] {
+  const seen = new Set<string>();
+  const out: TagRow[] = [];
+  for (const row of [...a, ...b]) {
+    const key = `${row.attraction_id}:${row.activity_slug}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+function missingActivities(tagRows: TagRow[], activities: string[]): string[] {
+  const covered = new Set(tagRows.map((r) => r.activity_slug));
+  return activities.filter((slug) => !covered.has(slug));
+}
+
+async function fetchTagRowsForRadii(
+  supabase: ReturnType<typeof createAdminClient>,
+  query: ActivitySearchQuery & { near_lat: number; near_lon: number },
+): Promise<{
+  tagRows: TagRow[];
+  geoRadiusUsed: number | null;
+  attractionsInBbox: number;
+}> {
+  const center = { lat: query.near_lat, lon: query.near_lon };
+  const radii = [query.near_radius_km ?? 150, 250, 400];
+
+  let tagRows: TagRow[] = [];
+  let geoRadiusUsed: number | null = null;
+  let attractionsInBbox = 0;
+
+  for (const radiusKm of radii) {
+    const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
+    attractionsInBbox = Math.max(attractionsInBbox, ids.length);
+    if (ids.length === 0) continue;
+
+    const rows = await fetchTagRows(supabase, query.activities, ids);
+    tagRows = mergeTagRows(tagRows, rows);
+    geoRadiusUsed = radiusKm;
+
+    if (missingActivities(tagRows, query.activities).length === 0) {
+      break;
+    }
+  }
+
+  return { tagRows, geoRadiusUsed, attractionsInBbox };
+}
+
+async function supplementMissingActivities(
+  query: ActivitySearchQuery & { near_lat: number; near_lon: number },
+  missing: string[],
+): Promise<{ osmFilled: boolean; googleFilled: boolean }> {
+  const center = { lat: query.near_lat, lon: query.near_lon };
+  const radiusKm = query.near_radius_km ?? 120;
+  let osmFilled = false;
+  let googleFilled = false;
+
+  if (missing.length === 0) return { osmFilled, googleFilled };
+
+  try {
+    await fillDestinationAttractionsFromOsm({
+      lat: center.lat,
+      lon: center.lon,
+      radiusKm,
+      activitySlugs: missing,
+    });
+    osmFilled = true;
+  } catch {
+    /* optional */
+  }
+
+  try {
+    const result = await fillDestinationAttractionsFromGoogle({
+      lat: center.lat,
+      lon: center.lon,
+      radiusKm,
+      activitySlugs: query.activities,
+      destinationLabel: query.destination_label,
+      onlySlugs: missing,
+    });
+    if (result.persisted > 0) googleFilled = true;
+  } catch {
+    /* optional */
+  }
+
+  return { osmFilled, googleFilled };
+}
+
 export async function searchActivities(
   query: ActivitySearchQuery,
 ): Promise<ActivitySearchResult> {
@@ -206,51 +293,27 @@ export async function searchActivities(
   let geoRadiusUsed: number | null = null;
   let attractionsInBbox = 0;
   let osmFilled = false;
+  let googleFilled = false;
 
   if (hasNearPoint(effectiveQuery)) {
-    const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
-    const radii = [
-      effectiveQuery.near_radius_km ?? 150,
-      250,
-      400,
-    ];
+    const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery);
+    tagRows = fetched.tagRows;
+    geoRadiusUsed = fetched.geoRadiusUsed;
+    attractionsInBbox = fetched.attractionsInBbox;
 
-    for (const radiusKm of radii) {
-      const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
-      attractionsInBbox = ids.length;
+    let missing = missingActivities(tagRows, effectiveQuery.activities);
+    if (missing.length > 0) {
+      const supplemented = await supplementMissingActivities(
+        effectiveQuery,
+        missing,
+      );
+      osmFilled = supplemented.osmFilled;
+      googleFilled = supplemented.googleFilled;
 
-      if (ids.length === 0) continue;
-
-      tagRows = await fetchTagRows(supabase, effectiveQuery.activities, ids);
-      if (tagRows.length > 0) {
-        geoRadiusUsed = radiusKm;
-        break;
-      }
-    }
-
-    if (tagRows.length === 0) {
-      try {
-        await fillDestinationAttractionsFromOsm({
-          lat: center.lat,
-          lon: center.lon,
-          radiusKm: effectiveQuery.near_radius_km ?? 120,
-          activitySlugs: effectiveQuery.activities,
-        });
-        osmFilled = true;
-
-        for (const radiusKm of radii) {
-          const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
-          attractionsInBbox = ids.length;
-          if (ids.length === 0) continue;
-          tagRows = await fetchTagRows(supabase, effectiveQuery.activities, ids);
-          if (tagRows.length > 0) {
-            geoRadiusUsed = radiusKm;
-            break;
-          }
-        }
-      } catch {
-        /* OSM fill optional */
-      }
+      const refetched = await fetchTagRowsForRadii(supabase, effectiveQuery);
+      tagRows = refetched.tagRows;
+      geoRadiusUsed = refetched.geoRadiusUsed ?? geoRadiusUsed;
+      attractionsInBbox = Math.max(attractionsInBbox, refetched.attractionsInBbox);
     }
   } else {
     tagRows = await fetchTagRows(supabase, effectiveQuery.activities);
@@ -267,6 +330,7 @@ export async function searchActivities(
         geo_radius_km_used: geoRadiusUsed,
         attractions_in_bbox: attractionsInBbox,
         osm_filled: osmFilled,
+        google_filled: googleFilled,
       },
     };
   }
@@ -288,6 +352,7 @@ export async function searchActivities(
         geo_radius_km_used: geoRadiusUsed,
         attractions_in_bbox: attractionsInBbox,
         osm_filled: osmFilled,
+        google_filled: googleFilled,
       },
     };
   }
@@ -336,6 +401,7 @@ export async function searchActivities(
       geo_radius_km_used: geoRadiusUsed,
       attractions_in_bbox: attractionsInBbox,
       osm_filled: osmFilled,
+      google_filled: googleFilled,
     },
   };
 }
