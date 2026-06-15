@@ -8,6 +8,7 @@ import { HotelCard } from "@/components/features/HotelCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { defaultDateRangeFromToday } from "@/lib/search/trip-context";
+import { readApiError } from "@/lib/utils/api-response";
 import { agentLog } from "@/lib/debug/agent-log";
 
 type HotelSearchResult = {
@@ -57,6 +58,8 @@ type HotelSearchResult = {
     warning?: string;
     fallback_used?: boolean;
     oldest_fetched_at?: string;
+    booking_fallback_url?: string;
+    hotellook_unavailable?: boolean;
   };
 };
 
@@ -172,10 +175,7 @@ export function HotelsSection({
         body: JSON.stringify(params),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(
-          typeof err.error === "string" ? err.error : "Search failed",
-        );
+        throw new Error(await readApiError(res));
       }
       setResults(await res.json());
     } catch (e) {
@@ -340,6 +340,16 @@ export function HotelsSection({
           {results.meta.warning && (
             <p className="text-amber-700 border p-2 rounded bg-amber-50">
               {results.meta.warning}
+              {results.meta.booking_fallback_url && (
+                <a
+                  href={results.meta.booking_fallback_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block font-semibold text-brand-700 hover:underline"
+                >
+                  Szukaj na Booking.com →
+                </a>
+              )}
               {results.meta.oldest_fetched_at && (
                 <span className="block text-xs mt-1">
                   Ostatnia aktualizacja cache:{" "}
@@ -378,8 +388,20 @@ export function HotelsSection({
 
             {results.hotels.length === 0 ? (
               <p>
-                Brak hoteli dla zadanych kryteriów. Spróbuj zmienić filtry lub
-                zwiększyć budżet.
+                Brak hoteli dla zadanych kryteriów.
+                {results.meta.booking_fallback_url && (
+                  <>
+                    {" "}
+                    <a
+                      href={results.meta.booking_fallback_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-brand-700 hover:underline"
+                    >
+                      Szukaj na Booking.com
+                    </a>
+                  </>
+                )}
               </p>
             ) : (
               <div className="space-y-2">

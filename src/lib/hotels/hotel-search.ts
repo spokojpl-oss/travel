@@ -5,6 +5,10 @@ import {
   persistHotelsAndOffers,
 } from "@/lib/api/hotellook";
 import {
+  buildBookingSearchLink,
+  HOTELLOOK_SHUTDOWN_MESSAGE,
+} from "@/lib/api/booking-links";
+import {
   calculateProximity,
   computeAttractionsCentroid,
   type AttractionWithLocation,
@@ -66,6 +70,9 @@ export type HotelSearchResult = {
     total_found: number;
     after_filter: number;
     used_location_name: string;
+    warning?: string;
+    booking_fallback_url?: string;
+    hotellook_unavailable?: boolean;
   };
 };
 
@@ -148,9 +155,19 @@ export async function searchHotels(
       meta: {
         destination_name: input.destination.name,
         centroid,
-        total_found: 0,
+        total_found: rawHotels.length,
         after_filter: 0,
         used_location_name: locationName,
+        warning:
+          rawHotels.length === 0 ? HOTELLOOK_SHUTDOWN_MESSAGE : undefined,
+        booking_fallback_url: buildBookingSearchLink({
+          destinationName: input.destination.name,
+          checkIn: input.checkIn,
+          checkOut: input.checkOut,
+          adults: input.group.adults,
+          children: input.group.children_ages.length,
+        }),
+        hotellook_unavailable: rawHotels.length === 0,
       },
     };
   }

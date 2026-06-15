@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultDateRangeFromToday } from "@/lib/search/trip-context";
+import { readApiError } from "@/lib/utils/api-response";
 
 type DestinationAirport = {
   iata_code: string;
@@ -89,8 +90,9 @@ export function TransportSection({
 
   useEffect(() => {
     fetch(`/api/destination/${destinationId}/airports`)
-      .then((res) => res.json())
-      .then((data: { airports?: DestinationAirport[] }) => {
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { airports?: DestinationAirport[] };
         if (data.airports && data.airports.length > 0) {
           setAirports(data.airports);
           setAirportIata(data.airports[0].iata_code);
@@ -126,10 +128,7 @@ export function TransportSection({
         }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(
-          typeof err.error === "string" ? err.error : "Search failed",
-        );
+        throw new Error(await readApiError(res));
       }
       setResults(await res.json());
     } catch (e) {

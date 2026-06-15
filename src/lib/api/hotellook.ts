@@ -67,24 +67,12 @@ export type HotellookNormalizedHotel = {
   raw: CacheHotel;
 };
 
-function requireTravelpayoutsToken(): string {
-  const token = apiEnv.TRAVELPAYOUTS_TOKEN;
-  if (!token) {
-    throw new Error(
-      "TRAVELPAYOUTS_TOKEN nie skonfigurowany. Dodaj klucz w env.",
-    );
-  }
-  return token;
+function requireTravelpayoutsToken(): string | null {
+  return apiEnv.TRAVELPAYOUTS_TOKEN?.trim() || null;
 }
 
-function requireBookingMarker(): string {
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_BOOKING;
-  if (!marker) {
-    throw new Error(
-      "TRAVELPAYOUTS_MARKER_BOOKING nie skonfigurowany. Dodaj marker w env.",
-    );
-  }
-  return marker;
+function isHotellookUnavailable(status: number): boolean {
+  return status === 404 || status === 410 || status === 403;
 }
 
 export async function lookupHotellookLocation({
@@ -94,30 +82,40 @@ export async function lookupHotellookLocation({
   query: string;
   forceRefresh?: boolean;
 }): Promise<LookupLocation[]> {
-  const { data } = await fetchWithCache<LookupResponse>({
-    source: "hotellook-lookup",
-    cacheParams: { query },
-    ttlSeconds: 30 * 24 * 60 * 60,
-    forceRefresh,
-    fetcher: async () => {
-      const params = new URLSearchParams({
-        query,
-        lang: "en",
-        lookFor: "both",
-        limit: "10",
-        token: requireTravelpayoutsToken(),
-      });
-      const response = await fetch(
-        `${HOTELLOOK_BASE}/api/v2/lookup.json?${params}`,
-      );
-      if (!response.ok) {
-        throw new Error(`Hotellook lookup error: ${response.status}`);
-      }
-      return response.json() as Promise<LookupResponse>;
-    },
-  });
+  const token = requireTravelpayoutsToken();
+  if (!token) return [];
 
-  return data.results?.locations ?? [];
+  try {
+    const { data } = await fetchWithCache<LookupResponse>({
+      source: "hotellook-lookup",
+      cacheParams: { query },
+      ttlSeconds: 30 * 24 * 60 * 60,
+      forceRefresh,
+      fetcher: async () => {
+        const params = new URLSearchParams({
+          query,
+          lang: "en",
+          lookFor: "both",
+          limit: "10",
+          token,
+        });
+        const response = await fetch(
+          `${HOTELLOOK_BASE}/api/v2/lookup.json?${params}`,
+        );
+        if (!response.ok) {
+          if (isHotellookUnavailable(response.status)) {
+            return { status: "error", results: { locations: [] } };
+          }
+          throw new Error(`Hotellook lookup error: ${response.status}`);
+        }
+        return response.json() as Promise<LookupResponse>;
+      },
+    });
+
+    return data.results?.locations ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function lookupHotellookByCoords({
@@ -129,30 +127,38 @@ export async function lookupHotellookByCoords({
   lon: number;
   forceRefresh?: boolean;
 }): Promise<LookupLocation[]> {
-  const { data } = await fetchWithCache<LookupLocation[]>({
-    source: "hotellook-locations-coords",
-    cacheParams: { lat, lon },
-    ttlSeconds: 30 * 24 * 60 * 60,
-    forceRefresh,
-    fetcher: async () => {
-      const params = new URLSearchParams({
-        query: `${lat},${lon}`,
-        limit: "5",
-        token: requireTravelpayoutsToken(),
-      });
-      const response = await fetch(
-        `${HOTELLOOK_LOCATIONS_BASE}/widget_locations?${params}`,
-      );
-      if (!response.ok) {
-        throw new Error(
-          `Hotellook locations-by-coords error: ${response.status}`,
-        );
-      }
-      return response.json() as Promise<LookupLocation[]>;
-    },
-  });
+  const token = requireTravelpayoutsToken();
+  if (!token) return [];
 
-  return data;
+  try {
+    const { data } = await fetchWithCache<LookupLocation[]>({
+      source: "hotellook-locations-coords",
+      cacheParams: { lat, lon },
+      ttlSeconds: 30 * 24 * 60 * 60,
+      forceRefresh,
+      fetcher: async () => {
+        const params = new URLSearchParams({
+          query: `${lat},${lon}`,
+          limit: "5",
+          token,
+        });
+        const response = await fetch(
+          `${HOTELLOOK_LOCATIONS_BASE}/widget_locations?${params}`,
+        );
+        if (!response.ok) {
+          if (isHotellookUnavailable(response.status)) return [];
+          throw new Error(
+            `Hotellook locations-by-coords error: ${response.status}`,
+          );
+        }
+        return response.json() as Promise<LookupLocation[]>;
+      },
+    });
+
+    return data;
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchHotelsForLocation({
@@ -172,36 +178,44 @@ export async function fetchHotelsForLocation({
   limit?: number;
   forceRefresh?: boolean;
 }): Promise<HotellookNormalizedHotel[]> {
-  const { data } = await fetchWithCache<CacheHotel[]>({
-    source: "hotellook-cache",
-    cacheParams: { locationName, checkIn, checkOut, adults, children, limit },
-    ttlSeconds: 6 * 60 * 60,
-    forceRefresh,
-    fetcher: async () => {
-      const params = new URLSearchParams({
-        location: locationName,
-        currency: "pln",
-        checkIn,
-        checkOut,
-        adults: String(adults),
-        children: String(children),
-        limit: String(limit),
-        token: requireTravelpayoutsToken(),
-      });
-      const response = await fetch(
-        `${HOTELLOOK_BASE}/api/v2/cache.json?${params}`,
-      );
-      if (!response.ok) {
-        throw new Error(`Hotellook cache error: ${response.status}`);
-      }
-      const json = await response.json();
-      if (Array.isArray(json)) return json as CacheHotel[];
-      if (Array.isArray(json.hotels)) return json.hotels as CacheHotel[];
-      return [];
-    },
-  });
+  const token = requireTravelpayoutsToken();
+  if (!token) return [];
 
-  return data.map(normalizeHotellookHotel);
+  try {
+    const { data } = await fetchWithCache<CacheHotel[]>({
+      source: "hotellook-cache",
+      cacheParams: { locationName, checkIn, checkOut, adults, children, limit },
+      ttlSeconds: 6 * 60 * 60,
+      forceRefresh,
+      fetcher: async () => {
+        const params = new URLSearchParams({
+          location: locationName,
+          currency: "pln",
+          checkIn,
+          checkOut,
+          adults: String(adults),
+          children: String(children),
+          limit: String(limit),
+          token,
+        });
+        const response = await fetch(
+          `${HOTELLOOK_BASE}/api/v2/cache.json?${params}`,
+        );
+        if (!response.ok) {
+          if (isHotellookUnavailable(response.status)) return [];
+          throw new Error(`Hotellook cache error: ${response.status}`);
+        }
+        const json = await response.json();
+        if (Array.isArray(json)) return json as CacheHotel[];
+        if (Array.isArray(json.hotels)) return json.hotels as CacheHotel[];
+        return [];
+      },
+    });
+
+    return data.map(normalizeHotellookHotel);
+  } catch {
+    return [];
+  }
 }
 
 function normalizeHotellookHotel(h: CacheHotel): HotellookNormalizedHotel {
@@ -237,7 +251,8 @@ export function buildHotellookDeepLink({
   children?: number;
 }): string {
   const url = new URL("https://search.hotellook.com/");
-  url.searchParams.set("marker", requireBookingMarker());
+  const marker = apiEnv.TRAVELPAYOUTS_MARKER_BOOKING?.trim();
+  if (marker) url.searchParams.set("marker", marker);
   url.searchParams.set("hotelId", String(hotelId));
   url.searchParams.set("checkIn", checkIn);
   url.searchParams.set("checkOut", checkOut);

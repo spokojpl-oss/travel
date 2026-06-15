@@ -1,13 +1,17 @@
 import { apiEnv } from "@/config/api-env";
 
-function requireBookingMarker(): string {
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_BOOKING;
-  if (!marker) {
-    throw new Error(
-      "TRAVELPAYOUTS_MARKER_BOOKING nie skonfigurowany. Dodaj marker w env.",
-    );
-  }
-  return marker;
+function affiliateMarker(): string | null {
+  return apiEnv.TRAVELPAYOUTS_MARKER_BOOKING?.trim() || null;
+}
+
+function wrapAffiliateLink(targetUrl: string, programId: string): string {
+  const marker = affiliateMarker();
+  if (!marker) return targetUrl;
+  const tpUrl = new URL("https://tp.media/r");
+  tpUrl.searchParams.set("marker", marker);
+  tpUrl.searchParams.set("p", programId);
+  tpUrl.searchParams.set("u", targetUrl);
+  return tpUrl.toString();
 }
 
 export function buildWelcomePickupsDeepLink({
@@ -22,12 +26,7 @@ export function buildWelcomePickupsDeepLink({
   passengers: number;
 }): string {
   const targetUrl = `https://www.welcomepickups.com/search/?from_airport=${airportIata}&to=${encodeURIComponent(toAddress)}&date=${date}&passengers=${passengers}`;
-
-  const tpUrl = new URL("https://tp.media/r");
-  tpUrl.searchParams.set("marker", requireBookingMarker());
-  tpUrl.searchParams.set("p", "5418");
-  tpUrl.searchParams.set("u", targetUrl);
-  return tpUrl.toString();
+  return wrapAffiliateLink(targetUrl, "5418");
 }
 
 export function buildKiwitaxiDeepLink({
@@ -55,12 +54,7 @@ export function buildKiwitaxiDeepLink({
   if (toLon) params.set("to_lon", String(toLon));
 
   const targetUrl = `https://kiwitaxi.com/search/?${params.toString()}`;
-
-  const tpUrl = new URL("https://tp.media/r");
-  tpUrl.searchParams.set("marker", requireBookingMarker());
-  tpUrl.searchParams.set("p", "4593");
-  tpUrl.searchParams.set("u", targetUrl);
-  return tpUrl.toString();
+  return wrapAffiliateLink(targetUrl, "4593");
 }
 
 export function estimateTransferPrice({
