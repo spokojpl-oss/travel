@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
@@ -69,6 +69,9 @@ function SearchPageContent() {
   const [overview, setOverview] = useState<DestinationOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState<string | null>(null);
+  const overviewCacheKey = useRef<string | null>(null);
+  const overviewFetchInFlight = useRef<string | null>(null);
+  const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
   );
@@ -208,13 +211,33 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!initialized || trip.mode !== "destination") return;
-    if (step !== 3 && !(step === 4 && !overview)) return;
+    const shouldPrefetch = step === 2 || step === 3 || (step === 4 && !overview);
+    if (!shouldPrefetch) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
     if (!trip.departure_date) return;
 
+    const cacheKey = [
+      trip.destination_lat,
+      trip.destination_lon,
+      trip.exploration_scope ?? "region",
+      trip.departure_date,
+      trip.return_date ?? "",
+      trip.destination_label ?? trip.destination ?? "",
+    ].join("|");
+
+    if (overviewCacheKey.current === cacheKey && overview) return;
+
+    if (overviewFetchInFlight.current === cacheKey) {
+      if (step === 3) setOverviewLoading(true);
+      return;
+    }
+
     let cancelled = false;
-    setOverviewLoading(true);
-    setOverviewError(null);
+    overviewFetchInFlight.current = cacheKey;
+    if (step === 3) {
+      setOverviewLoading(true);
+      setOverviewError(null);
+    }
 
     fetch("/api/search/destination-overview", {
       method: "POST",
@@ -238,15 +261,20 @@ function SearchPageContent() {
         return data as DestinationOverview;
       })
       .then((data) => {
-        if (!cancelled) setOverview(data);
+        if (!cancelled) {
+          overviewCacheKey.current = cacheKey;
+          setOverview(data);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
           setOverviewError(e instanceof Error ? e.message : String(e));
-          setOverview(null);
         }
       })
       .finally(() => {
+        if (overviewFetchInFlight.current === cacheKey) {
+          overviewFetchInFlight.current = null;
+        }
         if (!cancelled) setOverviewLoading(false);
       });
 
@@ -267,6 +295,40 @@ function SearchPageContent() {
     trip.exploration_scope,
   ]);
 
+  useEffect(() => {
+    if (!initialized || trip.mode !== "destination" || step !== 4) return;
+    if (trip.destination_lat == null || trip.destination_lon == null) return;
+
+    let cancelled = false;
+    fetch("/api/search/destination-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        near_lat: trip.destination_lat,
+        near_lon: trip.destination_lon,
+        exploration_scope: trip.exploration_scope ?? "region",
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : { activity_counts: {} }))
+      .then((data: { activity_counts?: Record<string, number> }) => {
+        if (!cancelled) setActivityCounts(data.activity_counts ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setActivityCounts({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    initialized,
+    step,
+    trip.mode,
+    trip.destination_lat,
+    trip.destination_lon,
+    trip.exploration_scope,
+  ]);
+
   function setExplorationScope(scope: ExplorationScope) {
     const radii = scopeSearchRadii(scope);
     setMaxRadius(radii.max_radius_km);
@@ -282,7 +344,6 @@ function SearchPageContent() {
   const showOverviewStep = isDestinationFlow && step === 3;
   const showActivitiesStep = isDestinationFlow ? step === 4 : step === 2;
   const showResultsStep = isDestinationFlow ? step === 5 : step === 3;
-  const activityCounts = overview?.activity_counts ?? {};
 
   function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4 | 5) {
     const p = tripContextToParams(nextTrip);
@@ -526,10 +587,11 @@ function SearchPageContent() {
 
       {showOverviewStep && (
         <DestinationOverviewPanel
+          destinationLabel={trip.destination_label ?? trip.destination ?? ""}
           overview={overview}
           loading={overviewLoading}
+          waitingForCoords={missingDestinationCoords}
           error={overviewError}
-          taxonomy={taxonomy}
           onContinue={() => {
             setStep(4);
             syncUrl(trip, 4);

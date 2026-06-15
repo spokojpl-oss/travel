@@ -1,11 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { SkeletonList } from "@/components/ui/Skeleton";
+import { DestinationOverviewLoader } from "@/components/features/DestinationOverviewLoader";
 import type { DestinationOverview } from "@/lib/search/destination-overview";
-import type { ActivityGroup, Activity } from "@/types/domain";
-import { useT, useLocale } from "@/i18n/locale-provider";
+import { useT } from "@/i18n/locale-provider";
 
 function excerpt(text: string | undefined, max = 600): string | null {
   if (!text?.trim()) return null;
@@ -13,77 +13,113 @@ function excerpt(text: string | undefined, max = 600): string | null {
   return t.length > max ? `${t.slice(0, max).trim()}…` : t;
 }
 
-export function DestinationOverviewPanel({
-  overview,
-  loading,
-  error,
-  taxonomy,
-  onContinue,
+function OverviewHero({
+  imageUrl,
+  title,
+  subtitle,
 }: {
-  overview: DestinationOverview | null;
-  loading: boolean;
-  error: string | null;
-  taxonomy: Array<ActivityGroup & { activities: Activity[] }>;
-  onContinue: () => void;
+  imageUrl: string | null;
+  title: string;
+  subtitle: string;
 }) {
-  const t = useT();
-  const { locale } = useLocale();
+  const [sharp, setSharp] = useState(false);
 
-  if (loading) {
+  if (!imageUrl) {
     return (
-      <Card className="mb-8">
-        <CardBody>
-          <SkeletonList count={4} />
+      <Card className="mb-6 overflow-hidden">
+        <CardBody className="space-y-3">
+          <h2 className="font-display text-2xl font-bold text-text-primary">{title}</h2>
+          <p className="text-base text-text-primary">{subtitle}</p>
         </CardBody>
       </Card>
     );
   }
 
+  return (
+    <div className="overview-reveal relative mb-6 overflow-hidden rounded-2xl shadow-card">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt=""
+        className={`overview-reveal-photo h-56 w-full object-cover sm:h-72 ${
+          sharp ? "overview-reveal-photo-sharp" : "overview-reveal-photo-blur"
+        }`}
+        onLoad={() => requestAnimationFrame(() => setSharp(true))}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-brand-900/80 via-transparent to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+        <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h2>
+        <p className="mt-2 max-w-2xl text-sm text-white/90 sm:text-base">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+export function DestinationOverviewPanel({
+  destinationLabel,
+  overview,
+  loading,
+  waitingForCoords = false,
+  error,
+  onContinue,
+}: {
+  destinationLabel: string;
+  overview: DestinationOverview | null;
+  loading: boolean;
+  waitingForCoords?: boolean;
+  error: string | null;
+  onContinue: () => void;
+}) {
+  const t = useT();
+
+  if (loading || waitingForCoords || (!overview && !error)) {
+    return (
+      <DestinationOverviewLoader
+        destinationLabel={destinationLabel}
+        waitingForCoords={waitingForCoords}
+      />
+    );
+  }
+
   if (error) {
     return (
-      <Card className="mb-8 border-warning/40">
-        <CardBody>
-          <p className="text-danger">{error}</p>
-          <Button className="mt-4" onClick={onContinue}>
-            {t("search.continueToActivities")}
-          </Button>
-        </CardBody>
-      </Card>
+      <>
+        <DestinationOverviewLoader destinationLabel={destinationLabel} />
+        <Card className="mb-8 border-warning/40">
+          <CardBody>
+            <p className="text-danger">{error}</p>
+            <Button className="mt-4" onClick={onContinue}>
+              {t("search.continueToActivities")}
+            </Button>
+          </CardBody>
+        </Card>
+      </>
     );
   }
 
   if (!overview) return null;
 
   const wv = overview.wikivoyage;
-  const topActivities = taxonomy
-    .flatMap((g) =>
-      g.activities.map((a) => ({
-        slug: a.slug,
-        name: locale === "en" ? a.name_en : a.name_pl,
-        count: overview.activity_counts[a.slug] ?? 0,
-      })),
-    )
-    .filter((a) => a.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12);
+  const placeName =
+    overview.destination_label.split(",")[0] ?? overview.destination_label;
 
   return (
-    <>
-      <Card className="mb-6">
-        <CardHeader title={overview.destination_label.split(",")[0] ?? overview.destination_label} />
-        <CardBody className="space-y-4 text-sm text-text-secondary">
-          <p className="text-base text-text-primary">{overview.scope_intro}</p>
-          {wv?.intro && <p>{excerpt(wv.intro, 900)}</p>}
-          {wv?.sections.understand && (
-            <>
-              <h3 className="font-semibold text-text-primary">
-                {t("search.overviewUnderstand")}
-              </h3>
-              <p>{excerpt(wv.sections.understand)}</p>
-            </>
-          )}
-        </CardBody>
-      </Card>
+    <div className="overview-content-enter">
+      <OverviewHero
+        imageUrl={overview.hero_image_url}
+        title={placeName}
+        subtitle={overview.scope_intro}
+      />
+
+      {(wv?.intro || wv?.sections.understand) && (
+        <Card className="mb-6">
+          <CardHeader title={t("search.overviewUnderstand")} />
+          <CardBody className="space-y-4 text-sm text-text-secondary">
+            {wv?.intro && <p>{excerpt(wv.intro, 900)}</p>}
+            {wv?.sections.understand && <p>{excerpt(wv.sections.understand)}</p>}
+          </CardBody>
+        </Card>
+      )}
 
       {overview.weather && (
         <Card className="mb-6">
@@ -112,18 +148,12 @@ export function DestinationOverviewPanel({
         </Card>
       )}
 
-      {(excerpt(wv?.sections.do) || topActivities.length > 0) && (
+      {excerpt(wv?.sections.do) && (
         <Card className="mb-6">
           <CardHeader title={t("search.overviewDo")} />
           <CardBody className="space-y-3 text-sm text-text-secondary">
-            {excerpt(wv?.sections.do) && (
-              <p>{excerpt(wv?.sections.do, 1000)}</p>
-            )}
-            {topActivities.length > 0 && (
-              <p className="text-text-primary">
-                {t("search.overviewActivitiesHint")}
-              </p>
-            )}
+            <p>{excerpt(wv?.sections.do, 1000)}</p>
+            <p className="text-text-primary">{t("search.overviewActivitiesHint")}</p>
           </CardBody>
         </Card>
       )}
@@ -163,6 +193,6 @@ export function DestinationOverviewPanel({
       <Button size="lg" onClick={onContinue}>
         {t("search.continueToActivities")}
       </Button>
-    </>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
+import { fetchDestinationHeroImage } from "@/lib/api/destination-hero-image";
 import { fetchWeatherPreview } from "@/lib/api/weather";
 import {
   fetchWikivoyageDestination,
@@ -95,9 +95,9 @@ export type DestinationOverview = {
   destination_label: string;
   exploration_scope: ExplorationScope;
   scope_intro: string;
+  hero_image_url: string | null;
   wikivoyage: WikivoyageDestinationContent | null;
   weather: WeatherSummary | null;
-  activity_counts: Record<string, number>;
   search_radius_km: number;
 };
 
@@ -120,7 +120,7 @@ export async function buildDestinationOverview({
   const pageName = resolveWikivoyagePageName(destinationLabel);
   const placeName = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
 
-  const [wikivoyage, weather, activity_counts] = await Promise.all([
+  const [wikivoyage, weather, hero_image_url] = await Promise.all([
     fetchWikivoyageDestination({ pageName }).catch(() => null),
     dateFrom && dateTo
       ? fetchWeatherPreview({
@@ -129,18 +129,16 @@ export async function buildDestinationOverview({
           dateTo,
         }).catch(() => null)
       : Promise.resolve(null),
-    countActivitiesNearPoint({ lat, lon, radiusKm: near_radius_km }).catch(
-      () => ({}),
-    ),
+    fetchDestinationHeroImage(destinationLabel).catch(() => null),
   ]);
 
   return {
     destination_label: destinationLabel,
     exploration_scope: explorationScope,
     scope_intro: scopeIntroPl(explorationScope, placeName),
+    hero_image_url,
     wikivoyage,
     weather,
-    activity_counts,
     search_radius_km: near_radius_km,
   };
 }

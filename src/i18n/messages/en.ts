@@ -175,6 +175,12 @@ export const en: Messages = {
     overviewActivitiesHint:
       "On the next step you'll pick specific activities — this is the big picture.",
     overviewSource: "Source:",
+    overviewLoadingLabel: "Building your guide",
+    overviewLoadingCoords: "Locating the destination…",
+    overviewLoadingGuide: "Reading the Wikivoyage guide…",
+    overviewLoadingWeather: "Checking weather for your dates…",
+    overviewLoadingPhoto: "Picking a destination photo…",
+    overviewLoadingAlmost: "Putting the overview together…",
     subtitleResults: "Regions matched to your trip and selected activities.",
     subtitleActivities:
       "Trip details from the home page — select what you want to do and search regions.",

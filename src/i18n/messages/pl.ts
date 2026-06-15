@@ -173,6 +173,12 @@ export const pl = {
     overviewActivitiesHint:
       "Na następnym kroku wybierzesz konkretne atrakcje — tu masz kontekst całej destynacji.",
     overviewSource: "Źródło:",
+    overviewLoadingLabel: "Przygotowuję przewodnik",
+    overviewLoadingCoords: "Ustalam lokalizację destynacji…",
+    overviewLoadingGuide: "Czytam przewodnik Wikivoyage…",
+    overviewLoadingWeather: "Sprawdzam pogodę na Wasze daty…",
+    overviewLoadingPhoto: "Wybieram zdjęcie destynacji…",
+    overviewLoadingAlmost: "Składam opis miejsca…",
     subtitleResults:
       "Regiony dopasowane do Twojej podróży i wybranych aktywności.",
     subtitleActivities:
