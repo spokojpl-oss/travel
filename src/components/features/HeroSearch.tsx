@@ -150,21 +150,6 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
-        {!compact && (
-          <div className="mb-6 flex justify-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-white/80 backdrop-blur">
-              <span className="relative flex h-2 w-2">
-                <span className="live-dot absolute inline-flex h-full w-full rounded-full bg-success" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-              </span>
-              <span>
-                Planuj wakacje{" "}
-                <strong className="text-white">od aktywności</strong>
-              </span>
-            </div>
-          </div>
-        )}
-
         <div
           className={cn(
             "mx-auto mb-10 max-w-4xl text-center text-white",
