@@ -16,6 +16,7 @@ const overviewSchema = z.object({
   exploration_scope: z
     .enum(["local", "region", "island", "roadtrip"])
     .optional(),
+  locale: z.enum(["pl", "en"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
       dateFrom: parsed.data.from_date,
       dateTo,
       explorationScope: scope,
+      locale: parsed.data.locale ?? "pl",
     });
 
     return NextResponse.json(overview);

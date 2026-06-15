@@ -1,9 +1,95 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
+import type { Locale } from "@/i18n/config";
 
-const WIKI_REST = "https://en.wikipedia.org/api/rest_v1/page/summary";
+const WIKI_REST: Record<Locale, string> = {
+  pl: "https://pl.wikipedia.org/api/rest_v1/page/summary",
+  en: "https://en.wikipedia.org/api/rest_v1/page/summary",
+};
 
-/** Krótki opis z Wikipedii — jeden akapit, nie cały przewodnik. */
-const WIKI_PAGE_BY_KEY: Record<string, string> = {
+const WIKI_PAGE_PL: Record<string, string> = {
+  majorka: "Majorka",
+  mallorca: "Majorka",
+  madera: "Madera",
+  madeira: "Madera",
+  kreta: "Kreta",
+  crete: "Kreta",
+  ibiza: "Ibiza",
+  teneryfa: "Teneryfa",
+  tenerife: "Teneryfa",
+  lanzarote: "Lanzarote",
+  fuerteventura: "Fuerteventura",
+  "gran canaria": "Gran_Canaria",
+  korfu: "Korfu",
+  corfu: "Korfu",
+  rodos: "Rodos",
+  rhodes: "Rodos",
+  santorini: "Santorini",
+  dubrownik: "Dubrownik",
+  dubrovnik: "Dubrownik",
+  split: "Split",
+  cypr: "Cypr",
+  cyprus: "Cypr",
+  antalya: "Antalya",
+  bodrum: "Bodrum",
+  lizbona: "Lizbona",
+  lisbon: "Lizbona",
+  porto: "Porto",
+  barcelona: "Barcelona",
+  walencja: "Walencja",
+  valencia: "Walencja",
+  alikante: "Alicante",
+  alicante: "Alicante",
+  rzym: "Rzym",
+  rome: "Rzym",
+  sycylia: "Sycylia",
+  sicily: "Sycylia",
+  sardynia: "Sardynia",
+  sardinia: "Sardynia",
+  wenecja: "Wenecja",
+  venice: "Wenecja",
+  paryż: "Paryż",
+  paris: "Paryż",
+  nicea: "Nicea",
+  nice: "Nicea",
+  korsyka: "Korsyka",
+  corsica: "Korsyka",
+  islandia: "Islandia",
+  iceland: "Islandia",
+  praga: "Praga",
+  prague: "Praga",
+  praha: "Praga",
+  czechy: "Czechy",
+  czechia: "Czechy",
+  "czech republic": "Czechy",
+  budapeszt: "Budapeszt",
+  budapest: "Budapeszt",
+  wiedeń: "Wiedeń",
+  vienna: "Wiedeń",
+  wien: "Wiedeń",
+  zakopane: "Zakopane",
+  gdańsk: "Gdańsk",
+  gdansk: "Gdańsk",
+  kraków: "Kraków",
+  krakow: "Kraków",
+  hiszpania: "Hiszpania",
+  spain: "Hiszpania",
+  portugalia: "Portugalia",
+  portugal: "Portugalia",
+  grecja: "Grecja",
+  greece: "Grecja",
+  włochy: "Włochy",
+  italy: "Włochy",
+  francja: "Francja",
+  france: "Francja",
+  chorwacja: "Chorwacja",
+  croatia: "Chorwacja",
+  turcja: "Turcja",
+  turkey: "Turcja",
+  polska: "Polska",
+  poland: "Polska",
+};
+
+const WIKI_PAGE_EN: Record<string, string> = {
   majorka: "Mallorca",
   mallorca: "Mallorca",
   madera: "Madeira",
@@ -94,11 +180,15 @@ function normalizeKey(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function resolveWikipediaPageName(destinationLabel: string): string {
+export function resolveWikipediaPageName(
+  destinationLabel: string,
+  locale: Locale = "pl",
+): string {
   const primary =
     destinationLabel.split(",")[0]?.trim() ?? destinationLabel.trim();
   const key = normalizeKey(primary);
-  if (WIKI_PAGE_BY_KEY[key]) return WIKI_PAGE_BY_KEY[key];
+  const map = locale === "pl" ? WIKI_PAGE_PL : WIKI_PAGE_EN;
+  if (map[key]) return map[key];
   return primary.replace(/\s+/g, "_");
 }
 
@@ -107,8 +197,14 @@ export type WikipediaSummary = {
   thumbnail: string | null;
 };
 
+function upscaleWikiThumbnail(url: string | undefined): string | null {
+  if (!url) return null;
+  return url.replace(/\/\d+px-/, "/800px-");
+}
+
 async function fetchWikipediaSummaryLive(
   pageName: string,
+  locale: Locale,
   timeoutMs: number,
 ): Promise<WikipediaSummary | null> {
   const controller = new AbortController();
@@ -116,7 +212,7 @@ async function fetchWikipediaSummaryLive(
 
   try {
     const response = await fetch(
-      `${WIKI_REST}/${encodeURIComponent(pageName)}`,
+      `${WIKI_REST[locale]}/${encodeURIComponent(pageName)}`,
       {
         signal: controller.signal,
         headers: { "User-Agent": "TravelAggregator/1.0 (personal use)" },
@@ -128,6 +224,7 @@ async function fetchWikipediaSummaryLive(
     const json = (await response.json()) as {
       extract?: string;
       thumbnail?: { source?: string };
+      lang?: string;
     };
 
     const extract = json.extract?.trim();
@@ -135,7 +232,7 @@ async function fetchWikipediaSummaryLive(
 
     return {
       extract: extract.length > 480 ? `${extract.slice(0, 477).trim()}…` : extract,
-      thumbnail: json.thumbnail?.source ?? null,
+      thumbnail: upscaleWikiThumbnail(json.thumbnail?.source),
     };
   } catch {
     return null;
@@ -146,15 +243,16 @@ async function fetchWikipediaSummaryLive(
 
 export async function fetchWikipediaSummary(
   destinationLabel: string,
+  locale: Locale = "pl",
   timeoutMs = 3500,
 ): Promise<WikipediaSummary | null> {
-  const pageName = resolveWikipediaPageName(destinationLabel);
+  const pageName = resolveWikipediaPageName(destinationLabel, locale);
 
   const { data } = await fetchWithCache<WikipediaSummary | null>({
-    source: "wikipedia-summary",
+    source: locale === "pl" ? "wikipedia-summary-pl" : "wikipedia-summary-en",
     cacheParams: { pageName },
     ttlSeconds: 60 * 24 * 60 * 60,
-    fetcher: () => fetchWikipediaSummaryLive(pageName, timeoutMs),
+    fetcher: () => fetchWikipediaSummaryLive(pageName, locale, timeoutMs),
   });
 
   return data;

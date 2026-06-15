@@ -223,6 +223,7 @@ function SearchPageContent() {
       trip.departure_date,
       trip.return_date ?? "",
       label,
+      locale,
     ].join("|");
 
     if (step === 3 && overviewCacheKey.current !== cacheKey) {
@@ -231,6 +232,7 @@ function SearchPageContent() {
         buildInstantOverview({
           destinationLabel: label,
           explorationScope: scope,
+          locale,
         }),
       );
     }
@@ -254,6 +256,7 @@ function SearchPageContent() {
         from_date: trip.departure_date,
         to_date: trip.return_date ?? trip.departure_date,
         exploration_scope: scope,
+        locale,
       }),
     })
       .then(async (r) => {
@@ -279,6 +282,7 @@ function SearchPageContent() {
               : buildInstantOverview({
                   destinationLabel: label,
                   explorationScope: scope,
+                  locale,
                 }),
           );
         }
@@ -305,6 +309,7 @@ function SearchPageContent() {
     trip.departure_date,
     trip.return_date,
     trip.exploration_scope,
+    locale,
   ]);
 
   useEffect(() => {

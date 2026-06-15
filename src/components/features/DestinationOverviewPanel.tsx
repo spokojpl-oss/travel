@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DestinationOverviewLoader } from "@/components/features/DestinationOverviewLoader";
@@ -17,8 +17,20 @@ function OverviewHero({
   subtitle: string;
 }) {
   const [sharp, setSharp] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  if (!imageUrl) {
+  useEffect(() => {
+    if (!imageUrl) return;
+    setSharp(false);
+    setFailed(false);
+    const img = new Image();
+    img.onload = () => setSharp(true);
+    img.onerror = () => setFailed(true);
+    img.src = imageUrl;
+    if (img.complete && img.naturalWidth > 0) setSharp(true);
+  }, [imageUrl]);
+
+  if (!imageUrl || failed) {
     return (
       <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900 p-8 shadow-card">
         <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h2>
@@ -36,7 +48,8 @@ function OverviewHero({
         className={`overview-reveal-photo h-56 w-full object-cover sm:h-72 ${
           sharp ? "overview-reveal-photo-sharp" : "overview-reveal-photo-blur"
         }`}
-        onLoad={() => requestAnimationFrame(() => setSharp(true))}
+        onLoad={() => setSharp(true)}
+        onError={() => setFailed(true)}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-brand-900/80 via-transparent to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
@@ -79,13 +92,10 @@ export function DestinationOverviewPanel({
 
       <Card className="mb-6">
         <CardHeader title={t("search.overviewUnderstand")} />
-        <CardBody className="space-y-3 text-sm text-text-secondary">
+        <CardBody className="text-sm text-text-secondary">
           <p className="text-base leading-relaxed text-text-primary">
             {overview.summary}
           </p>
-          {overview.enriching && (
-            <p className="text-xs text-text-tertiary">{t("search.overviewEnriching")}</p>
-          )}
         </CardBody>
       </Card>
 

@@ -1,5 +1,6 @@
 import { fetchWikipediaSummary } from "@/lib/api/wikipedia-summary";
 import { fetchWeatherPreview } from "@/lib/api/weather";
+import type { Locale } from "@/i18n/config";
 import {
   buildInstantOverview,
   resolveHeroImageUrl,
@@ -28,6 +29,7 @@ export async function buildDestinationOverview({
   dateFrom,
   dateTo,
   explorationScope,
+  locale = "pl",
 }: {
   destinationLabel: string;
   lat: number;
@@ -35,14 +37,16 @@ export async function buildDestinationOverview({
   dateFrom: string;
   dateTo: string;
   explorationScope: ExplorationScope;
+  locale?: Locale;
 }): Promise<DestinationOverview> {
   const base = buildInstantOverview({
     destinationLabel,
     explorationScope,
+    locale,
   });
 
   const [wiki, weather] = await Promise.all([
-    withTimeout(fetchWikipediaSummary(destinationLabel), 4000),
+    withTimeout(fetchWikipediaSummary(destinationLabel, locale), 4000),
     dateFrom && dateTo
       ? withTimeout(
           fetchWeatherPreview({
@@ -55,11 +59,15 @@ export async function buildDestinationOverview({
       : Promise.resolve(null),
   ]);
 
+  const hero =
+    base.hero_image_url ??
+    wiki?.thumbnail ??
+    resolveHeroImageUrl(destinationLabel);
+
   return {
     ...base,
     summary: wiki?.extract ?? base.summary,
-    hero_image_url:
-      base.hero_image_url ?? wiki?.thumbnail ?? resolveHeroImageUrl(destinationLabel),
+    hero_image_url: hero,
     weather,
     enriching: false,
   };

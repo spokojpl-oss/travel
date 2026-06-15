@@ -3,28 +3,22 @@ import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
 
 const HERO_IMAGES: Record<string, string> = {
-  majorka:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Palma_de_Mallorca_Sunset_Harbour_Spain.jpg/1280px-Palma_de_Mallorca_Sunset_Harbour_Spain.jpg",
-  mallorca:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Palma_de_Mallorca_Sunset_Harbour_Spain.jpg/1280px-Palma_de_Mallorca_Sunset_Harbour_Spain.jpg",
-  kreta:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Balos_lagoon_Crete_Greece.jpg/1280px-Balos_lagoon_Crete_Greece.jpg",
-  crete:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Balos_lagoon_Crete_Greece.jpg/1280px-Balos_lagoon_Crete_Greece.jpg",
+  majorka: "https://upload.wikimedia.org/wikipedia/commons/2/24/Mallorca.jpg",
+  mallorca: "https://upload.wikimedia.org/wikipedia/commons/2/24/Mallorca.jpg",
+  kreta: "https://upload.wikimedia.org/wikipedia/commons/7/7c/Balos_lagoon_Crete_Greece.jpg",
+  crete: "https://upload.wikimedia.org/wikipedia/commons/7/7c/Balos_lagoon_Crete_Greece.jpg",
   praga:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg/1280px-Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
   prague:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg/1280px-Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
   barcelona:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Barcelona_Skyline_Panorama_-_Dec_2007.jpg/1280px-Barcelona_Skyline_Panorama_-_Dec_2007.jpg",
-  lizbona:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Lisbon_aerial_view.jpg/1280px-Lisbon_aerial_view.jpg",
-  lisbon:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Lisbon_aerial_view.jpg/1280px-Lisbon_aerial_view.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/5/56/Barcelona_Skyline_Panorama_-_Dec_2007.jpg",
+  lizbona: "https://upload.wikimedia.org/wikipedia/commons/9/93/Lisbon_aerial_view.jpg",
+  lisbon: "https://upload.wikimedia.org/wikipedia/commons/9/93/Lisbon_aerial_view.jpg",
   czechy:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg/1280px-Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
   czechia:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg/1280px-Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
 };
 
 function normalizeKey(value: string): string {
@@ -81,13 +75,13 @@ export function buildScopeIntro(
 
   switch (scope) {
     case "local":
-      return `Zostajecie w jednym rejonie ${place} — szukamy noclegów i wycieczek w okolicy.`;
+      return "Zostajecie w jednym rejonie — noclegi i atrakcje szukamy w najbliższej okolicy.";
     case "region":
-      return `Zwiedzacie wybrany fragment ${place} — kilka miejscowości z jednej bazy.`;
+      return "Zwiedzacie wybrany fragment regionu — kilka miejscowości z jednej bazy wypadowej.";
     case "island":
-      return `Chcecie poznać więcej ${place} — zaproponujemy kilka regionów do wyboru.`;
+      return "Chcecie poznać destynację szerzej — zaproponujemy kilka regionów do wyboru.";
     case "roadtrip":
-      return `Podróżujecie po ${place} z elastycznością — szerszy zasięg, możliwa zmiana bazy.`;
+      return "Planujecie podróż z możliwością zmiany bazy — szerszy zasięg, więcej elastyczności.";
   }
 }
 
