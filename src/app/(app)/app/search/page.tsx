@@ -34,14 +34,8 @@ import {
   EXPLORATION_SCOPE_OPTIONS,
   scopeSearchRadii,
 } from "@/lib/search/exploration-scope";
-import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
-import { buildInstantOverview } from "@/lib/search/destination-overview-instant";
-import type {
-  Activity,
-  ActivityGroup,
-  ActivitySearchResult,
-  GeoCluster,
-} from "@/types/domain";
+import type { DestinationDiscovery } from "@/lib/search/destination-discover";
+import type { Activity, ActivityGroup, ActivitySearchResult, GeoCluster } from "@/types/domain";
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
@@ -67,10 +61,10 @@ function SearchPageContent() {
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
-  const [overview, setOverview] = useState<DestinationOverview | null>(null);
-  const overviewCacheKey = useRef<string | null>(null);
-  const overviewEnrichedKey = useRef<string | null>(null);
-  const overviewFetchInFlight = useRef<string | null>(null);
+  const [discovery, setDiscovery] = useState<DestinationDiscovery | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const discoveryCacheKey = useRef<string | null>(null);
+  const discoveryFetchInFlight = useRef<string | null>(null);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
@@ -210,7 +204,7 @@ function SearchPageContent() {
   ]);
 
   useEffect(() => {
-    if (!initialized || trip.mode !== "destination") return;
+    if (!initialized || trip.mode !== "destination" || step !== 3) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
     if (!trip.departure_date) return;
 
@@ -224,28 +218,21 @@ function SearchPageContent() {
       trip.return_date ?? "",
       label,
       locale,
+      trip.passengers,
     ].join("|");
 
-    if (step === 3 && overviewCacheKey.current !== cacheKey) {
-      overviewCacheKey.current = cacheKey;
-      setOverview(
-        buildInstantOverview({
-          destinationLabel: label,
-          explorationScope: scope,
-          locale,
-        }),
-      );
-    }
-
-    if (overviewEnrichedKey.current === cacheKey) return;
-    if (overviewFetchInFlight.current === cacheKey) return;
+    if (discoveryCacheKey.current === cacheKey && discovery) return;
+    if (discoveryFetchInFlight.current === cacheKey) return;
 
     let cancelled = false;
-    overviewFetchInFlight.current = cacheKey;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    discoveryFetchInFlight.current = cacheKey;
+    setDiscovering(true);
+    setDiscovery(null);
 
-    fetch("/api/search/destination-overview", {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+
+    fetch("/api/search/destination-discover", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
@@ -257,6 +244,7 @@ function SearchPageContent() {
         to_date: trip.return_date ?? trip.departure_date,
         exploration_scope: scope,
         locale,
+        passengers: trip.passengers,
       }),
     })
       .then(async (r) => {
@@ -266,32 +254,27 @@ function SearchPageContent() {
             typeof data.error === "string" ? data.error : `HTTP ${r.status}`,
           );
         }
-        return data as DestinationOverview;
+        return data as DestinationDiscovery;
       })
       .then((data) => {
         if (!cancelled) {
-          overviewEnrichedKey.current = cacheKey;
-          setOverview(data);
+          discoveryCacheKey.current = cacheKey;
+          setDiscovery(data);
+          setActivityCounts(data.activity_counts);
+          if (data.suggested_activities.length > 0) {
+            setSelectedActivities(new Set(data.suggested_activities));
+          }
         }
       })
       .catch(() => {
-        if (!cancelled && step === 3) {
-          setOverview((prev) =>
-            prev
-              ? { ...prev, enriching: false }
-              : buildInstantOverview({
-                  destinationLabel: label,
-                  explorationScope: scope,
-                  locale,
-                }),
-          );
-        }
+        if (!cancelled) setDiscovery(null);
       })
       .finally(() => {
         clearTimeout(timeout);
-        if (overviewFetchInFlight.current === cacheKey) {
-          overviewFetchInFlight.current = null;
+        if (discoveryFetchInFlight.current === cacheKey) {
+          discoveryFetchInFlight.current = null;
         }
+        if (!cancelled) setDiscovering(false);
       });
 
     return () => {
@@ -309,12 +292,13 @@ function SearchPageContent() {
     trip.departure_date,
     trip.return_date,
     trip.exploration_scope,
+    trip.passengers,
     locale,
   ]);
 
   useEffect(() => {
-    if (!initialized || trip.mode !== "destination") return;
-    if (step !== 3 && step !== 4) return;
+    if (!initialized || trip.mode !== "destination" || step !== 4) return;
+    if (Object.keys(activityCounts).length > 0) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
 
     let cancelled = false;
@@ -348,6 +332,7 @@ function SearchPageContent() {
     trip.destination_label,
     trip.destination,
     trip.exploration_scope,
+    activityCounts,
   ]);
 
   function setExplorationScope(scope: ExplorationScope) {
@@ -609,8 +594,12 @@ function SearchPageContent() {
       {showOverviewStep && (
         <DestinationOverviewPanel
           destinationLabel={trip.destination_label ?? trip.destination ?? ""}
-          overview={overview}
+          discovering={discovering}
+          discovery={discovery}
           waitingForCoords={missingDestinationCoords}
+          taxonomy={taxonomy}
+          selectedActivities={selectedActivities}
+          onToggleActivity={toggleActivity}
           onContinue={() => {
             setStep(4);
             syncUrl(trip, 4);
