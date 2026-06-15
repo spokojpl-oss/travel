@@ -2,19 +2,6 @@ import { fetchWithCache } from "@/lib/cache/api-cache";
 import { apiEnv } from "@/config/api-env";
 
 const AVIATION_BASE = "https://api.travelpayouts.com";
-/** Travelpayouts program ID — Aviasales (travelpayouts.com/programs/100). */
-const AVIASALES_PROGRAM_ID = "100";
-
-function wrapAviasalesAffiliateLink(targetUrl: string): string {
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
-  if (!marker) return targetUrl;
-
-  const tpUrl = new URL("https://tp.media/r");
-  tpUrl.searchParams.set("marker", marker);
-  tpUrl.searchParams.set("p", AVIASALES_PROGRAM_ID);
-  tpUrl.searchParams.set("u", targetUrl);
-  return tpUrl.toString();
-}
 
 type TravelpayoutsCalendarResponse = {
   success: boolean;
@@ -258,8 +245,10 @@ export function buildAviasalesSearchUrl({
     params.set("one_way", "true");
   }
 
-  const aviasalesUrl = `https://www.aviasales.com/searches/new?${params.toString()}`;
-  return wrapAviasalesAffiliateLink(aviasalesUrl);
+  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
+  if (marker) params.set("marker", marker);
+
+  return `https://www.aviasales.com/searches/new?${params.toString()}`;
 }
 
 /** Krótki link w aplikacji → /api/out/aviasales (serwer robi redirect). */
