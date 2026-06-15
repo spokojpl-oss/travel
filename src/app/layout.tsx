@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Inter } from "next/font/google";
+import { TravelpayoutsDriveScript } from "@/components/analytics/TravelpayoutsDriveScript";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -102,6 +103,9 @@ export default function RootLayout({
       lang="pl"
       className={`${geistSans.variable} ${inter.variable} h-full antialiased`}
     >
+      <head>
+        <TravelpayoutsDriveScript />
+      </head>
       <body className="min-h-full flex flex-col bg-white text-text-primary">
         {children}
       </body>
