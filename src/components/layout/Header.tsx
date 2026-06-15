@@ -5,11 +5,11 @@ import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Logo } from "@/components/ui/Logo";
 
-const NAV_LINKS = [
+const NAV_LINKS_AFTER_PLAN = [
   { href: "/app/trips", label: "Moje wyjazdy" },
   { href: "/app/compare", label: "Porównaj" },
   { href: "/app#guide", label: "Jak to działa?" },
-];
+] as const;
 
 export function Header({
   userEmail,
@@ -20,6 +20,10 @@ export function Header({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const homeHref = variant === "app" ? "/app" : "/";
+  const navLinks = [
+    { href: homeHref, label: "Zaplanuj" },
+    ...NAV_LINKS_AFTER_PLAN,
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-brand-800 bg-brand-900 text-text-on-brand shadow-md">
@@ -27,7 +31,7 @@ export function Header({
         <Logo variant="header" href={homeHref} />
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -102,7 +106,7 @@ export function Header({
       {mobileOpen && (
         <div className="border-t border-white/10 md:hidden">
           <nav className="space-y-1 px-4 py-3">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

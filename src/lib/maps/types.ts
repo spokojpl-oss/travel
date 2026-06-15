@@ -24,5 +24,5 @@ export type ResolvedMapRoute = {
   distance_km: number;
   duration_min: number;
   geometry: Array<[number, number]>;
-  source: "osrm" | "straight";
+  source: "google" | "osrm" | "straight";
 };

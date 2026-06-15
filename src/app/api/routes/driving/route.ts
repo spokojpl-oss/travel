@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { fetchDrivingRoutes } from "@/lib/routing/osrm";
+import { resolveDrivingRoutes } from "@/lib/routing/driving-routes";
+import { getGoogleMapsServerKey } from "@/lib/maps/google-maps-config";
 
 const geoPointSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -36,12 +37,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const routes = await fetchDrivingRoutes(parsed.data.segments);
+  const routes = await resolveDrivingRoutes(parsed.data.segments);
 
   return NextResponse.json({
     routes: routes.map((item) => ({
       id: item.id,
       ...item.route,
     })),
+    meta: {
+      provider: getGoogleMapsServerKey() ? "google" : "osrm",
+    },
   });
 }

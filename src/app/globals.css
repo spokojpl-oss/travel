@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "./leaflet.css";
 
 @theme inline {
   --color-brand-50: #f0f5fc;

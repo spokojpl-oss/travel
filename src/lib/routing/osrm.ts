@@ -5,7 +5,7 @@ export type DrivingRoute = {
   distance_km: number;
   duration_min: number;
   geometry: Array<[number, number]>;
-  source: "osrm" | "straight";
+  source: "google" | "osrm" | "straight";
 };
 
 type OsrmRouteResponse = {
@@ -76,22 +76,4 @@ export async function fetchDrivingRoutes(
     })),
   );
   return results;
-}
-
-export function googleMapsDirectionsUrl(from: GeoPoint, to: GeoPoint): string {
-  const params = new URLSearchParams({
-    api: "1",
-    origin: `${from.lat},${from.lon}`,
-    destination: `${to.lat},${to.lon}`,
-    travelmode: "driving",
-  });
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
-}
-
-export function googleMapsPlaceUrl(point: GeoPoint, label?: string): string {
-  const params = new URLSearchParams({
-    api: "1",
-    query: label ? `${label}@${point.lat},${point.lon}` : `${point.lat},${point.lon}`,
-  });
-  return `https://www.google.com/maps/search/?${params.toString()}`;
 }

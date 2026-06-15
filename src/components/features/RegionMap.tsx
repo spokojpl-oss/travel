@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
-import { loadLeaflet } from "@/lib/maps/load-leaflet";
+import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import {
+  getGoogleMapsApiKey,
   googleMapsDirectionsUrl,
   googleMapsPlaceUrl,
-} from "@/lib/routing/osrm";
+} from "@/lib/maps/google-maps-config";
 import type { MapPoint, MapRouteSegment, ResolvedMapRoute } from "@/lib/maps/types";
 
 const POINT_COLORS: Record<MapPoint["type"], string> = {
@@ -34,8 +35,12 @@ export function RegionMap({
   showLegend = true,
   showRouteList = true,
 }: RegionMapProps) {
+  const apiKey = getGoogleMapsApiKey();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Polyline>>(
+    [],
+  );
   const [routes, setRoutes] = useState<ResolvedMapRoute[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -58,42 +63,58 @@ export function RegionMap({
   );
 
   useEffect(() => {
+    if (!apiKey) {
+      setMapError(
+        "Brak NEXT_PUBLIC_GOOGLE_MAPS_API_KEY — dodaj klucz w .env.local i włącz Maps JavaScript API w Google Cloud.",
+      );
+      return;
+    }
+
     if (!containerRef.current || points.length === 0) return;
 
     let cancelled = false;
-    let map: L.Map | null = null;
 
-    loadLeaflet()
-      .then((L) => {
+    const clearOverlays = () => {
+      for (const overlay of overlaysRef.current) {
+        overlay.setMap(null);
+      }
+      overlaysRef.current = [];
+    };
+
+    loadGoogleMaps(apiKey)
+      .then((maps) => {
         if (cancelled || !containerRef.current) return;
 
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
+        clearOverlays();
+        mapRef.current = null;
 
-        map = L.map(containerRef.current, {
-          scrollWheelZoom: true,
-          zoomControl: true,
+        const center = points[0];
+        const map = new maps.Map(containerRef.current, {
+          center: { lat: center.lat, lng: center.lon },
+          zoom: 10,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxZoom: 19,
-        }).addTo(map);
-
-        const bounds = L.latLngBounds(
-          points.map((p) => [p.lat, p.lon] as [number, number]),
-        );
+        const bounds = new maps.LatLngBounds();
 
         for (const point of points) {
-          const color = POINT_COLORS[point.type];
-          const icon = L.divIcon({
-            className: "region-map-marker",
-            html: markerHtml(point.type, color),
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
+          const position = { lat: point.lat, lng: point.lon };
+          bounds.extend(position);
+
+          const marker = new maps.Marker({
+            position,
+            map,
+            title: point.label,
+            icon: {
+              path: maps.SymbolPath.CIRCLE,
+              scale: point.type === "centroid" ? 11 : 9,
+              fillColor: POINT_COLORS[point.type],
+              fillOpacity: 1,
+              strokeColor: "#ffffff",
+              strokeWeight: 2,
+            },
           });
 
           const mapsUrl = googleMapsPlaceUrl(
@@ -101,20 +122,24 @@ export function RegionMap({
             point.label,
           );
 
-          L.marker([point.lat, point.lon], { title: point.label, icon })
-            .addTo(map!)
-            .bindPopup(
-              `<div style="min-width:160px">
-                <strong>${escapeHtml(point.label)}</strong>
-                ${point.badge ? `<div style="font-size:12px;color:#5a6878">${escapeHtml(point.badge)}</div>` : ""}
-                <div style="margin-top:8px">
-                  <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Otwórz w Google Maps</a>
-                </div>
-              </div>`,
-            );
+          const info = new maps.InfoWindow({
+            content: `<div style="min-width:160px;font-family:system-ui,sans-serif">
+              <strong>${escapeHtml(point.label)}</strong>
+              ${point.badge ? `<div style="font-size:12px;color:#5a6878;margin-top:4px">${escapeHtml(point.badge)}</div>` : ""}
+              <div style="margin-top:8px">
+                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Otwórz w Google Maps</a>
+              </div>
+            </div>`,
+          });
+
+          marker.addListener("click", () => {
+            info.open({ map, anchor: marker });
+          });
+
+          overlaysRef.current.push(marker);
         }
 
-        map.fitBounds(bounds, { padding: [40, 40] });
+        map.fitBounds(bounds, 48);
         mapRef.current = map;
         setMapReady(true);
         setMapError(null);
@@ -127,13 +152,11 @@ export function RegionMap({
 
     return () => {
       cancelled = true;
-      if (map) {
-        map.remove();
-      }
+      clearOverlays();
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [pointsKey, points]);
+  }, [apiKey, pointsKey, points]);
 
   useEffect(() => {
     if (segments.length === 0) {
@@ -175,38 +198,35 @@ export function RegionMap({
   }, [segmentKey, segments]);
 
   useEffect(() => {
-    if (!mapRef.current || !mapReady) return;
+    if (!mapRef.current || !mapReady || !apiKey) return;
 
     const map = mapRef.current;
-    const layers: L.Polyline[] = [];
+    const maps = window.google?.maps;
+    if (!maps) return;
+
+    const routeOverlays: google.maps.Polyline[] = [];
 
     for (const route of routes) {
-      const isRoad = route.source === "osrm";
-      const polyline = L.polyline(route.geometry, {
-        color: isRoad ? "#003faa" : "#8a96a3",
-        weight: isRoad ? 4 : 2,
-        opacity: 0.85,
-        dashArray: isRoad ? undefined : "8 6",
-      }).addTo(map);
+      const isRoad = route.source === "google" || route.source === "osrm";
+      const polyline = new maps.Polyline({
+        path: route.geometry.map(([lat, lon]) => ({ lat, lng: lon })),
+        map,
+        strokeColor: isRoad ? "#003faa" : "#8a96a3",
+        strokeWeight: isRoad ? 4 : 2,
+        strokeOpacity: isRoad ? 0.85 : 0.6,
+      });
 
-      const midpoint = route.geometry[Math.floor(route.geometry.length / 2)];
-      if (midpoint) {
-        polyline.bindPopup(
-          `${route.distance_km} km · ~${route.duration_min} min jazdy${
-            isRoad ? "" : " (linia prosta)"
-          }`,
-        );
-      }
-
-      layers.push(polyline);
+      routeOverlays.push(polyline);
+      overlaysRef.current.push(polyline);
     }
 
     return () => {
-      for (const layer of layers) {
-        layer.remove();
+      for (const overlay of routeOverlays) {
+        overlay.setMap(null);
+        overlaysRef.current = overlaysRef.current.filter((o) => o !== overlay);
       }
     };
-  }, [routes, mapReady]);
+  }, [routes, mapReady, apiKey]);
 
   if (points.length === 0) {
     return (
@@ -234,7 +254,7 @@ export function RegionMap({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-text-primary">
           <Icon name="map-pin" size={16} className="text-brand-700" />
-          Mapa z drogami (OpenStreetMap)
+          Google Maps
         </div>
         {showLegend && (
           <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
@@ -253,11 +273,11 @@ export function RegionMap({
           className="z-0 w-full bg-bg-soft"
         />
         {mapError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/90 p-6 text-center text-sm text-danger">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/95 p-6 text-center text-sm text-text-secondary">
             {mapError}
           </div>
         )}
-        {loadingRoutes && (
+        {loadingRoutes && !mapError && (
           <div className="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm">
             Liczę trasy drogowe…
           </div>
@@ -297,8 +317,11 @@ export function RegionMap({
                     <span className="text-text-secondary">
                       ~{route.duration_min} min
                     </span>
-                    {route.source !== "osrm" && (
+                    {route.source === "straight" && (
                       <span className="text-text-tertiary"> (szacunek)</span>
+                    )}
+                    {route.source === "google" && (
+                      <span className="text-text-tertiary"> (Google)</span>
                     )}
                   </span>
                   <a
@@ -338,19 +361,6 @@ export function RegionMapMini({
       showRouteList={false}
     />
   );
-}
-
-function markerHtml(type: MapPoint["type"], color: string): string {
-  if (type === "centroid") {
-    return `<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:${color};font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.2)">+</div>`;
-  }
-  if (type === "airport") {
-    return `<div style="width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:18px solid ${color};filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))"></div>`;
-  }
-  if (type === "hotel") {
-    return `<div style="width:16px;height:16px;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25)"></div>`;
-  }
-  return `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25)"></div>`;
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
