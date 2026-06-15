@@ -51,6 +51,12 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function formatDisplay(value: string): string {
   const selected = parseDate(value);
   if (!selected) return "Wybierz datę";
@@ -175,6 +181,10 @@ export function DateRangePicker({
 
     if (activeField === "from") {
       onFromChange(iso);
+      const fromDate = parseDate(iso);
+      if (fromDate) {
+        onToChange(toIsoDate(addDays(fromDate, 1)));
+      }
     } else if (activeField === "to") {
       onToChange(iso);
     }
