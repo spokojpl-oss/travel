@@ -173,6 +173,15 @@ function buildAttractionMap(tagRows: TagRow[]): AttractionWithActivities[] {
   return Array.from(attractionMap.values());
 }
 
+function countBy<T>(items: T[], keyFn: (item: T) => string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const item of items) {
+    const key = keyFn(item);
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
 export async function searchActivities(
   query: ActivitySearchQuery,
 ): Promise<ActivitySearchResult> {
@@ -232,8 +241,13 @@ export async function searchActivities(
       has_near: hasNearPoint(query),
       geo_radius_km_used: geoRadiusUsed,
       attractions_in_bbox: attractionsInBbox,
+      tags_per_activity_slug: countBy(tagRows, (r) => r.activity_slug),
+      attraction_categories: countBy(
+        tagRows.filter((r) => r.attraction),
+        (r) => r.attraction!.category,
+      ),
     },
-    "A",
+    "H1",
   );
 
   if (tagRows.length === 0) {
@@ -296,8 +310,19 @@ export async function searchActivities(
       raw_clusters: clusters.length,
       cluster_ms: Date.now() - clusterStart,
       total_ms: Date.now() - startTime,
+      match_mode: query.match_mode,
+      top_clusters: clusters.slice(0, 5).map((c) => ({
+        covered_activities: c.covered_activities,
+        activity_counts: c.activity_counts,
+        attraction_categories: [
+          ...new Set(c.attractions.map((a) => a.category)),
+        ],
+        beach_attractions: c.attractions.filter((a) => a.category === "beach")
+          .length,
+        total_attractions: c.attractions.length,
+      })),
     },
-    "A",
+    "H3",
   );
 
   const topClusters = clusters.slice(0, 10).map((cluster) => ({

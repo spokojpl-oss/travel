@@ -2,6 +2,19 @@ import { fetchWithCache } from "@/lib/cache/api-cache";
 import { apiEnv } from "@/config/api-env";
 
 const AVIATION_BASE = "https://api.travelpayouts.com";
+/** Travelpayouts program ID — Aviasales (travelpayouts.com/programs/100). */
+const AVIASALES_PROGRAM_ID = "100";
+
+function wrapAviasalesAffiliateLink(targetUrl: string): string {
+  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
+  if (!marker) return targetUrl;
+
+  const tpUrl = new URL("https://tp.media/r");
+  tpUrl.searchParams.set("marker", marker);
+  tpUrl.searchParams.set("p", AVIASALES_PROGRAM_ID);
+  tpUrl.searchParams.set("u", targetUrl);
+  return tpUrl.toString();
+}
 
 type TravelpayoutsCalendarResponse = {
   success: boolean;
@@ -91,6 +104,7 @@ export async function fetchPriceCalendar({
         departure_at: departureMonth,
         one_way: oneWay ? "true" : "false",
         currency: "pln",
+        market: "pl",
         token: requireTravelpayoutsToken(),
       });
       const response = await fetch(
@@ -155,6 +169,7 @@ export async function fetchCheapestFlights({
         destination,
         depart_date: departureDate,
         currency: "pln",
+        market: "pl",
         token: requireTravelpayoutsToken(),
       });
       if (returnDate) params.set("return_date", returnDate);
@@ -211,7 +226,10 @@ export type AviasalesLinkParams = {
   infants?: number;
 };
 
-/** Oficjalny format Travelpayouts / Aviasales (query params). */
+/**
+ * Link do wyników wyszukiwania Aviasales (od razu lista lotów, nie pusty formularz).
+ * Używa www.aviasales.com — search.aviasales.com często przekierowuje na .ru i gubi parametry.
+ */
 export function buildAviasalesSearchUrl({
   origin,
   destination,
@@ -240,10 +258,8 @@ export function buildAviasalesSearchUrl({
     params.set("one_way", "true");
   }
 
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
-  if (marker) params.set("marker", marker);
-
-  return `https://search.aviasales.com/flights/?${params.toString()}`;
+  const aviasalesUrl = `https://www.aviasales.com/searches/new?${params.toString()}`;
+  return wrapAviasalesAffiliateLink(aviasalesUrl);
 }
 
 /** Krótki link w aplikacji → /api/out/aviasales (serwer robi redirect). */

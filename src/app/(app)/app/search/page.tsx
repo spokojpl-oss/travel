@@ -142,6 +142,12 @@ function SearchPageContent() {
       );
       if (matched.length > 0) {
         setSelectedActivities(new Set(matched));
+        agentLog(
+          "search/page.tsx:init",
+          "auto-matched activities from interests",
+          { interests: merged.interests, matched_slugs: matched },
+          "H2",
+        );
       }
 
       if (merged.mode === "destination") {
@@ -292,11 +298,14 @@ function SearchPageContent() {
       "search/page.tsx:handleSearch",
       "fetch start",
       {
-        activities: params.activities.length,
+        activities: params.activities,
+        activity_count: params.activities.length,
         has_near: params.near_lat != null,
         match_mode: params.match_mode,
+        max_radius_km: params.max_radius_km,
+        near_radius_km: params.near_radius_km,
       },
-      "A",
+      "H4",
     );
 
     try {
@@ -318,14 +327,30 @@ function SearchPageContent() {
         );
       }
       setResults(data as ActivitySearchResult);
+      const result = data as ActivitySearchResult;
       agentLog(
         "search/page.tsx:handleSearch",
         "fetch done",
         {
           client_ms: Date.now() - clientStart,
-          clusters: (data as ActivitySearchResult).clusters.length,
-          attractions: (data as ActivitySearchResult).total_attractions_considered,
-          server_ms: (data as ActivitySearchResult).duration_ms,
+          clusters: result.clusters.length,
+          attractions: result.total_attractions_considered,
+          server_ms: result.duration_ms,
+          first_cluster_covered: result.clusters[0]?.covered_activities ?? [],
+          first_cluster_categories: result.clusters[0]
+            ? [...new Set(result.clusters[0].attractions.map((a) => a.category))]
+            : [],
+        },
+        "H5",
+      );
+      agentLog(
+        "search/page.tsx:handleSearch",
+        "fetch done legacy",
+        {
+          client_ms: Date.now() - clientStart,
+          clusters: result.clusters.length,
+          attractions: result.total_attractions_considered,
+          server_ms: result.duration_ms,
         },
         "A",
       );

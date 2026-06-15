@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { agentLog } from "@/lib/debug/agent-log";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,29 @@ export async function GET() {
     const activities = activitiesCount ?? 0;
     const attractions = attractionsCount ?? 0;
     const tags = tagsCount ?? 0;
+
+    const { data: tagSample } = await admin
+      .from("attraction_activity_tags")
+      .select("activity_slug")
+      .limit(5000);
+
+    const tagCounts: Record<string, number> = {};
+    for (const row of tagSample ?? []) {
+      tagCounts[row.activity_slug] = (tagCounts[row.activity_slug] ?? 0) + 1;
+    }
+
+    agentLog(
+      "activities/status/route.ts:GET",
+      "db tag distribution sample",
+      {
+        activities,
+        attractions,
+        tags,
+        tag_counts_sample: tagCounts,
+        unique_activity_slugs: Object.keys(tagCounts).length,
+      },
+      "H1",
+    );
 
     return NextResponse.json({
       activities,
