@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { BoundingBox } from "@/types/domain";
 import type { FlightOffer } from "@/lib/api/travelpayouts";
+import { buildAviasalesAppLink } from "@/lib/api/travelpayouts";
 
 export const dynamic = "force-dynamic";
 
@@ -181,7 +182,13 @@ function cacheRowToFlightOffer(
     return_date: row.return_date,
     transfers: row.transfers,
     duration_minutes: row.duration_minutes,
-    deep_link: row.deep_link,
+    deep_link: buildAviasalesAppLink({
+      origin: row.origin_iata,
+      destination: row.destination_iata,
+      departureDate: row.departure_date,
+      returnDate: row.return_date,
+      adults: 1,
+    }),
     source: "aviasales",
   };
 }

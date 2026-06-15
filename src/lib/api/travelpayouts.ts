@@ -66,16 +66,6 @@ function requireTravelpayoutsToken(): string {
   return token;
 }
 
-function requireAviasalesMarker(): string {
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES;
-  if (!marker) {
-    throw new Error(
-      "TRAVELPAYOUTS_MARKER_AVIASALES nie skonfigurowany. Dodaj marker w env.",
-    );
-  }
-  return marker;
-}
-
 export async function fetchPriceCalendar({
   origin,
   destination,
@@ -130,7 +120,7 @@ export async function fetchPriceCalendar({
     return_date: offer.return_at?.split("T")[0] ?? null,
     transfers: offer.transfers,
     duration_minutes: null,
-    deep_link: buildAviasalesDeepLink({
+    deep_link: buildAviasalesAppLink({
       origin,
       destination,
       departureDate: offer.departure_at.split("T")[0],
@@ -197,7 +187,7 @@ export async function fetchCheapestFlights({
       return_date: offer.return_at?.split("T")[0] ?? null,
       transfers: 0,
       duration_minutes: null,
-      deep_link: buildAviasalesDeepLink({
+      deep_link: buildAviasalesAppLink({
         origin,
         destination,
         departureDate: offer.departure_at.split("T")[0],
@@ -211,15 +201,7 @@ export async function fetchCheapestFlights({
   return offers;
 }
 
-export function buildAviasalesDeepLink({
-  origin,
-  destination,
-  departureDate,
-  returnDate,
-  adults = 1,
-  children = 0,
-  infants = 0,
-}: {
+export type AviasalesLinkParams = {
   origin: string;
   destination: string;
   departureDate: string;
@@ -227,22 +209,60 @@ export function buildAviasalesDeepLink({
   adults?: number;
   children?: number;
   infants?: number;
-}): string {
-  const formatDate = (date: string) => {
-    const [, m, d] = date.split("-");
-    return `${d}${m}`;
-  };
+};
 
-  const dep = formatDate(departureDate);
-  const ret = returnDate ? formatDate(returnDate) : "";
+/** Oficjalny format Travelpayouts / Aviasales (query params). */
+export function buildAviasalesSearchUrl({
+  origin,
+  destination,
+  departureDate,
+  returnDate,
+  adults = 1,
+  children = 0,
+  infants = 0,
+}: AviasalesLinkParams): string {
+  const params = new URLSearchParams({
+    origin_iata: origin.toUpperCase(),
+    destination_iata: destination.toUpperCase(),
+    depart_date: departureDate,
+    adults: String(adults),
+    children: String(children),
+    infants: String(infants),
+    trip_class: "0",
+    currency: "PLN",
+    locale: "pl",
+  });
 
-  let route = `${origin}${dep}${destination}`;
-  if (ret) route += ret;
-  route += String(adults);
-  if (children > 0) route += String(children);
-  if (infants > 0) route += String(infants);
+  if (returnDate) {
+    params.set("return_date", returnDate);
+    params.set("one_way", "false");
+  } else {
+    params.set("one_way", "true");
+  }
 
-  const url = new URL(`https://www.aviasales.com/search/${route}`);
-  url.searchParams.set("marker", requireAviasalesMarker());
-  return url.toString();
+  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
+  if (marker) params.set("marker", marker);
+
+  return `https://search.aviasales.com/flights/?${params.toString()}`;
+}
+
+/** Krótki link w aplikacji → /api/out/aviasales (serwer robi redirect). */
+export function buildAviasalesAppLink(params: AviasalesLinkParams): string {
+  const sp = new URLSearchParams({
+    origin: params.origin.toUpperCase(),
+    destination: params.destination.toUpperCase(),
+    dep: params.departureDate,
+  });
+  if (params.returnDate) sp.set("ret", params.returnDate);
+  if (params.adults && params.adults !== 1) sp.set("adults", String(params.adults));
+  if (params.children && params.children > 0) {
+    sp.set("children", String(params.children));
+  }
+  if (params.infants && params.infants > 0) sp.set("infants", String(params.infants));
+  return `/api/out/aviasales?${sp.toString()}`;
+}
+
+/** @deprecated Użyj buildAviasalesAppLink w UI lub buildAviasalesSearchUrl na serwerze. */
+export function buildAviasalesDeepLink(params: AviasalesLinkParams): string {
+  return buildAviasalesAppLink(params);
 }
