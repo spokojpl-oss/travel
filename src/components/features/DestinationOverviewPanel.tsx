@@ -65,6 +65,8 @@ export function DestinationOverviewPanel({
   destinationLabel,
   discovering,
   discovery,
+  discoveryError = null,
+  onRetry,
   waitingForCoords = false,
   taxonomy,
   selectedActivities,
@@ -74,6 +76,8 @@ export function DestinationOverviewPanel({
   destinationLabel: string;
   discovering: boolean;
   discovery: DestinationDiscovery | null;
+  discoveryError?: string | null;
+  onRetry?: () => void;
   waitingForCoords?: boolean;
   taxonomy: Array<ActivityGroup & { activities: Activity[] }>;
   selectedActivities: Set<string>;
@@ -84,12 +88,21 @@ export function DestinationOverviewPanel({
   const { locale } = useLocale();
 
   if (waitingForCoords || discovering || !discovery) {
-    return (
-      <DestinationOverviewLoader
-        destinationLabel={destinationLabel}
-        waitingForCoords={waitingForCoords}
-      />
-    );
+    if (discoveryError && !discovering && !waitingForCoords) {
+      return (
+        <div className="mb-8 rounded-2xl border border-danger/30 bg-orange-50/80 p-6 text-center">
+          <p className="font-medium text-text-primary">{t("search.discoverError")}</p>
+          <p className="mt-2 text-sm text-text-secondary">{discoveryError}</p>
+          {onRetry && (
+            <Button className="mt-4" onClick={onRetry}>
+              {t("search.discoverRetry")}
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return <DestinationOverviewLoader destinationLabel={destinationLabel} />;
   }
 
   const counts = discovery.activity_counts;

@@ -63,7 +63,10 @@ function SearchPageContent() {
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [discovery, setDiscovery] = useState<DestinationDiscovery | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const [discoveryRetry, setDiscoveryRetry] = useState(0);
   const discoveryCacheKey = useRef<string | null>(null);
+  const discoveryFailedKey = useRef<string | null>(null);
   const discoveryFetchInFlight = useRef<string | null>(null);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
@@ -221,16 +224,18 @@ function SearchPageContent() {
       trip.passengers,
     ].join("|");
 
-    if (discoveryCacheKey.current === cacheKey && discovery) return;
+    if (discoveryCacheKey.current === cacheKey) return;
+    if (discoveryFailedKey.current === cacheKey) return;
     if (discoveryFetchInFlight.current === cacheKey) return;
 
     let cancelled = false;
     discoveryFetchInFlight.current = cacheKey;
     setDiscovering(true);
     setDiscovery(null);
+    setDiscoveryError(null);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     fetch("/api/search/destination-discover", {
       method: "POST",
@@ -259,6 +264,7 @@ function SearchPageContent() {
       .then((data) => {
         if (!cancelled) {
           discoveryCacheKey.current = cacheKey;
+          discoveryFailedKey.current = null;
           setDiscovery(data);
           setActivityCounts(data.activity_counts);
           if (data.suggested_activities.length > 0) {
@@ -266,8 +272,18 @@ function SearchPageContent() {
           }
         }
       })
-      .catch(() => {
-        if (!cancelled) setDiscovery(null);
+      .catch((e) => {
+        if (!cancelled) {
+          discoveryFailedKey.current = cacheKey;
+          setDiscovery(null);
+          setDiscoveryError(
+            e instanceof Error && e.name === "AbortError"
+              ? t("search.discoverErrorGeneric")
+              : e instanceof Error
+                ? e.message
+                : t("search.discoverErrorGeneric"),
+          );
+        }
       })
       .finally(() => {
         clearTimeout(timeout);
@@ -294,6 +310,8 @@ function SearchPageContent() {
     trip.exploration_scope,
     trip.passengers,
     locale,
+    discoveryRetry,
+    t,
   ]);
 
   useEffect(() => {
@@ -596,6 +614,12 @@ function SearchPageContent() {
           destinationLabel={trip.destination_label ?? trip.destination ?? ""}
           discovering={discovering}
           discovery={discovery}
+          discoveryError={discoveryError}
+          onRetry={() => {
+            discoveryCacheKey.current = null;
+            discoveryFailedKey.current = null;
+            setDiscoveryRetry((n) => n + 1);
+          }}
           waitingForCoords={missingDestinationCoords}
           taxonomy={taxonomy}
           selectedActivities={selectedActivities}

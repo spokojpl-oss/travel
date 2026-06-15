@@ -120,12 +120,14 @@ export async function discoverDestination({
   const { scopeSearchRadii } = await import("@/lib/search/exploration-scope");
   const { near_radius_km } = scopeSearchRadii(explorationScope);
 
-  await ensureDestinationActivities({
+  const prefill = ensureDestinationActivities({
     lat,
     lon,
     radiusKm: near_radius_km,
     destinationLabel,
-  });
+  }).catch(() => ({ osmPersisted: 0, googlePersisted: 0 }));
+
+  const PREFILL_BUDGET_MS = 12_000;
 
   const [overview, activity_counts] = await Promise.all([
     buildDestinationOverview({
@@ -137,8 +139,25 @@ export async function discoverDestination({
       explorationScope,
       locale,
     }),
-    countActivitiesNearPoint({ lat, lon, radiusKm: near_radius_km }),
+    Promise.race([
+      prefill.then(() =>
+        countActivitiesNearPoint({ lat, lon, radiusKm: near_radius_km }),
+      ),
+      new Promise<Record<string, number>>((resolve) =>
+        setTimeout(async () => {
+          resolve(
+            await countActivitiesNearPoint({
+              lat,
+              lon,
+              radiusKm: near_radius_km,
+            }),
+          );
+        }, PREFILL_BUDGET_MS),
+      ),
+    ]),
   ]);
+
+  void prefill.catch(() => {});
 
   const suggested_activities = suggestActivities({
     counts: activity_counts,

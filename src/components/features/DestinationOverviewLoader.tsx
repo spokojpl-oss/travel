@@ -1,41 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { resolveHeroImageUrl } from "@/lib/search/destination-overview-instant";
-import { useT } from "@/i18n/locale-provider";
-
-const PHASE_KEYS = [
-  "search.discoverPhaseWeather",
-  "search.discoverPhasePlaces",
-  "search.discoverPhaseMatch",
-] as const;
 
 export function DestinationOverviewLoader({
   destinationLabel,
-  waitingForCoords = false,
 }: {
   destinationLabel: string;
   waitingForCoords?: boolean;
 }) {
-  const t = useT();
   const placeName = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
   const heroUrl = resolveHeroImageUrl(destinationLabel);
-  const [phase, setPhase] = useState(0);
   const [imageSharp, setImageSharp] = useState(false);
-
-  useEffect(() => {
-    if (waitingForCoords) return;
-    const interval = setInterval(() => {
-      setPhase((p) => (p + 1) % PHASE_KEYS.length);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, [waitingForCoords]);
 
   return (
     <div
       className="overview-loader relative mb-8 min-h-[22rem] overflow-hidden rounded-2xl shadow-hero sm:min-h-[26rem]"
       aria-busy="true"
       aria-live="polite"
+      aria-label={placeName}
     >
       {heroUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -66,16 +49,6 @@ export function DestinationOverviewLoader({
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
               <path d="M12 7l2.5 7.5L12 14l-2.5.5L12 7z" fill="currentColor" />
             </svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">
-              {t("search.discoverLabel")}
-            </p>
-            <p className="overview-loader-status mt-1 text-sm text-white/95 sm:text-base">
-              {waitingForCoords
-                ? t("search.discoverCoords")
-                : t(PHASE_KEYS[phase])}
-            </p>
           </div>
         </div>
 
