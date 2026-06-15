@@ -34,7 +34,8 @@ import {
   EXPLORATION_SCOPE_OPTIONS,
   scopeSearchRadii,
 } from "@/lib/search/exploration-scope";
-import type { DestinationOverview } from "@/lib/search/destination-overview";
+import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
+import { buildInstantOverview } from "@/lib/search/destination-overview-instant";
 import type {
   Activity,
   ActivityGroup,
@@ -67,9 +68,8 @@ function SearchPageContent() {
   const [pageLoading, setPageLoading] = useState(true);
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [overview, setOverview] = useState<DestinationOverview | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(false);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
   const overviewCacheKey = useRef<string | null>(null);
+  const overviewEnrichedKey = useRef<string | null>(null);
   const overviewFetchInFlight = useRef<string | null>(null);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
@@ -211,44 +211,49 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!initialized || trip.mode !== "destination") return;
-    const shouldPrefetch = step === 2 || step === 3 || (step === 4 && !overview);
-    if (!shouldPrefetch) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
     if (!trip.departure_date) return;
 
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const scope = trip.exploration_scope ?? "region";
     const cacheKey = [
       trip.destination_lat,
       trip.destination_lon,
-      trip.exploration_scope ?? "region",
+      scope,
       trip.departure_date,
       trip.return_date ?? "",
-      trip.destination_label ?? trip.destination ?? "",
+      label,
     ].join("|");
 
-    if (overviewCacheKey.current === cacheKey && overview) return;
-
-    if (overviewFetchInFlight.current === cacheKey) {
-      if (step === 3) setOverviewLoading(true);
-      return;
+    if (step === 3 && overviewCacheKey.current !== cacheKey) {
+      overviewCacheKey.current = cacheKey;
+      setOverview(
+        buildInstantOverview({
+          destinationLabel: label,
+          explorationScope: scope,
+        }),
+      );
     }
+
+    if (overviewEnrichedKey.current === cacheKey) return;
+    if (overviewFetchInFlight.current === cacheKey) return;
 
     let cancelled = false;
     overviewFetchInFlight.current = cacheKey;
-    if (step === 3) {
-      setOverviewLoading(true);
-      setOverviewError(null);
-    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
     fetch("/api/search/destination-overview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
-        destination_label: trip.destination_label ?? trip.destination ?? "",
+        destination_label: label,
         near_lat: trip.destination_lat,
         near_lon: trip.destination_lon,
         from_date: trip.departure_date,
         to_date: trip.return_date ?? trip.departure_date,
-        exploration_scope: trip.exploration_scope ?? "region",
+        exploration_scope: scope,
       }),
     })
       .then(async (r) => {
@@ -262,29 +267,36 @@ function SearchPageContent() {
       })
       .then((data) => {
         if (!cancelled) {
-          overviewCacheKey.current = cacheKey;
+          overviewEnrichedKey.current = cacheKey;
           setOverview(data);
         }
       })
-      .catch((e) => {
-        if (!cancelled) {
-          setOverviewError(e instanceof Error ? e.message : String(e));
+      .catch(() => {
+        if (!cancelled && step === 3) {
+          setOverview((prev) =>
+            prev
+              ? { ...prev, enriching: false }
+              : buildInstantOverview({
+                  destinationLabel: label,
+                  explorationScope: scope,
+                }),
+          );
         }
       })
       .finally(() => {
+        clearTimeout(timeout);
         if (overviewFetchInFlight.current === cacheKey) {
           overviewFetchInFlight.current = null;
         }
-        if (!cancelled) setOverviewLoading(false);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     initialized,
     step,
-    overview,
     trip.mode,
     trip.destination_lat,
     trip.destination_lon,
@@ -589,9 +601,7 @@ function SearchPageContent() {
         <DestinationOverviewPanel
           destinationLabel={trip.destination_label ?? trip.destination ?? ""}
           overview={overview}
-          loading={overviewLoading}
           waitingForCoords={missingDestinationCoords}
-          error={overviewError}
           onContinue={() => {
             setStep(4);
             syncUrl(trip, 4);

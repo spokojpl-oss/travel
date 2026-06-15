@@ -1,49 +1,16 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
-import { resolveWikivoyagePageName } from "@/lib/search/destination-overview";
+import { resolveWikipediaPageName } from "@/lib/api/wikipedia-summary";
+import { resolveHeroImageUrl } from "@/lib/search/destination-overview-instant";
 
 const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
-
-/** Znane destynacje — natychmiastowy podgląd bez API. */
-const KNOWN_HERO_IMAGES: Record<string, string> = {
-  mallorca:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Palma_de_Mallorca_Sunset_Harbour_Spain.jpg/1280px-Palma_de_Mallorca_Sunset_Harbour_Spain.jpg",
-  majorka:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Palma_de_Mallorca_Sunset_Harbour_Spain.jpg/1280px-Palma_de_Mallorca_Sunset_Harbour_Spain.jpg",
-  crete:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Balos_lagoon_Crete_Greece.jpg/1280px-Balos_lagoon_Crete_Greece.jpg",
-  kreta:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Balos_lagoon_Crete_Greece.jpg/1280px-Balos_lagoon_Crete_Greece.jpg",
-  ibiza:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Eivissa_-_Ibiza_-_Cala_Comte_-_Sunset_-_02.jpg/1280px-Eivissa_-_Ibiza_-_Cala_Comte_-_Sunset_-_02.jpg",
-  tenerife:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Teide_National_Park_2.jpg/1280px-Teide_National_Park_2.jpg",
-  teneryfa:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Teide_National_Park_2.jpg/1280px-Teide_National_Park_2.jpg",
-  barcelona:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Barcelona_Skyline_Panorama_-_Dec_2007.jpg/1280px-Barcelona_Skyline_Panorama_-_Dec_2007.jpg",
-  lisbon:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Lisbon_aerial_view.jpg/1280px-Lisbon_aerial_view.jpg",
-  lizbona:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Lisbon_aerial_view.jpg/1280px-Lisbon_aerial_view.jpg",
-};
-
-function heroKey(destinationLabel: string): string {
-  const primary = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
-  return primary
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
 
 export async function fetchDestinationHeroImage(
   destinationLabel: string,
 ): Promise<string | null> {
-  const key = heroKey(destinationLabel);
-  if (KNOWN_HERO_IMAGES[key]) {
-    return KNOWN_HERO_IMAGES[key];
-  }
+  const known = resolveHeroImageUrl(destinationLabel);
+  if (known) return known;
 
-  const pageName = resolveWikivoyagePageName(destinationLabel);
+  const pageName = resolveWikipediaPageName(destinationLabel);
 
   const { data } = await fetchWithCache<string | null>({
     source: "wikipedia-hero",
@@ -67,10 +34,7 @@ export async function fetchDestinationHeroImage(
 
       const json = (await response.json()) as {
         query?: {
-          pages?: Record<
-            string,
-            { thumbnail?: { source?: string }; pageimage?: string }
-          >;
+          pages?: Record<string, { thumbnail?: { source?: string } }>;
         };
       };
 

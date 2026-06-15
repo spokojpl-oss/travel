@@ -1,105 +1,25 @@
-import { fetchDestinationHeroImage } from "@/lib/api/destination-hero-image";
+import { fetchWikipediaSummary } from "@/lib/api/wikipedia-summary";
 import { fetchWeatherPreview } from "@/lib/api/weather";
 import {
-  fetchWikivoyageDestination,
-  type WikivoyageDestinationContent,
-} from "@/lib/api/wikivoyage";
+  buildInstantOverview,
+  resolveHeroImageUrl,
+  type DestinationOverview,
+} from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
-import { scopeSearchRadii } from "@/lib/search/exploration-scope";
-import type { WeatherSummary } from "@/types/domain";
 
-/** Polskie / lokalne nazwy → strona Wikivoyage (EN). */
-const WIKIVOYAGE_PAGE_BY_NAME: Record<string, string> = {
-  majorka: "Mallorca",
-  mallorca: "Mallorca",
-  madera: "Madeira",
-  madeira: "Madeira",
-  kreta: "Crete",
-  crete: "Crete",
-  ibiza: "Ibiza",
-  lanzarote: "Lanzarote",
-  teneryfa: "Tenerife",
-  tenerife: "Tenerife",
-  "gran canaria": "Gran_Canaria",
-  fuerteventura: "Fuerteventura",
-  korfu: "Corfu",
-  corfu: "Corfu",
-  rodos: "Rhodes",
-  rhodes: "Rhodes",
-  santorini: "Santorini",
-  dubrownik: "Dubrovnik",
-  dubrovnik: "Dubrovnik",
-  split: "Split",
-  cypr: "Cyprus",
-  cyprus: "Cyprus",
-  antalya: "Antalya",
-  bodrum: "Bodrum",
-  lizbona: "Lisbon",
-  lisbon: "Lisbon",
-  porto: "Porto",
-  barcelona: "Barcelona",
-  walencja: "Valencia",
-  valencia: "Valencia",
-  alikante: "Alicante",
-  alicante: "Alicante",
-  rzym: "Rome",
-  rome: "Rome",
-  sycylia: "Sicily",
-  sicily: "Sicily",
-  sardynia: "Sardinia",
-  sardinia: "Sardinia",
-  wenecja: "Venice",
-  venice: "Venice",
-  paryż: "Paris",
-  paris: "Paris",
-  nicea: "Nice",
-  nice: "Nice",
-  korsyka: "Corsica",
-  corsica: "Corsica",
-  islandia: "Iceland",
-  iceland: "Iceland",
-  saranda: "Sarandë",
-  zakopane: "Zakopane",
-  gdańsk: "Gdańsk",
-  gdansk: "Gdańsk",
-  kraków: "Kraków",
-  krakow: "Kraków",
-};
-
-export function resolveWikivoyagePageName(destinationLabel: string): string {
-  const primary = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
-  const key = primary
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  if (WIKIVOYAGE_PAGE_BY_NAME[key]) {
-    return WIKIVOYAGE_PAGE_BY_NAME[key];
-  }
-  return primary.replace(/\s+/g, "_");
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
 }
 
-function scopeIntroPl(scope: ExplorationScope, place: string): string {
-  switch (scope) {
-    case "local":
-      return `Planujesz pobyt w jednym rejonie ${place} — poniżej skrót całej destynacji, ale szukanie regionów i noclegów skupimy na okolicy ~15 km.`;
-    case "region":
-      return `Zwiedzasz wybrany region ${place} — kilka miejscowości w zasięgu jednego bazy wypadowej.`;
-    case "island":
-      return `Chcesz poznać całą ${place} — pokażemy kilka regionów na wyspie do wyboru.`;
-    case "roadtrip":
-      return `Planujesz podróż po ${place} z możliwością zmiany bazy — szerszy zasięg i elastyczny dojazd.`;
-  }
-}
-
-export type DestinationOverview = {
-  destination_label: string;
-  exploration_scope: ExplorationScope;
-  scope_intro: string;
-  hero_image_url: string | null;
-  wikivoyage: WikivoyageDestinationContent | null;
-  weather: WeatherSummary | null;
-  search_radius_km: number;
-};
+export type { DestinationOverview } from "@/lib/search/destination-overview-instant";
+export {
+  buildInstantOverview,
+  parseDestinationLabel,
+  resolveHeroImageUrl,
+} from "@/lib/search/destination-overview-instant";
 
 export async function buildDestinationOverview({
   destinationLabel,
@@ -116,29 +36,31 @@ export async function buildDestinationOverview({
   dateTo: string;
   explorationScope: ExplorationScope;
 }): Promise<DestinationOverview> {
-  const { near_radius_km } = scopeSearchRadii(explorationScope);
-  const pageName = resolveWikivoyagePageName(destinationLabel);
-  const placeName = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
+  const base = buildInstantOverview({
+    destinationLabel,
+    explorationScope,
+  });
 
-  const [wikivoyage, weather, hero_image_url] = await Promise.all([
-    fetchWikivoyageDestination({ pageName }).catch(() => null),
+  const [wiki, weather] = await Promise.all([
+    withTimeout(fetchWikipediaSummary(destinationLabel), 4000),
     dateFrom && dateTo
-      ? fetchWeatherPreview({
-          location: { lat, lon },
-          dateFrom,
-          dateTo,
-        }).catch(() => null)
+      ? withTimeout(
+          fetchWeatherPreview({
+            location: { lat, lon },
+            dateFrom,
+            dateTo,
+          }),
+          5000,
+        )
       : Promise.resolve(null),
-    fetchDestinationHeroImage(destinationLabel).catch(() => null),
   ]);
 
   return {
-    destination_label: destinationLabel,
-    exploration_scope: explorationScope,
-    scope_intro: scopeIntroPl(explorationScope, placeName),
-    hero_image_url,
-    wikivoyage,
+    ...base,
+    summary: wiki?.extract ?? base.summary,
+    hero_image_url:
+      base.hero_image_url ?? wiki?.thumbnail ?? resolveHeroImageUrl(destinationLabel),
     weather,
-    search_radius_km: near_radius_km,
+    enriching: false,
   };
 }

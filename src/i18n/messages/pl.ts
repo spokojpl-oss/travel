@@ -171,14 +171,8 @@ export const pl = {
     overviewEat: "Kuchnia regionalna",
     overviewGettingAround: "Poruszanie się",
     overviewActivitiesHint:
-      "Na następnym kroku wybierzesz konkretne atrakcje — tu masz kontekst całej destynacji.",
-    overviewSource: "Źródło:",
-    overviewLoadingLabel: "Przygotowuję przewodnik",
-    overviewLoadingCoords: "Ustalam lokalizację destynacji…",
-    overviewLoadingGuide: "Czytam przewodnik Wikivoyage…",
-    overviewLoadingWeather: "Sprawdzam pogodę na Wasze daty…",
-    overviewLoadingPhoto: "Wybieram zdjęcie destynacji…",
-    overviewLoadingAlmost: "Składam opis miejsca…",
+      "Na następnym kroku wybierzecie konkretne atrakcje — my dopasujemy rejony do Waszego zakresu.",
+    overviewEnriching: "Doprecyzowujemy pogodę i krótki opis w tle…",
     subtitleResults:
       "Regiony dopasowane do Twojej podróży i wybranych aktywności.",
     subtitleActivities:
