@@ -22,6 +22,31 @@ export const POLISH_AIRPORT_IATAS = Object.keys(
   POLISH_AIRPORTS,
 ) as PolishAirportIata[];
 
+/** Lotniska przypisane do kraju — wybór „Polska” w polu wylotu. */
+export const COUNTRY_FLIGHT_ORIGINS: Record<string, readonly string[]> = {
+  PL: POLISH_AIRPORT_IATAS,
+};
+
+const POLAND_QUERY = /^(pl|pol|polsk\w*|poland)$/i;
+
+export function matchesPolandOriginQuery(query: string): boolean {
+  return POLAND_QUERY.test(query.trim());
+}
+
+export function resolveFlightOriginsFromTrip(trip: {
+  origin_iata: string | null;
+  origin_scope: string | null;
+}): string[] | undefined {
+  if (trip.origin_scope) {
+    const airports = COUNTRY_FLIGHT_ORIGINS[trip.origin_scope.toUpperCase()];
+    if (airports?.length) return [...airports];
+  }
+  if (trip.origin_iata) {
+    return [trip.origin_iata.toUpperCase()];
+  }
+  return undefined;
+}
+
 export const NEARBY_FOREIGN_AIRPORTS = {
   BER: { name: "Berlin Brandenburg", country: "DE", priority: 1 },
   VIE: { name: "Wiedeń", country: "AT", priority: 2 },

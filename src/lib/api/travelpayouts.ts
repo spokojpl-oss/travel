@@ -213,9 +213,29 @@ export type AviasalesLinkParams = {
   infants?: number;
 };
 
+/** DDMM z ISO (np. 2026-07-10 → 1007) — format ścieżki Aviasales. */
+function aviasalesRouteDate(isoDate: string): string {
+  const [, month, day] = isoDate.split("-");
+  return `${day}${month}`;
+}
+
+/** Skrócona trasa w parametrze params= (GDN1007FAO1707121). */
+function buildAviasalesCompactRoute({
+  origin,
+  destination,
+  departureDate,
+  returnDate,
+  adults = 1,
+}: AviasalesLinkParams): string {
+  let route = `${origin.toUpperCase()}${aviasalesRouteDate(departureDate)}${destination.toUpperCase()}`;
+  if (returnDate) route += aviasalesRouteDate(returnDate);
+  route += String(adults);
+  return route;
+}
+
 /**
- * Link do wyników wyszukiwania Aviasales (od razu lista lotów, nie pusty formularz).
- * Używa www.aviasales.com — search.aviasales.com często przekierowuje na .ru i gubi parametry.
+ * Link do wyszukiwania na Aviasales.
+ * /searches/new zwraca 404 — używamy polskiej domeny + query params + with_request=true.
  */
 export function buildAviasalesSearchUrl({
   origin,
@@ -236,6 +256,15 @@ export function buildAviasalesSearchUrl({
     trip_class: "0",
     currency: "PLN",
     locale: "pl",
+    language: "pl",
+    with_request: "true",
+    params: buildAviasalesCompactRoute({
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      adults,
+    }),
   });
 
   if (returnDate) {
@@ -248,7 +277,7 @@ export function buildAviasalesSearchUrl({
   const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
   if (marker) params.set("marker", marker);
 
-  return `https://www.aviasales.com/searches/new?${params.toString()}`;
+  return `https://www.aviasales.pl/?${params.toString()}`;
 }
 
 /** Krótki link w aplikacji → /api/out/aviasales (serwer robi redirect). */

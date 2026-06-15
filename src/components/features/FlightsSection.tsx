@@ -62,10 +62,12 @@ export function FlightsSection({
   destinationId,
   departureDate,
   returnDate,
+  origins,
 }: {
   destinationId: string;
   departureDate?: string;
   returnDate?: string | null;
+  origins?: string[];
 }) {
   const defaults = defaultDateRangeFromToday(30, 14);
   const resolvedFrom = departureDate || defaults.from;
@@ -98,13 +100,19 @@ export function FlightsSection({
   }, [departureDate, returnDate, dateFrom, dateTo, tripLength]);
 
   function buildSearchParams() {
+    const resolvedOrigins = origins?.length ? origins : undefined;
     return {
       destination_id: destinationId,
       departure_date_from: dateFrom,
       departure_date_to: dateTo,
       trip_length_min_days: tripLength,
       trip_length_max_days: tripLength,
-      max_origins: 4,
+      ...(resolvedOrigins
+        ? {
+            origins: resolvedOrigins,
+            max_origins: resolvedOrigins.length,
+          }
+        : { max_origins: 4 }),
       max_destinations: 3,
     };
   }
@@ -200,7 +208,7 @@ export function FlightsSection({
               (newParams.trip_length_min_days as number) ?? tripLength,
             trip_length_max_days:
               (newParams.trip_length_max_days as number) ?? tripLength,
-            max_origins: (newParams.max_origins as number) ?? 4,
+            max_origins: (newParams.max_origins as number) ?? origins?.length ?? 4,
             max_destinations: (newParams.max_destinations as number) ?? 3,
           });
         }}

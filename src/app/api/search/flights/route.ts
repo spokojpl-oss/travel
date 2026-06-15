@@ -18,7 +18,7 @@ const requestSchema = z.object({
   departure_date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   trip_length_min_days: z.number().int().min(1).max(60).optional(),
   trip_length_max_days: z.number().int().min(1).max(60).optional(),
-  max_origins: z.number().int().min(1).max(8).default(4),
+  max_origins: z.number().int().min(1).max(16).default(4),
   max_destinations: z.number().int().min(1).max(5).default(3),
 });
 

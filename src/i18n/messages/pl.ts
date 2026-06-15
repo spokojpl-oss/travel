@@ -36,7 +36,7 @@ export const pl = {
     carRental: "Wynajęty",
     fromFlight: "Skąd lecisz?",
     fromGround: "Skąd wyjeżdżacie?",
-    originFlightPlaceholder: "Warszawa, Berlin, Bangkok...",
+    originFlightPlaceholder: "Warszawa, Polska, Berlin...",
     originGroundPlaceholder: "Warszawa, Kraków, Gdańsk...",
     passengers: "Pasażerowie",
     pickDate: "Wybierz datę",

@@ -14,6 +14,8 @@ export type TripContext = {
   vehicle_source: VehicleSource | null;
   origin_iata: string | null;
   origin_label: string | null;
+  /** Kod kraju (np. PL) — szukaj lotów ze wszystkich lotnisk w kraju. */
+  origin_scope: string | null;
   origin_lat: number | null;
   origin_lon: number | null;
   passengers: string;
@@ -91,6 +93,7 @@ export function defaultTripContext(): TripContext {
     vehicle_source: "own",
     origin_iata: null,
     origin_label: "Warszawa",
+    origin_scope: null,
     origin_lat: null,
     origin_lon: null,
     passengers: "2 dorosłych",
@@ -102,6 +105,7 @@ export function inferTravelMode(
 ): TravelMode | undefined {
   if (partial.travel_mode) return partial.travel_mode;
   if (partial.origin_iata) return "flight";
+  if (partial.origin_scope) return "flight";
   return undefined;
 }
 
@@ -122,6 +126,7 @@ export function normalizeTripContext(trip: TripContext): TripContext {
     vehicle_source:
       travel_mode === "car" ? (trip.vehicle_source ?? "own") : null,
     origin_iata: null,
+    origin_scope: null,
   };
 }
 
@@ -178,6 +183,7 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   p.set("travel_mode", trip.travel_mode);
   if (trip.vehicle_source) p.set("vehicle_source", trip.vehicle_source);
   if (trip.origin_iata) p.set("origin", trip.origin_iata);
+  if (trip.origin_scope) p.set("origin_scope", trip.origin_scope);
   if (trip.origin_label) p.set("origin_label", trip.origin_label);
   if (trip.origin_lat != null) p.set("origin_lat", String(trip.origin_lat));
   if (trip.origin_lon != null) p.set("origin_lon", String(trip.origin_lon));
@@ -220,6 +226,8 @@ export function tripContextFromParams(
   }
   const origin = params.get("origin");
   if (origin) partial.origin_iata = origin;
+  const originScope = params.get("origin_scope");
+  if (originScope) partial.origin_scope = originScope.toUpperCase();
   const originLabel = params.get("origin_label");
   if (originLabel) partial.origin_label = originLabel;
   const originLat = params.get("origin_lat");
@@ -239,6 +247,7 @@ export function hasTripParams(params: URLSearchParams): boolean {
     params.has("destination") ||
     params.has("destination_label") ||
     params.has("origin") ||
+    params.has("origin_scope") ||
     params.has("origin_label") ||
     params.has("travel_mode")
   );

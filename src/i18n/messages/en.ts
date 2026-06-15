@@ -38,7 +38,7 @@ export const en: Messages = {
     carRental: "Rental car",
     fromFlight: "Flying from?",
     fromGround: "Leaving from?",
-    originFlightPlaceholder: "Warsaw, Berlin, Bangkok...",
+    originFlightPlaceholder: "Warsaw, Poland, Berlin...",
     originGroundPlaceholder: "Warsaw, Krakow, Gdansk...",
     passengers: "Passengers",
     pickDate: "Pick a date",

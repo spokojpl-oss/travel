@@ -52,25 +52,30 @@ function applyTravelModeChange(
   mode: TravelMode,
 ): TripContext {
   if (mode === "flight") {
+    const hasCountryOrigin = Boolean(trip.origin_scope);
     return {
       ...trip,
       travel_mode: mode,
       vehicle_source: null,
-      origin_iata: trip.origin_iata ?? "WAW",
-      origin_label: trip.origin_iata
-        ? trip.origin_label
-        : "Warszawa Chopin (WAW)",
+      origin_iata: hasCountryOrigin ? null : (trip.origin_iata ?? "WAW"),
+      origin_scope: trip.origin_scope ?? null,
+      origin_label: hasCountryOrigin
+        ? (trip.origin_label ?? "Polska")
+        : trip.origin_iata
+          ? trip.origin_label
+          : "Warszawa Chopin (WAW)",
       origin_lat: null,
       origin_lon: null,
     };
   }
 
-  const hadFlightOrigin = Boolean(trip.origin_iata);
+  const hadFlightOrigin = Boolean(trip.origin_iata || trip.origin_scope);
   return {
     ...trip,
     travel_mode: mode,
     vehicle_source: mode === "car" ? (trip.vehicle_source ?? "own") : null,
     origin_iata: null,
+    origin_scope: null,
     origin_label: hadFlightOrigin ? "Warszawa" : (trip.origin_label ?? "Warszawa"),
     origin_lat: hadFlightOrigin ? null : trip.origin_lat,
     origin_lon: hadFlightOrigin ? null : trip.origin_lon,
@@ -245,13 +250,29 @@ export function TripSearchForm({
                 ...trip,
                 origin_label: v,
                 origin_iata: null,
+                origin_scope: null,
               })
             }
             onSelect={(opt) => {
+              if (opt.id.startsWith("country:")) {
+                const countryCode = opt.id.replace("country:", "").toUpperCase();
+                onChange({
+                  ...trip,
+                  origin_iata: null,
+                  origin_scope: countryCode,
+                  origin_label: opt.sublabel
+                    ? `${opt.label} — ${opt.sublabel}`
+                    : opt.label,
+                  origin_lat: null,
+                  origin_lon: null,
+                });
+                return;
+              }
               const iata = opt.id.replace(/^airport:/, "").slice(0, 3);
               onChange({
                 ...trip,
                 origin_iata: iata.length === 3 ? iata : null,
+                origin_scope: null,
                 origin_label: opt.sublabel
                   ? `${opt.label} (${opt.sublabel.split(" · ")[0]})`
                   : opt.label,

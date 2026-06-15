@@ -22,6 +22,7 @@ import {
   mergeTripContext,
   tripContextFromParams,
 } from "@/lib/search/trip-context";
+import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 import { agentLog } from "@/lib/debug/agent-log";
 
@@ -64,6 +65,10 @@ export default function DestinationPage() {
   const passengers = useMemo(
     () => parsePassengers(trip.passengers),
     [trip.passengers],
+  );
+  const flightOrigins = useMemo(
+    () => resolveFlightOriginsFromTrip(trip),
+    [trip.origin_iata, trip.origin_scope],
   );
 
   useEffect(() => {
@@ -419,6 +424,7 @@ export default function DestinationPage() {
             destinationId={destination.id}
             departureDate={trip.departure_date}
             returnDate={trip.return_date}
+            origins={flightOrigins}
           />
         </ErrorBoundary>
       )}

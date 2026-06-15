@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { searchDestinationCatalog } from "@/lib/destinations/catalog";
-import { searchAirportCatalog } from "@/lib/flights/airport-catalog";
+import { searchAirportCatalog, searchCountryOriginOptions } from "@/lib/flights/airport-catalog";
 
 export type PlaceSuggestion = {
   id: string;
@@ -130,8 +130,16 @@ async function searchAirportsDb(
   const admin = createAdminClient();
   const q = query.trim();
 
+  const countryOptions = searchCountryOriginOptions(q).map((c) => ({
+    id: `country:${c.country_code}`,
+    label: c.label,
+    sublabel: `Wszystkie lotniska (${c.airport_count})`,
+    type: "airport" as const,
+    country_code: c.country_code,
+  }));
+
   if (q.length < 1) {
-    return searchAirportCatalog("", limit).map((a) => ({
+    const airports = searchAirportCatalog("", limit).map((a) => ({
       id: `airport:${a.iata}`,
       label: a.name,
       sublabel: `${a.iata} · ${a.city ?? ""} · ${countryLabel(a.country_code)}`,
@@ -139,6 +147,7 @@ async function searchAirportsDb(
       iata: a.iata,
       country_code: a.country_code,
     }));
+    return dedupePlaces([...countryOptions, ...airports], limit);
   }
 
   const pattern = `%${q}%`;
@@ -153,7 +162,7 @@ async function searchAirportsDb(
     .limit(limit);
 
   if (error || !data?.length) {
-    return searchAirportCatalog(q, limit).map((a) => ({
+    const airports = searchAirportCatalog(q, limit).map((a) => ({
       id: `airport:${a.iata}`,
       label: a.name,
       sublabel: `${a.iata} · ${a.city ?? ""} · ${countryLabel(a.country_code)}`,
@@ -161,9 +170,10 @@ async function searchAirportsDb(
       iata: a.iata,
       country_code: a.country_code,
     }));
+    return dedupePlaces([...countryOptions, ...airports], limit);
   }
 
-  return data.map((row) => ({
+  const airports = data.map((row) => ({
     id: `airport:${row.iata_code}`,
     label: row.city ? `${row.city} — ${row.name}` : row.name,
     sublabel: `${row.iata_code} · ${countryLabel(row.country_code)}`,
@@ -173,6 +183,8 @@ async function searchAirportsDb(
     iata: row.iata_code,
     country_code: row.country_code,
   }));
+
+  return dedupePlaces([...countryOptions, ...airports], limit);
 }
 
 async function searchDestinationsDb(

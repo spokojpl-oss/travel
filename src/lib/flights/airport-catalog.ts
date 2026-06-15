@@ -1,6 +1,8 @@
 import {
   NEARBY_FOREIGN_AIRPORTS,
+  POLISH_AIRPORT_IATAS,
   POLISH_AIRPORTS,
+  matchesPolandOriginQuery,
 } from "@/lib/flights/polish-airports";
 
 export type AirportSuggestion = {
@@ -49,4 +51,24 @@ export function searchAirportCatalog(
 
 export function formatAirportLabel(airport: AirportSuggestion): string {
   return `${airport.name} (${airport.iata})`;
+}
+
+export type CountryOriginOption = {
+  country_code: string;
+  label: string;
+  airport_count: number;
+};
+
+export function searchCountryOriginOptions(query: string): CountryOriginOption[] {
+  const q = query.trim();
+  if (!q || matchesPolandOriginQuery(q)) {
+    return [
+      {
+        country_code: "PL",
+        label: "Polska",
+        airport_count: POLISH_AIRPORT_IATAS.length,
+      },
+    ];
+  }
+  return [];
 }
