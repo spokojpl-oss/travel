@@ -8,7 +8,7 @@ import { TripSearchForm } from "@/components/features/TripSearchForm";
 import {
   defaultTripContext,
   mergeTripContext,
-  resolveDestinationCoords,
+  resolvePlaceCoords,
   tripContextFromParams,
   tripContextToParams,
   type TripContext,
@@ -46,7 +46,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         const label =
           nextTrip.destination_label ?? nextTrip.destination ?? "";
         const geoStart = Date.now();
-        const coords = await resolveDestinationCoords(label);
+        const coords = await resolvePlaceCoords(label);
         agentLog(
           "HeroSearch.tsx:handleSearch",
           "geocode done",
@@ -64,6 +64,24 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             destination_lon: coords.lon,
             destination_label: coords.label,
           };
+        }
+      }
+
+      if (
+        nextTrip.travel_mode !== "flight" &&
+        (nextTrip.origin_lat == null || nextTrip.origin_lon == null)
+      ) {
+        const originLabel = nextTrip.origin_label ?? "";
+        if (originLabel.trim().length >= 2) {
+          const originCoords = await resolvePlaceCoords(originLabel);
+          if (originCoords) {
+            nextTrip = {
+              ...nextTrip,
+              origin_lat: originCoords.lat,
+              origin_lon: originCoords.lon,
+              origin_label: originCoords.label,
+            };
+          }
         }
       }
 
@@ -167,8 +185,8 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
           </h1>
           {!compact && (
             <p className="mx-auto mt-6 max-w-2xl text-lg text-white/70">
-              Skąd lecisz, kiedy i co lubicie robić — znajdziemy regiony, loty i
-              hotele w jednym miejscu.
+              Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i
+              transport dopasowany do Waszego sposobu podróżowania.
             </p>
           )}
         </div>

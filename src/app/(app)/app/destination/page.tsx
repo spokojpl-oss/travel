@@ -5,8 +5,8 @@ import { HotelsSection } from "@/components/features/HotelsSection";
 import { TransportSection } from "@/components/features/TransportSection";
 import { SaveTripSection } from "@/components/features/SaveTripSection";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { LocationDiagram } from "@/components/features/LocationDiagram";
-import type { DiagramLine, DiagramPoint } from "@/components/features/LocationDiagram";
+import { RegionMap } from "@/components/features/RegionMap";
+import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -207,7 +207,7 @@ export default function DestinationPage() {
     );
   }
 
-  const diagram = cluster ? buildClusterDiagram(cluster) : null;
+  const mapData = cluster ? buildClusterMapData(cluster) : null;
 
   return (
     <PageContainer>
@@ -238,15 +238,14 @@ export default function DestinationPage() {
         )}
       </header>
 
-      {diagram && (
+      {mapData && (
         <section className="mb-8">
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
           </h2>
-          <LocationDiagram
-            points={diagram.points}
-            lines={diagram.lines}
-            size="md"
+          <RegionMap
+            points={mapData.points}
+            segments={mapData.segments}
           />
         </section>
       )}
@@ -414,7 +413,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {destination && (
+      {destination && trip.travel_mode === "flight" && (
         <ErrorBoundary>
           <FlightsSection
             destinationId={destination.id}
@@ -437,7 +436,9 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {destination && (
+      {destination &&
+        (trip.travel_mode === "flight" ||
+          (trip.travel_mode === "car" && trip.vehicle_source === "rental")) && (
         <ErrorBoundary>
           <TransportSection
             destinationId={destination.id}
@@ -472,50 +473,3 @@ export default function DestinationPage() {
   );
 }
 
-function buildClusterDiagram(cluster: GeoCluster): {
-  points: DiagramPoint[];
-  lines: DiagramLine[];
-} {
-  const center = cluster.center;
-  const attractions = cluster.attractions.slice(0, 8);
-
-  const points: DiagramPoint[] = [
-    {
-      id: "centroid",
-      type: "centroid",
-      label: "Centrum regionu",
-      lat: center.lat,
-      lon: center.lon,
-    },
-    ...attractions.map((a) => ({
-      id: a.id,
-      type: "attraction" as const,
-      label: a.name.length > 24 ? `${a.name.slice(0, 24)}…` : a.name,
-      lat: Number(a.lat),
-      lon: Number(a.lon),
-    })),
-  ];
-
-  const lines: DiagramLine[] = attractions.map((a) => ({
-    from: "centroid",
-    to: a.id,
-    distance_km: distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }),
-  }));
-
-  return { points, lines };
-}
-
-function distanceKm(
-  a: { lat: number; lon: number },
-  b: { lat: number; lon: number },
-): number {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)) * 10) / 10;
-}

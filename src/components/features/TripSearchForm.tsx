@@ -10,7 +10,14 @@ import {
 } from "@/components/ui/PassengerSelector";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
-import type { TripContext } from "@/lib/search/trip-context";
+import {
+  TRAVEL_MODE_OPTIONS,
+  VEHICLE_SOURCE_OPTIONS,
+  travelModeIcon,
+  type TravelMode,
+  type TripContext,
+  type VehicleSource,
+} from "@/lib/search/trip-context";
 
 async function searchPlacesApi(
   query: string,
@@ -39,6 +46,36 @@ async function searchPlacesApi(
   }));
 }
 
+function applyTravelModeChange(
+  trip: TripContext,
+  mode: TravelMode,
+): TripContext {
+  if (mode === "flight") {
+    return {
+      ...trip,
+      travel_mode: mode,
+      vehicle_source: null,
+      origin_iata: trip.origin_iata ?? "WAW",
+      origin_label: trip.origin_iata
+        ? trip.origin_label
+        : "Warszawa Chopin (WAW)",
+      origin_lat: null,
+      origin_lon: null,
+    };
+  }
+
+  const hadFlightOrigin = Boolean(trip.origin_iata);
+  return {
+    ...trip,
+    travel_mode: mode,
+    vehicle_source: mode === "car" ? (trip.vehicle_source ?? "own") : null,
+    origin_iata: null,
+    origin_label: hadFlightOrigin ? "Warszawa" : (trip.origin_label ?? "Warszawa"),
+    origin_lat: hadFlightOrigin ? null : trip.origin_lat,
+    origin_lon: hadFlightOrigin ? null : trip.origin_lon,
+  };
+}
+
 export function TripSearchForm({
   trip,
   onChange,
@@ -58,16 +95,19 @@ export function TripSearchForm({
     (q: string) => searchPlacesApi(q, "airport"),
     [],
   );
-  const searchDestinations = useCallback(
+  const searchCities = useCallback(
     (q: string) => searchPlacesApi(q, "destination"),
     [],
   );
+  const searchDestinations = searchCities;
 
   const minDate = new Date().toISOString().split("T")[0];
   const passengers = useMemo(
     () => parsePassengers(trip.passengers),
     [trip.passengers],
   );
+  const isFlight = trip.travel_mode === "flight";
+  const isCar = trip.travel_mode === "car";
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -128,33 +168,100 @@ export function TripSearchForm({
         min={minDate}
       />
 
+      <FieldShell label="Jak jedziecie?" icon="route" large={large}>
+        <div className="flex flex-wrap gap-2">
+          {TRAVEL_MODE_OPTIONS.map((option) => (
+            <ChoiceChip
+              key={option.value}
+              active={trip.travel_mode === option.value}
+              icon={travelModeIcon(option.value)}
+              label={option.label}
+              onClick={() => onChange(applyTravelModeChange(trip, option.value))}
+            />
+          ))}
+        </div>
+      </FieldShell>
+
+      {isCar && (
+        <FieldShell label="Samochód" icon="car" large={large}>
+          <div className="flex flex-wrap gap-2">
+            {VEHICLE_SOURCE_OPTIONS.map((option) => (
+              <ChoiceChip
+                key={option.value}
+                active={trip.vehicle_source === option.value}
+                icon={option.value === "own" ? "car" : "route"}
+                label={option.label}
+                onClick={() =>
+                  onChange({
+                    ...trip,
+                    vehicle_source: option.value as VehicleSource,
+                  })
+                }
+              />
+            ))}
+          </div>
+        </FieldShell>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <Autocomplete
-          label="Skąd? (lotnisko)"
-          icon="plane"
-          placeholder="Warszawa, Berlin, Bangkok..."
-          value={trip.origin_label ?? trip.origin_iata ?? ""}
-          onValueChange={(v) =>
-            onChange({
-              ...trip,
-              origin_label: v,
-              origin_iata: null,
-            })
-          }
-          onSelect={(opt) => {
-            const iata = opt.id.replace(/^airport:/, "").slice(0, 3);
-            onChange({
-              ...trip,
-              origin_iata: iata.length === 3 ? iata : null,
-              origin_label: opt.sublabel
-                ? `${opt.label} (${opt.sublabel.split(" · ")[0]})`
-                : opt.label,
-            });
-          }}
-          options={[]}
-          onSearch={searchAirports}
-          large={large}
-        />
+        {isFlight ? (
+          <Autocomplete
+            label="Skąd lecisz?"
+            icon="plane"
+            placeholder="Warszawa, Berlin, Bangkok..."
+            value={trip.origin_label ?? trip.origin_iata ?? ""}
+            onValueChange={(v) =>
+              onChange({
+                ...trip,
+                origin_label: v,
+                origin_iata: null,
+              })
+            }
+            onSelect={(opt) => {
+              const iata = opt.id.replace(/^airport:/, "").slice(0, 3);
+              onChange({
+                ...trip,
+                origin_iata: iata.length === 3 ? iata : null,
+                origin_label: opt.sublabel
+                  ? `${opt.label} (${opt.sublabel.split(" · ")[0]})`
+                  : opt.label,
+                origin_lat: null,
+                origin_lon: null,
+              });
+            }}
+            options={[]}
+            onSearch={searchAirports}
+            large={large}
+          />
+        ) : (
+          <Autocomplete
+            label="Skąd wyjeżdżacie?"
+            icon="map-pin"
+            placeholder="Warszawa, Kraków, Gdańsk..."
+            value={trip.origin_label ?? ""}
+            onValueChange={(v) =>
+              onChange({
+                ...trip,
+                origin_label: v,
+                origin_lat: null,
+                origin_lon: null,
+              })
+            }
+            onSelect={(opt) =>
+              onChange({
+                ...trip,
+                origin_label: opt.sublabel
+                  ? `${opt.label}, ${opt.sublabel}`
+                  : opt.label,
+                origin_lat: opt.lat ?? null,
+                origin_lon: opt.lon ?? null,
+              })
+            }
+            options={[]}
+            onSearch={searchCities}
+            large={large}
+          />
+        )}
         <PassengerSelector
           value={passengers}
           onChange={(p) =>
@@ -164,6 +271,34 @@ export function TripSearchForm({
         />
       </div>
     </div>
+  );
+}
+
+function ChoiceChip({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-brand-700 bg-brand-50 text-brand-800"
+          : "border-border-default bg-white text-text-secondary hover:border-brand-300 hover:text-text-primary",
+      )}
+    >
+      <Icon name={icon} size={16} />
+      {label}
+    </button>
   );
 }
 
@@ -185,7 +320,7 @@ function FieldShell({
         large && "border-2 p-4 focus-within:ring-4",
       )}
     >
-      <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
         <Icon name={icon} size={14} />
         <span>{label}</span>
       </div>

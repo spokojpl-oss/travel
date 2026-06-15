@@ -80,7 +80,7 @@ export function LocationDiagram({
           <div className="absolute top-4 left-4 z-10">
             <div className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm">
               <Icon name="map-pin" size={14} className="text-brand-700" />
-              Mapa lokalizacji
+              Mapa lokalizacji (schemat)
             </div>
           </div>
           <div className="absolute top-4 right-4 z-10 rounded-lg border border-border-default bg-white px-3 py-2 text-xs shadow-sm">

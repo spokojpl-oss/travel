@@ -1,6 +1,6 @@
 "use client";
 
-import { formatTripDateRange, type TripContext } from "@/lib/search/trip-context";
+import { formatTripDateRange, formatTravelOrigin, travelModeIcon, type TripContext } from "@/lib/search/trip-context";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
@@ -16,9 +16,9 @@ export function TripContextBar({
 }) {
   const items: Array<{ icon: IconName; label: string; value: string }> = [
     {
-      icon: "plane",
-      label: "Skąd",
-      value: trip.origin_label ?? trip.origin_iata ?? "—",
+      icon: travelModeIcon(trip.travel_mode),
+      label: "Podróż",
+      value: formatTravelOrigin(trip),
     },
     {
       icon: "calendar",

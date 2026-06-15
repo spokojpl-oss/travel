@@ -12,7 +12,7 @@ const STEPS: Array<{
   {
     icon: "search",
     title: "1. Opisz podróż na stronie głównej",
-    body: "Pod logiem wpisz skąd lecisz, kiedy i — w zależności od trybu — co lubicie robić albo dokąd chcecie jechać. To jedyny formularz startowy.",
+    body: "Pod logiem wpisz skąd jedziecie, jak (auto, pociąg, lot…) i kiedy — oraz w zależności od trybu co lubicie robić albo dokąd chcecie jechać. To jedyny formularz startowy.",
   },
   {
     icon: "target",
@@ -22,7 +22,7 @@ const STEPS: Array<{
   {
     icon: "map-pin",
     title: "3. Zobacz regiony i szczegóły",
-    body: "Dostajesz listę miejsc na mapie z oceną dopasowania. Kliknij region, żeby zobaczyć atrakcje, loty, hotele i transport z lotniska.",
+    body: "Dostajesz listę miejsc na mapie z oceną dopasowania. Kliknij region, żeby zobaczyć atrakcje, noclegi i opcje transportu.",
   },
   {
     icon: "folder",

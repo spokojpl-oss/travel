@@ -4,10 +4,12 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RefineInput } from "@/components/features/RefineInput";
+import { RegionMapMini } from "@/components/features/RegionMap";
 import {
   SearchStepIndicator,
   TripContextBar,
 } from "@/components/features/TripContextBar";
+import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import {
   defaultTripContext,
   formatTripDateRange,
+  formatTravelSummary,
   hasTripParams,
   mergeTripContext,
   matchActivitySlugsFromText,
@@ -622,7 +625,7 @@ function SearchPageContent() {
             3. Wyniki ({results.clusters.length} regionów)
           </h2>
           <p className="mb-6 text-sm text-text-secondary">
-            {trip.origin_label && `Lot z: ${trip.origin_label} · `}
+            {formatTravelSummary(trip)} ·{" "}
             {formatTripDateRange(trip)} · Czas wyszukiwania:{" "}
             {results.duration_ms}ms
           </p>
@@ -668,8 +671,14 @@ function SearchPageContent() {
             </Card>
           )}
 
-          {results.clusters.map((cluster, idx) => (
-            <Card key={cluster.id} className="card-hover mb-4">
+          {results.clusters.map((cluster, idx) => {
+            const mapData = buildClusterMapData(cluster);
+            return (
+            <Card key={cluster.id} className="card-hover mb-4 overflow-hidden">
+              <RegionMapMini
+                points={mapData.points}
+                segments={mapData.segments}
+              />
               <CardBody>
                 <h3 className="font-display text-lg font-bold text-text-primary">
                   #{idx + 1} – Region {cluster.center.lat.toFixed(2)},{" "}
@@ -684,11 +693,12 @@ function SearchPageContent() {
                   className="mt-4"
                   onClick={() => openDestination(cluster)}
                 >
-                  Zobacz loty i hotele →
+                  Zobacz szczegóły regionu →
                 </Button>
               </CardBody>
             </Card>
-          ))}
+            );
+          })}
         </section>
       )}
     </PageContainer>

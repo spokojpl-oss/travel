@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { LocationDiagramMini } from "./LocationDiagram";
-import type { DiagramLine, DiagramPoint } from "./LocationDiagram";
+import { RegionMapMini } from "@/components/features/RegionMap";
+import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
 
@@ -13,7 +13,7 @@ export type DestinationCardProps = {
   ratingCount?: number;
   highlights: string[];
   stats?: { attractions?: number; temp?: string; savings?: string };
-  diagram?: { points: DiagramPoint[]; lines: DiagramLine[] };
+  diagram?: { points: MapPoint[]; segments: MapRouteSegment[] };
   href: string;
   featured?: boolean;
   description?: string;
@@ -50,7 +50,7 @@ export function DestinationCard({
               />
             ) : diagram ? (
               <div className="absolute inset-0 p-2">
-                <LocationDiagramMini {...diagram} />
+                <RegionMapMini {...diagram} />
               </div>
             ) : null}
             <Badge
@@ -104,7 +104,7 @@ export function DestinationCard({
           />
         ) : diagram ? (
           <div className="absolute inset-0 p-2">
-            <LocationDiagramMini {...diagram} />
+            <RegionMapMini {...diagram} />
           </div>
         ) : null}
 

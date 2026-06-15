@@ -1,3 +1,6 @@
+export type TravelMode = "car" | "train" | "bus" | "flight";
+export type VehicleSource = "own" | "rental";
+
 export type TripContext = {
   mode: "activities" | "destination";
   interests: string;
@@ -7,10 +10,33 @@ export type TripContext = {
   destination_lon: number | null;
   departure_date: string;
   return_date: string | null;
+  travel_mode: TravelMode;
+  vehicle_source: VehicleSource | null;
   origin_iata: string | null;
   origin_label: string | null;
+  origin_lat: number | null;
+  origin_lon: number | null;
   passengers: string;
 };
+
+export const TRAVEL_MODE_OPTIONS: Array<{
+  value: TravelMode;
+  label: string;
+  shortLabel: string;
+}> = [
+  { value: "car", label: "Samochód", shortLabel: "Auto" },
+  { value: "train", label: "Pociąg", shortLabel: "Pociąg" },
+  { value: "bus", label: "Autokar", shortLabel: "Autokar" },
+  { value: "flight", label: "Samolot", shortLabel: "Lot" },
+];
+
+export const VEHICLE_SOURCE_OPTIONS: Array<{
+  value: VehicleSource;
+  label: string;
+}> = [
+  { value: "own", label: "Własny" },
+  { value: "rental", label: "Wynajęty" },
+];
 
 export const TRIP_CONTEXT_KEY = "trip_search_context";
 export const HERO_SEARCH_KEY = "hero_search_params";
@@ -61,10 +87,82 @@ export function defaultTripContext(): TripContext {
     destination_lon: null,
     departure_date: from,
     return_date: to,
-    origin_iata: "WAW",
-    origin_label: "Warszawa Chopin (WAW)",
+    travel_mode: "car",
+    vehicle_source: "own",
+    origin_iata: null,
+    origin_label: "Warszawa",
+    origin_lat: null,
+    origin_lon: null,
     passengers: "2 dorosłych",
   };
+}
+
+export function inferTravelMode(
+  partial: Partial<TripContext>,
+): TravelMode | undefined {
+  if (partial.travel_mode) return partial.travel_mode;
+  if (partial.origin_iata) return "flight";
+  return undefined;
+}
+
+export function normalizeTripContext(trip: TripContext): TripContext {
+  const travel_mode = trip.travel_mode ?? inferTravelMode(trip) ?? "car";
+
+  if (travel_mode === "flight") {
+    return {
+      ...trip,
+      travel_mode,
+      vehicle_source: null,
+    };
+  }
+
+  return {
+    ...trip,
+    travel_mode,
+    vehicle_source:
+      travel_mode === "car" ? (trip.vehicle_source ?? "own") : null,
+    origin_iata: null,
+  };
+}
+
+export function travelModeIcon(mode: TravelMode): "car" | "train" | "bus" | "plane" {
+  switch (mode) {
+    case "car":
+      return "car";
+    case "train":
+      return "train";
+    case "bus":
+      return "bus";
+    case "flight":
+      return "plane";
+  }
+}
+
+export function formatTravelOrigin(trip: TripContext): string {
+  const origin = trip.origin_label ?? trip.origin_iata ?? "—";
+  if (trip.travel_mode === "car" && trip.vehicle_source) {
+    const vehicle =
+      trip.vehicle_source === "own" ? "własny" : "wynajęty";
+    return `${origin} (${vehicle} samochód)`;
+  }
+  const modeLabel =
+    TRAVEL_MODE_OPTIONS.find((o) => o.value === trip.travel_mode)?.label ??
+    trip.travel_mode;
+  return `${origin} (${modeLabel.toLowerCase()})`;
+}
+
+export function formatTravelSummary(trip: TripContext): string {
+  const mode =
+    TRAVEL_MODE_OPTIONS.find((o) => o.value === trip.travel_mode)?.label ??
+    "Podróż";
+  const origin = trip.origin_label ?? trip.origin_iata;
+  if (!origin) return mode;
+  if (trip.travel_mode === "flight") return `Lot z: ${origin}`;
+  if (trip.travel_mode === "car" && trip.vehicle_source) {
+    const vehicle = trip.vehicle_source === "own" ? "własnym" : "wynajętym";
+    return `${mode} ${vehicle} z: ${origin}`;
+  }
+  return `${mode} z: ${origin}`;
 }
 
 export function tripContextToParams(trip: TripContext): URLSearchParams {
@@ -77,8 +175,12 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   if (trip.destination_lon != null) p.set("dest_lon", String(trip.destination_lon));
   if (trip.departure_date) p.set("from_date", trip.departure_date);
   if (trip.return_date) p.set("to_date", trip.return_date);
+  p.set("travel_mode", trip.travel_mode);
+  if (trip.vehicle_source) p.set("vehicle_source", trip.vehicle_source);
   if (trip.origin_iata) p.set("origin", trip.origin_iata);
   if (trip.origin_label) p.set("origin_label", trip.origin_label);
+  if (trip.origin_lat != null) p.set("origin_lat", String(trip.origin_lat));
+  if (trip.origin_lon != null) p.set("origin_lon", String(trip.origin_lon));
   if (trip.passengers) p.set("passengers", trip.passengers);
   return p;
 }
@@ -103,10 +205,27 @@ export function tripContextFromParams(
   if (fromDate) partial.departure_date = fromDate;
   const toDate = params.get("to_date");
   if (toDate) partial.return_date = toDate;
+  const travelMode = params.get("travel_mode");
+  if (
+    travelMode === "car" ||
+    travelMode === "train" ||
+    travelMode === "bus" ||
+    travelMode === "flight"
+  ) {
+    partial.travel_mode = travelMode;
+  }
+  const vehicleSource = params.get("vehicle_source");
+  if (vehicleSource === "own" || vehicleSource === "rental") {
+    partial.vehicle_source = vehicleSource;
+  }
   const origin = params.get("origin");
   if (origin) partial.origin_iata = origin;
   const originLabel = params.get("origin_label");
   if (originLabel) partial.origin_label = originLabel;
+  const originLat = params.get("origin_lat");
+  if (originLat) partial.origin_lat = Number(originLat);
+  const originLon = params.get("origin_lon");
+  if (originLon) partial.origin_lon = Number(originLon);
   const passengers = params.get("passengers");
   if (passengers) partial.passengers = passengers;
   return partial;
@@ -120,7 +239,8 @@ export function hasTripParams(params: URLSearchParams): boolean {
     params.has("destination") ||
     params.has("destination_label") ||
     params.has("origin") ||
-    params.has("origin_label")
+    params.has("origin_label") ||
+    params.has("travel_mode")
   );
 }
 
@@ -128,7 +248,7 @@ export function mergeTripContext(
   base: TripContext,
   partial: Partial<TripContext>,
 ): TripContext {
-  return { ...base, ...partial };
+  return normalizeTripContext({ ...base, ...partial });
 }
 
 export function formatTripDateRange(trip: TripContext): string {
@@ -187,7 +307,7 @@ export function matchActivitySlugsFromText(
   return Array.from(slugs);
 }
 
-export async function resolveDestinationCoords(
+export async function resolvePlaceCoords(
   label: string,
 ): Promise<{ lat: number; lon: number; label: string } | null> {
   const q = label.trim();
@@ -217,3 +337,6 @@ export async function resolveDestinationCoords(
     return null;
   }
 }
+
+/** @deprecated Użyj resolvePlaceCoords */
+export const resolveDestinationCoords = resolvePlaceCoords;

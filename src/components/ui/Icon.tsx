@@ -15,6 +15,8 @@ export type IconName =
   | "info"
   | "hotel"
   | "car"
+  | "train"
+  | "bus"
   | "check"
   | "eye"
   | "plus"
@@ -106,6 +108,20 @@ const paths: Record<IconName, React.ReactNode> = {
       <circle cx="7" cy="17" r="2" />
       <path d="M9 17h6" />
       <circle cx="17" cy="17" r="2" />
+    </>
+  ),
+  train: (
+    <>
+      <rect x="4" y="3" width="16" height="16" rx="2" />
+      <path d="M4 11h16M8 15h.01M16 15h.01M8 19l-2 2M16 19l2 2" />
+    </>
+  ),
+  bus: (
+    <>
+      <path d="M8 6v6M16 6v6M2 12h19a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2Z" />
+      <path d="M18 18h2M4 18H2M6 18h.01M18 18h.01" />
+      <circle cx="7" cy="18" r="2" />
+      <circle cx="17" cy="18" r="2" />
     </>
   ),
   check: <path d="M20 6 9 17l-5-5" />,
