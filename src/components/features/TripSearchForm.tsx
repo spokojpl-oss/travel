@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   TRAVEL_MODE_OPTIONS,
   VEHICLE_SOURCE_OPTIONS,
+  resolveFlightOriginFields,
   travelModeIcon,
   type TravelMode,
   type TripContext,
@@ -52,20 +53,11 @@ function applyTravelModeChange(
   mode: TravelMode,
 ): TripContext {
   if (mode === "flight") {
-    const hasCountryOrigin = Boolean(trip.origin_scope);
     return {
       ...trip,
       travel_mode: mode,
       vehicle_source: null,
-      origin_iata: hasCountryOrigin ? null : (trip.origin_iata ?? "WAW"),
-      origin_scope: trip.origin_scope ?? null,
-      origin_label: hasCountryOrigin
-        ? (trip.origin_label ?? "Polska")
-        : trip.origin_iata
-          ? trip.origin_label
-          : "Warszawa Chopin (WAW)",
-      origin_lat: null,
-      origin_lon: null,
+      ...resolveFlightOriginFields(trip),
     };
   }
 

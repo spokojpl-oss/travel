@@ -1,3 +1,5 @@
+import { POLISH_AIRPORT_IATAS } from "@/lib/flights/polish-airports";
+
 export type TravelMode = "car" | "train" | "bus" | "flight";
 export type VehicleSource = "own" | "rental";
 
@@ -77,6 +79,47 @@ export function defaultDateRangeFromToday(
   return { from: localIsoDate(start), to: localIsoDate(end) };
 }
 
+export function defaultPolandFlightOriginFields(): Pick<
+  TripContext,
+  "origin_scope" | "origin_label" | "origin_iata" | "origin_lat" | "origin_lon"
+> {
+  return {
+    origin_scope: "PL",
+    origin_label: `Polska — Wszystkie lotniska (${POLISH_AIRPORT_IATAS.length})`,
+    origin_iata: null,
+    origin_lat: null,
+    origin_lon: null,
+  };
+}
+
+export function resolveFlightOriginFields(
+  trip: Pick<TripContext, "origin_iata" | "origin_scope" | "origin_label">,
+): Pick<
+  TripContext,
+  "origin_scope" | "origin_label" | "origin_iata" | "origin_lat" | "origin_lon"
+> {
+  if (trip.origin_iata) {
+    return {
+      origin_scope: null,
+      origin_iata: trip.origin_iata,
+      origin_label: trip.origin_label,
+      origin_lat: null,
+      origin_lon: null,
+    };
+  }
+  if (trip.origin_scope) {
+    return {
+      origin_scope: trip.origin_scope,
+      origin_iata: null,
+      origin_label:
+        trip.origin_label ?? defaultPolandFlightOriginFields().origin_label,
+      origin_lat: null,
+      origin_lon: null,
+    };
+  }
+  return defaultPolandFlightOriginFields();
+}
+
 export function defaultTripContext(): TripContext {
   const { from, to } = defaultDateRangeFromToday(30, 7);
 
@@ -117,6 +160,7 @@ export function normalizeTripContext(trip: TripContext): TripContext {
       ...trip,
       travel_mode,
       vehicle_source: null,
+      ...resolveFlightOriginFields(trip),
     };
   }
 

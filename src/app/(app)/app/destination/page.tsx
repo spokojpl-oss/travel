@@ -34,7 +34,6 @@ export default function DestinationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [cluster, setCluster] = useState<GeoCluster | null>(null);
-  const [events, setEvents] = useState<BuildEvent[]>([]);
   const [destination, setDestination] = useState<Destination | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
   const [weather, setWeather] = useState<object | null>(null);
@@ -45,7 +44,6 @@ export default function DestinationPage() {
   const [attractions, setAttractions] = useState<
     Pick<Attraction, "id" | "name">[]
   >([]);
-  const [isBuilding, setIsBuilding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
@@ -113,7 +111,6 @@ export default function DestinationPage() {
   }, [destination?.id]);
 
   async function startBuild(cluster: unknown, activities: string[]) {
-    setIsBuilding(true);
     setError(null);
 
     try {
@@ -149,7 +146,6 @@ export default function DestinationPage() {
           if (!line.startsWith("data: ")) continue;
           try {
             const event = JSON.parse(line.substring(6)) as BuildEvent;
-            setEvents((prev) => [...prev, event]);
             handleEvent(event);
           } catch {
             console.error("Failed to parse SSE event:", line);
@@ -160,8 +156,6 @@ export default function DestinationPage() {
       setIsComplete(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setIsBuilding(false);
     }
   }
 
@@ -240,28 +234,9 @@ export default function DestinationPage() {
         </section>
       )}
 
-      {isBuilding && (
-        <Card className="mb-8">
-          <CardHeader title="Postęp budowania" />
-          <CardBody>
-            <ol className="space-y-1 text-sm text-text-secondary">
-              {events.map((e, i) => (
-                <li key={i}>
-                  <code className="text-brand-700">{e.type}</code>
-                  {typeof e.count === "number" && ` (${e.count})`}
-                  {typeof e.from_cache === "boolean" &&
-                    (e.from_cache ? " [cache]" : " [fresh]")}
-                  {typeof e.message === "string" && ` – ${e.message}`}
-                </li>
-              ))}
-            </ol>
-          </CardBody>
-        </Card>
-      )}
-
       {summary && (
         <Card className="mb-8">
-          <CardHeader title="Podsumowanie AI" />
+          <CardHeader title="Podsumowanie" />
           <CardBody>
           <p className="mb-4 text-text-secondary">{summary.overview}</p>
           <p className="mb-4">
