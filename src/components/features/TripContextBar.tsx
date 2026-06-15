@@ -107,33 +107,55 @@ export function SearchStepIndicator({
   step,
   onStep,
   tripComplete = false,
+  tripMode = "activities",
 }: {
-  step: 1 | 2 | 3;
-  onStep?: (s: 1 | 2 | 3) => void;
-  /** Krok „Podróż” ukończony na stronie głównej — tylko podgląd / edycja przez onStep(1) */
+  step: 2 | 3 | 4;
+  onStep?: (s: 2 | 3 | 4) => void;
   tripComplete?: boolean;
+  tripMode?: "activities" | "destination";
 }) {
-  const steps = [
-    { n: 1 as const, label: "Podróż" },
-    { n: 2 as const, label: "Aktywności" },
-    { n: 3 as const, label: "Wyniki" },
-  ];
+  const steps =
+    tripMode === "destination"
+      ? [
+          { n: 1 as const, label: "Podróż", key: "trip" },
+          { n: 2 as const, label: "Zakres", key: "scope" },
+          { n: 3 as const, label: "Aktywności", key: "activities" },
+          { n: 4 as const, label: "Wyniki", key: "results" },
+        ]
+      : [
+          { n: 1 as const, label: "Podróż", key: "trip" },
+          { n: 2 as const, label: "Aktywności", key: "activities" },
+          { n: 3 as const, label: "Wyniki", key: "results" },
+        ];
+
+  const displayStep =
+    tripMode === "destination"
+      ? step
+      : step >= 4
+        ? 3
+        : step;
 
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-2">
       {steps.map((s, i) => {
-        const done = step > s.n || (tripComplete && s.n === 1 && step >= 2);
-        const active = step === s.n;
+        const stepNum = s.n;
+        const done =
+          displayStep > stepNum || (tripComplete && stepNum === 1 && displayStep >= 2);
+        const active = displayStep === stepNum;
         const clickable =
           onStep &&
-          (s.n === 1
+          (stepNum === 1
             ? tripComplete
-            : s.n === 2
-              ? step >= 2
-              : false);
+            : stepNum === 2
+              ? tripMode === "destination" && displayStep >= 2
+              : stepNum === 3
+                ? tripMode === "destination"
+                  ? displayStep >= 3
+                  : displayStep >= 2
+                : false);
 
         return (
-        <div key={s.n} className="flex items-center gap-2">
+        <div key={s.key} className="flex items-center gap-2">
           {i > 0 && (
             <span className="text-text-tertiary" aria-hidden>
               ›
@@ -141,7 +163,12 @@ export function SearchStepIndicator({
           )}
           <button
             type="button"
-            onClick={() => clickable && onStep?.(s.n)}
+            onClick={() => {
+              if (!clickable || !onStep) return;
+              if (stepNum === 1) onStep(2);
+              else if (tripMode === "destination") onStep(stepNum as 2 | 3 | 4);
+              else onStep(stepNum === 2 ? 2 : 3);
+            }}
             disabled={!clickable}
             className={
               active
@@ -151,7 +178,7 @@ export function SearchStepIndicator({
                   : "rounded-full bg-bg-soft px-4 py-1.5 text-sm font-medium text-text-tertiary"
             }
           >
-            {s.n}. {s.label}
+            {stepNum}. {s.label}
           </button>
         </div>
         );

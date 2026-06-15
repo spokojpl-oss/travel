@@ -1,4 +1,11 @@
 import { POLISH_AIRPORT_IATAS } from "@/lib/flights/polish-airports";
+import {
+  defaultExplorationScope,
+  explorationScopeFromString,
+  type ExplorationScope,
+} from "@/lib/search/exploration-scope";
+
+export type { ExplorationScope };
 
 export type TravelMode = "car" | "train" | "bus" | "flight";
 export type VehicleSource = "own" | "rental";
@@ -21,6 +28,8 @@ export type TripContext = {
   origin_lat: number | null;
   origin_lon: number | null;
   passengers: string;
+  /** Jak użytkownik chce zwiedzać destynację — wpływa na promień klastrów. */
+  exploration_scope: ExplorationScope | null;
 };
 
 export const TRAVEL_MODE_OPTIONS: Array<{
@@ -140,6 +149,7 @@ export function defaultTripContext(): TripContext {
     origin_lat: null,
     origin_lon: null,
     passengers: "2 dorosłych",
+    exploration_scope: null,
   };
 }
 
@@ -229,6 +239,7 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   if (trip.origin_iata) p.set("origin", trip.origin_iata);
   if (trip.origin_scope) p.set("origin_scope", trip.origin_scope);
   if (trip.origin_label) p.set("origin_label", trip.origin_label);
+  if (trip.exploration_scope) p.set("exploration_scope", trip.exploration_scope);
   if (trip.origin_lat != null) p.set("origin_lat", String(trip.origin_lat));
   if (trip.origin_lon != null) p.set("origin_lon", String(trip.origin_lon));
   if (trip.passengers) p.set("passengers", trip.passengers);
@@ -280,6 +291,10 @@ export function tripContextFromParams(
   if (originLon) partial.origin_lon = Number(originLon);
   const passengers = params.get("passengers");
   if (passengers) partial.passengers = passengers;
+  const explorationScope = explorationScopeFromString(
+    params.get("exploration_scope"),
+  );
+  if (explorationScope) partial.exploration_scope = explorationScope;
   return partial;
 }
 
@@ -301,7 +316,11 @@ export function mergeTripContext(
   base: TripContext,
   partial: Partial<TripContext>,
 ): TripContext {
-  return normalizeTripContext({ ...base, ...partial });
+  const merged = { ...base, ...partial };
+  if (merged.mode === "destination" && !merged.exploration_scope) {
+    merged.exploration_scope = defaultExplorationScope();
+  }
+  return normalizeTripContext(merged);
 }
 
 export function formatTripDateRange(

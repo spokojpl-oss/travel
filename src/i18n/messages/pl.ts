@@ -148,6 +148,17 @@ export const pl = {
     breadcrumb: "Wyniki wyszukiwania",
     titleResults: "Wyniki wyszukiwania",
     titleActivities: "Wybierz aktywności",
+    titleScope: "Jak chcecie zwiedzać?",
+    subtitleScope:
+      "Najpierw określ zakres — potem wybierzesz atrakcje dopasowane do tego miejsca.",
+    scopeTitle: "Zakres podróży",
+    scopeIntro: "Wybraliście",
+    scopeIntroEnd:
+      " powiedz nam, czy zostajecie w jednym rejonie, czy zwiedzacie szerszy obszar.",
+    previewTitle: "Co jest w okolicy",
+    previewHint:
+      "Liczba miejsc w bazie w wybranym zakresie — przy wyszukiwaniu uzupełnimy braki z map OpenStreetMap.",
+    continueToActivities: "Dalej — wybierz aktywności →",
     subtitleResults:
       "Regiony dopasowane do Twojej podróży i wybranych aktywności.",
     subtitleActivities:

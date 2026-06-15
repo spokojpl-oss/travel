@@ -141,6 +141,7 @@ export type ActivitySearchQuery = {
   near_lat?: number;
   near_lon?: number;
   near_radius_km?: number;
+  exploration_scope?: "local" | "region" | "island" | "roadtrip";
 };
 
 export type ActivitySearchResult = {
@@ -152,5 +153,6 @@ export type ActivitySearchResult = {
     tag_rows_fetched: number;
     geo_radius_km_used: number | null;
     attractions_in_bbox: number;
+    osm_filled?: boolean;
   };
 };

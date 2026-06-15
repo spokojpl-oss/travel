@@ -85,13 +85,28 @@ function buildTightCluster({
     (a) => distanceKm(seedCenter, toGeoPoint(a)) <= maxRadiusKm,
   );
 
-  if (members.length < 2) return null;
+  if (members.length === 0) return null;
+
+  if (members.length === 1) {
+    return finalizeCluster({
+      members,
+      selectedActivities,
+      matchMode,
+      minPerActivity,
+      maxRadiusKm,
+    });
+  }
 
   for (let i = 0; i < 5; i++) {
     const centroid = computeCentroid(members);
     const tightened = members.filter(
       (a) => distanceKm(centroid, toGeoPoint(a)) <= maxRadiusKm,
     );
+    if (tightened.length < 1) return null;
+    if (tightened.length === 1) {
+      members = tightened;
+      break;
+    }
     if (tightened.length < 2) return null;
     if (tightened.length === members.length) break;
     members = tightened;
@@ -100,9 +115,43 @@ function buildTightCluster({
   const centroid = computeCentroid(members);
   const radius = Math.max(
     ...members.map((a) => distanceKm(centroid, toGeoPoint(a))),
+    0,
   );
 
   if (radius > maxRadiusKm) return null;
+
+  return finalizeCluster({
+    members,
+    selectedActivities,
+    matchMode,
+    minPerActivity,
+    maxRadiusKm,
+    centroid,
+    radius,
+  });
+}
+
+function finalizeCluster({
+  members,
+  selectedActivities,
+  matchMode,
+  minPerActivity,
+  maxRadiusKm,
+  centroid: centroidInput,
+  radius: radiusInput,
+}: {
+  members: AttractionWithActivities[];
+  selectedActivities: string[];
+  matchMode: "all" | "any";
+  minPerActivity: number;
+  maxRadiusKm: number;
+  centroid?: GeoPoint;
+  radius?: number;
+}): GeoCluster | null {
+  const centroid = centroidInput ?? computeCentroid(members);
+  const radius =
+    radiusInput ??
+    Math.max(...members.map((a) => distanceKm(centroid, toGeoPoint(a))), 0);
 
   const activityCounts: Record<string, number> = {};
   for (const slug of selectedActivities) activityCounts[slug] = 0;
@@ -141,7 +190,7 @@ function buildTightCluster({
     id: deterministicId(centroid),
     center: centroid,
     bbox: computeBoundingBox(members),
-    radius_km: round(radius, 1),
+    radius_km: round(Math.max(radius, 0.1), 1),
     attractions: members.sort(
       (a, b) =>
         distanceKm(centroid, toGeoPoint(a)) -

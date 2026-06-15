@@ -1,0 +1,151 @@
+import {
+  fetchOsmPlaces,
+  persistOsmPlaces,
+  type OsmCategory,
+} from "@/lib/api/osm";
+import { tagAttractionsWithActivitiesForIds } from "@/lib/api/osm-global-scrape";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { BoundingBox } from "@/types/domain";
+
+const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
+  zoo: ["zoo", "aquarium"],
+  aquarium: ["aquarium", "zoo"],
+  theme_parks: ["theme_park"],
+  museums: ["museum"],
+  viewpoints: ["viewpoint"],
+  caves: ["cave"],
+  waterfalls: ["waterfall"],
+  sandy_beaches: ["beach"],
+  rocky_beaches: ["beach"],
+  hiking_trails: ["hiking"],
+  bike_rental: ["bicycle_rental"],
+  national_parks: ["hiking", "tourism_attraction"],
+  kayaking: ["tourism_attraction"],
+  snorkeling: ["tourism_attraction"],
+  diving: ["tourism_attraction"],
+};
+
+const DEFAULT_FILL_CATEGORIES: OsmCategory[] = [
+  "zoo",
+  "aquarium",
+  "museum",
+  "theme_park",
+  "viewpoint",
+  "beach",
+  "tourism_attraction",
+];
+
+function bboxFromCenter(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+): BoundingBox {
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  return {
+    north: lat + latDelta,
+    south: lat - latDelta,
+    east: lon + lonDelta,
+    west: lon - lonDelta,
+  };
+}
+
+function categoriesForActivities(activitySlugs: string[]): OsmCategory[] {
+  const set = new Set<OsmCategory>();
+  for (const slug of activitySlugs) {
+    for (const cat of ACTIVITY_TO_OSM_CATEGORIES[slug] ?? []) {
+      set.add(cat);
+    }
+  }
+  if (set.size === 0) {
+    for (const cat of DEFAULT_FILL_CATEGORIES) set.add(cat);
+  }
+  return [...set];
+}
+
+export async function fillDestinationAttractionsFromOsm({
+  lat,
+  lon,
+  radiusKm,
+  activitySlugs,
+}: {
+  lat: number;
+  lon: number;
+  radiusKm: number;
+  activitySlugs: string[];
+}): Promise<{ persisted: number; tagged: number }> {
+  const bbox = bboxFromCenter(lat, lon, radiusKm);
+  const categories = categoriesForActivities(activitySlugs);
+  const allPlaces = [];
+
+  for (const category of categories) {
+    try {
+      const places = await fetchOsmPlaces({ bbox, category, forceRefresh: true });
+      allPlaces.push(...places);
+      await sleep(800);
+    } catch {
+      /* skip failed category */
+    }
+  }
+
+  const { upserted } = await persistOsmPlaces(allPlaces, null);
+  if (upserted === 0) return { persisted: 0, tagged: 0 };
+
+  const supabase = createAdminClient();
+  const { data: rows } = await supabase
+    .from("attractions")
+    .select("id")
+    .gte("lat", bbox.south)
+    .lte("lat", bbox.north)
+    .gte("lon", bbox.west)
+    .lte("lon", bbox.east);
+
+  const ids = rows?.map((r) => r.id) ?? [];
+  const { tags_created } = await tagAttractionsWithActivitiesForIds(ids);
+
+  return { persisted: upserted, tagged: tags_created };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function countActivitiesNearPoint({
+  lat,
+  lon,
+  radiusKm,
+}: {
+  lat: number;
+  lon: number;
+  radiusKm: number;
+}): Promise<Record<string, number>> {
+  const supabase = createAdminClient();
+  const bbox = bboxFromCenter(lat, lon, radiusKm);
+
+  const { data: attractions } = await supabase
+    .from("attractions")
+    .select("id, lat, lon")
+    .gte("lat", bbox.south)
+    .lte("lat", bbox.north)
+    .gte("lon", bbox.west)
+    .lte("lon", bbox.east);
+
+  if (!attractions?.length) return {};
+
+  const ids = attractions.map((a) => a.id);
+  const counts: Record<string, number> = {};
+
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const { data: tags } = await supabase
+      .from("attraction_activity_tags")
+      .select("activity_slug")
+      .in("attraction_id", chunk);
+
+    for (const row of tags ?? []) {
+      counts[row.activity_slug] = (counts[row.activity_slug] ?? 0) + 1;
+    }
+  }
+
+  return counts;
+}

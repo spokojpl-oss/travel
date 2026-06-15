@@ -150,6 +150,17 @@ export const en: Messages = {
     breadcrumb: "Search results",
     titleResults: "Search results",
     titleActivities: "Choose activities",
+    titleScope: "How do you want to explore?",
+    subtitleScope:
+      "First choose your scope — then pick activities available in that area.",
+    scopeTitle: "Travel scope",
+    scopeIntro: "You selected",
+    scopeIntroEnd:
+      " — tell us if you stay in one area or explore a wider region.",
+    previewTitle: "What's nearby",
+    previewHint:
+      "Places in our database for this scope — we'll fill gaps from OpenStreetMap when you search.",
+    continueToActivities: "Continue — choose activities →",
     subtitleResults: "Regions matched to your trip and selected activities.",
     subtitleActivities:
       "Trip details from the home page — select what you want to do and search regions.",

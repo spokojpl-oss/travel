@@ -26,8 +26,13 @@ import {
   resolveDestinationCoords,
   tripContextFromParams,
   tripContextToParams,
+  type ExplorationScope,
   type TripContext,
 } from "@/lib/search/trip-context";
+import {
+  EXPLORATION_SCOPE_OPTIONS,
+  scopeSearchRadii,
+} from "@/lib/search/exploration-scope";
 import type {
   Activity,
   ActivityGroup,
@@ -54,11 +59,15 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState<2 | 3>(2);
+  const [step, setStep] = useState<2 | 3 | 4>(2);
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
+  const [activityPreview, setActivityPreview] = useState<Record<string, number>>(
+    {},
+  );
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
   );
@@ -109,7 +118,7 @@ function SearchPageContent() {
         const params = JSON.parse(restored) as { activities?: string[] };
         if (params.activities?.length) {
           setSelectedActivities(new Set(params.activities));
-          setStep(2);
+          setStep(merged.mode === "destination" ? 3 : 2);
         }
         sessionStorage.removeItem("restore_search_activities");
       } catch {
@@ -129,11 +138,21 @@ function SearchPageContent() {
 
       if (merged.mode === "destination") {
         setMatchMode("any");
-        setMaxRadius(20);
+        const scope = merged.exploration_scope ?? "region";
+        setMaxRadius(scopeSearchRadii(scope).max_radius_km);
       }
 
       const stepParam = searchParams.get("step");
-      const resolvedStep = stepParam === "3" ? 3 : 2;
+      const resolvedStep: 2 | 3 | 4 =
+        merged.mode === "destination"
+          ? stepParam === "4"
+            ? 4
+            : stepParam === "3"
+              ? 3
+              : 2
+          : stepParam === "3" || stepParam === "4"
+            ? 3
+            : 2;
       setStep(resolvedStep);
     }
 
@@ -184,7 +203,59 @@ function SearchPageContent() {
     trip.destination,
   ]);
 
-  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3) {
+  useEffect(() => {
+    if (!initialized || trip.mode !== "destination") return;
+    if (trip.destination_lat == null || trip.destination_lon == null) return;
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetch("/api/search/destination-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        near_lat: trip.destination_lat,
+        near_lon: trip.destination_lon,
+        exploration_scope: trip.exploration_scope ?? "region",
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : { activity_counts: {} }))
+      .then((data: { activity_counts?: Record<string, number> }) => {
+        if (!cancelled) setActivityPreview(data.activity_counts ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setActivityPreview({});
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    initialized,
+    trip.mode,
+    trip.destination_lat,
+    trip.destination_lon,
+    trip.exploration_scope,
+  ]);
+
+  function setExplorationScope(scope: ExplorationScope) {
+    const radii = scopeSearchRadii(scope);
+    setMaxRadius(radii.max_radius_km);
+    setTrip((t) => {
+      const next = { ...t, exploration_scope: scope };
+      syncUrl(next, step);
+      return next;
+    });
+  }
+
+  const isDestinationFlow = trip.mode === "destination";
+  const showScopeStep = isDestinationFlow && step === 2;
+  const showActivitiesStep = isDestinationFlow ? step === 3 : step === 2;
+  const showResultsStep = isDestinationFlow ? step === 4 : step === 3;
+
+  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
     router.replace(`/app/search?${p.toString()}`, { scroll: false });
@@ -206,12 +277,19 @@ function SearchPageContent() {
       near_lat?: number;
       near_lon?: number;
       near_radius_km?: number;
+      exploration_scope?: ExplorationScope;
     } = {
       activities: Array.from(selectedActivities),
       match_mode: matchMode,
       max_radius_km: maxRadius,
       min_per_activity: minPerActivity,
     };
+
+    if (trip.exploration_scope) {
+      params.exploration_scope = trip.exploration_scope;
+      const radii = scopeSearchRadii(trip.exploration_scope);
+      params.max_radius_km = radii.max_radius_km;
+    }
 
     if (
       trip.destination_lat != null &&
@@ -221,7 +299,11 @@ function SearchPageContent() {
     ) {
       params.near_lat = trip.destination_lat;
       params.near_lon = trip.destination_lon;
-      params.near_radius_km = trip.mode === "destination" ? 150 : 250;
+      params.near_radius_km = trip.exploration_scope
+        ? scopeSearchRadii(trip.exploration_scope).near_radius_km
+        : trip.mode === "destination"
+          ? 150
+          : 250;
     }
 
     return params;
@@ -243,8 +325,8 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
-    setStep(3);
-    syncUrl(trip, 3);
+    setStep(isDestinationFlow ? 4 : 3);
+    syncUrl(trip, isDestinationFlow ? 4 : 3);
 
     const clientStart = Date.now();
 
@@ -310,18 +392,32 @@ function SearchPageContent() {
       />
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
-        {step === 3 ? t("search.titleResults") : t("search.titleActivities")}
+        {showResultsStep
+          ? t("search.titleResults")
+          : showScopeStep
+            ? t("search.titleScope")
+            : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
-        {step === 3 ? t("search.subtitleResults") : t("search.subtitleActivities")}
+        {showResultsStep
+          ? t("search.subtitleResults")
+          : showScopeStep
+            ? t("search.subtitleScope")
+            : t("search.subtitleActivities")}
       </p>
 
       <SearchStepIndicator
         step={step}
+        tripMode={trip.mode}
         tripComplete
         onStep={(s) => {
-          if (s === 1) editTripOnHome();
-          else if (s === 2 && step === 3) {
+          if (s === 2) {
+            setStep(2);
+            syncUrl(trip, 2);
+          } else if (s === 3 && isDestinationFlow) {
+            setStep(3);
+            syncUrl(trip, 3);
+          } else if (s === 3 && !isDestinationFlow && showResultsStep) {
             setStep(2);
             syncUrl(trip, 2);
           }
@@ -330,19 +426,99 @@ function SearchPageContent() {
 
       <TripContextBar trip={trip} onEdit={editTripOnHome} />
 
-      {step >= 2 && (
+      {missingDestinationCoords && (
+        <Card className="mb-6 border-warning/40 bg-orange-50/60">
+          <CardBody className="text-sm text-text-secondary">
+            Nie mamy współrzędnych dla „
+            {trip.destination_label ?? trip.destination}”. Wybierz miejsce z
+            listy podpowiedzi na stronie głównej albo poczekaj chwilę — próbujemy
+            je ustalić automatycznie.
+          </CardBody>
+        </Card>
+      )}
+
+      {showScopeStep && (
         <>
-          {missingDestinationCoords && (
-            <Card className="mb-6 border-warning/40 bg-orange-50/60">
-              <CardBody className="text-sm text-text-secondary">
-                Nie mamy współrzędnych dla „
-                {trip.destination_label ?? trip.destination}”. Wybierz miejsce z
-                listy podpowiedzi na stronie głównej albo poczekaj chwilę — próbujemy
-                je ustalić automatycznie.
+          <Card className="mb-8">
+            <CardHeader title={t("search.scopeTitle")} />
+            <CardBody className="space-y-4">
+              <p className="text-sm text-text-secondary">
+                {t("search.scopeIntro")}{" "}
+                <strong>{trip.destination_label ?? trip.destination}</strong> —
+                {t("search.scopeIntroEnd")}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {EXPLORATION_SCOPE_OPTIONS.map((option) => {
+                  const active = trip.exploration_scope === option.value;
+                  const label =
+                    locale === "en" ? option.label_en : option.label_pl;
+                  const description =
+                    locale === "en"
+                      ? option.description_en
+                      : option.description_pl;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setExplorationScope(option.value)}
+                      className={`rounded-xl border p-4 text-left transition-colors ${
+                        active
+                          ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
+                          : "border-border-default hover:border-brand-300"
+                      }`}
+                    >
+                      <p className="font-semibold text-text-primary">{label}</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardBody>
+          </Card>
+
+          {!previewLoading && Object.keys(activityPreview).length > 0 && (
+            <Card className="mb-8">
+              <CardHeader title={t("search.previewTitle")} />
+              <CardBody>
+                <p className="mb-4 text-sm text-text-secondary">
+                  {t("search.previewHint")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {taxonomy.flatMap((g) =>
+                    g.activities
+                      .filter((a) => (activityPreview[a.slug] ?? 0) > 0)
+                      .map((a) => (
+                        <span
+                          key={a.slug}
+                          className="rounded-full bg-bg-soft px-3 py-1 text-sm text-text-secondary"
+                        >
+                          {locale === "en" ? a.name_en : a.name_pl} ·{" "}
+                          {activityPreview[a.slug]}
+                        </span>
+                      )),
+                  )}
+                </div>
               </CardBody>
             </Card>
           )}
 
+          <Button
+            size="lg"
+            disabled={missingDestinationCoords}
+            onClick={() => {
+              setStep(3);
+              syncUrl(trip, 3);
+            }}
+          >
+            {t("search.continueToActivities")}
+          </Button>
+        </>
+      )}
+
+      {showActivitiesStep && (
+        <>
           {showDataInfo && (
             <Card className="mb-6 border-warning/40 bg-orange-50/60">
               <CardBody>
@@ -402,6 +578,16 @@ function SearchPageContent() {
                             }`}
                           >
                             {locale === "en" ? activity.name_en : activity.name_pl}
+                            {isDestinationFlow &&
+                              activityPreview[activity.slug] != null && (
+                                <span
+                                  className={`ml-1.5 text-xs ${
+                                    selected ? "text-white/80" : "text-text-tertiary"
+                                  }`}
+                                >
+                                  ({activityPreview[activity.slug]})
+                                </span>
+                              )}
                           </button>
                         );
                       })}
@@ -541,10 +727,11 @@ function SearchPageContent() {
       {error && <p className="mb-4 text-danger">Błąd: {error}</p>}
       {isSearching && <SkeletonList count={5} />}
 
-      {step === 3 && results && !isSearching && (
+      {showResultsStep && results && !isSearching && (
         <section className="mt-8">
           <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-            3. Wyniki ({results.clusters.length} regionów)
+            {isDestinationFlow ? "4" : "3"}. Wyniki ({results.clusters.length}{" "}
+            regionów)
           </h2>
           <p className="mb-6 text-sm text-text-secondary">
             {formatTravelSummary(trip)} ·{" "}
@@ -568,7 +755,15 @@ function SearchPageContent() {
                     {trip.destination_label
                       ? ` w okolicy ${trip.destination_label}`
                       : ""}
-                    .
+                    . Przy wyszukiwaniu próbujemy uzupełnić dane z OpenStreetMap.
+                    {selectedActivities.has("zoo") &&
+                      !selectedActivities.has("aquarium") && (
+                        <>
+                          {" "}
+                          Delfinaria często są oznaczone jako akwaria — spróbuj
+                          też zaznaczyć „Akwaria”.
+                        </>
+                      )}
                     {results.meta && (
                       <>
                         {" "}

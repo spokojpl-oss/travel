@@ -17,6 +17,7 @@ const OSM_QUERY_TEMPLATES = {
   viewpoint: `["tourism"="viewpoint"]`,
   museum: `["tourism"="museum"]`,
   zoo: `["tourism"="zoo"]`,
+  aquarium: `["tourism"="aquarium"]`,
   theme_park: `["tourism"="theme_park"]`,
   hiking: `["sport"="hiking"]`,
   waterfall: `["waterway"="waterfall"]`,
@@ -120,7 +121,11 @@ function normalizeOsmElement(
   if (lat === undefined || lon === undefined) return null;
 
   const tags = el.tags ?? {};
-  const name = tags.name ?? tags["name:en"] ?? tags["name:pl"];
+  const name =
+    tags.name ??
+    tags["name:en"] ??
+    tags["name:pl"] ??
+    (tags.tourism ? `${tags.tourism} (${el.id})` : null);
 
   if (!name) return null;
 

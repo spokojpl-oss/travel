@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  countActivitiesNearPoint,
+  fillDestinationAttractionsFromOsm,
+} from "@/lib/api/destination-osm-fill";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
+import {
+  applyExplorationScopeToQuery,
+  explorationScopeFromString,
+} from "./exploration-scope";
 import { enrichClusterWithSettlement } from "./settlement-resolver";
 import type {
   ActivitySearchQuery,
@@ -189,16 +197,20 @@ export async function searchActivities(
   const startTime = Date.now();
   const supabase = createAdminClient();
 
+  const scope = explorationScopeFromString(query.exploration_scope);
+  const effectiveQuery = scope
+    ? applyExplorationScopeToQuery(query, scope)
+    : query;
+
   let tagRows: TagRow[] = [];
   let geoRadiusUsed: number | null = null;
   let attractionsInBbox = 0;
+  let osmFilled = false;
 
-  const dbStart = Date.now();
-
-  if (hasNearPoint(query)) {
-    const center = { lat: query.near_lat, lon: query.near_lon };
+  if (hasNearPoint(effectiveQuery)) {
+    const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
     const radii = [
-      query.near_radius_km ?? 150,
+      effectiveQuery.near_radius_km ?? 150,
       250,
       400,
     ];
@@ -209,19 +221,44 @@ export async function searchActivities(
 
       if (ids.length === 0) continue;
 
-      tagRows = await fetchTagRows(supabase, query.activities, ids);
+      tagRows = await fetchTagRows(supabase, effectiveQuery.activities, ids);
       if (tagRows.length > 0) {
         geoRadiusUsed = radiusKm;
         break;
       }
     }
+
+    if (tagRows.length === 0) {
+      try {
+        await fillDestinationAttractionsFromOsm({
+          lat: center.lat,
+          lon: center.lon,
+          radiusKm: effectiveQuery.near_radius_km ?? 120,
+          activitySlugs: effectiveQuery.activities,
+        });
+        osmFilled = true;
+
+        for (const radiusKm of radii) {
+          const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
+          attractionsInBbox = ids.length;
+          if (ids.length === 0) continue;
+          tagRows = await fetchTagRows(supabase, effectiveQuery.activities, ids);
+          if (tagRows.length > 0) {
+            geoRadiusUsed = radiusKm;
+            break;
+          }
+        }
+      } catch {
+        /* OSM fill optional */
+      }
+    }
   } else {
-    tagRows = await fetchTagRows(supabase, query.activities);
+    tagRows = await fetchTagRows(supabase, effectiveQuery.activities);
   }
 
   if (tagRows.length === 0) {
     return {
-      query,
+      query: effectiveQuery,
       clusters: [],
       total_attractions_considered: 0,
       duration_ms: Date.now() - startTime,
@@ -229,19 +266,20 @@ export async function searchActivities(
         tag_rows_fetched: 0,
         geo_radius_km_used: geoRadiusUsed,
         attractions_in_bbox: attractionsInBbox,
+        osm_filled: osmFilled,
       },
     };
   }
 
   let attractions = buildAttractionMap(tagRows);
 
-  if (!hasNearPoint(query) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
+  if (!hasNearPoint(effectiveQuery) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
     attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
   }
 
   if (attractions.length === 0) {
     return {
-      query,
+      query: effectiveQuery,
       clusters: [],
       total_attractions_considered: 0,
       duration_ms: Date.now() - startTime,
@@ -249,17 +287,17 @@ export async function searchActivities(
         tag_rows_fetched: tagRows.length,
         geo_radius_km_used: geoRadiusUsed,
         attractions_in_bbox: attractionsInBbox,
+        osm_filled: osmFilled,
       },
     };
   }
 
-  const clusterStart = Date.now();
   const clusters = clusterAttractions({
     attractions,
-    selectedActivities: query.activities,
-    matchMode: query.match_mode,
-    maxRadiusKm: query.max_radius_km,
-    minPerActivity: query.min_per_activity,
+    selectedActivities: effectiveQuery.activities,
+    matchMode: effectiveQuery.match_mode,
+    maxRadiusKm: effectiveQuery.max_radius_km,
+    minPerActivity: effectiveQuery.min_per_activity,
   });
 
   const topClusters = clusters.slice(0, 10).map((cluster) => ({
@@ -275,10 +313,10 @@ export async function searchActivities(
   const withSettlement = enrichedClusters.filter((c) => c.settlement?.name);
 
   let filtered = withSettlement;
-  if (hasNearPoint(query)) {
-    const center = { lat: query.near_lat, lon: query.near_lon };
-    const radius = geoRadiusUsed ?? query.near_radius_km ?? 200;
-    filtered = enrichedClusters
+  if (hasNearPoint(effectiveQuery)) {
+    const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
+    const radius = geoRadiusUsed ?? effectiveQuery.near_radius_km ?? 200;
+    filtered = withSettlement
       .map((cluster) => ({
         cluster,
         dist: distanceKm(cluster.center, center),
@@ -289,7 +327,7 @@ export async function searchActivities(
   }
 
   return {
-    query,
+    query: effectiveQuery,
     clusters: filtered,
     total_attractions_considered: attractions.length,
     duration_ms: Date.now() - startTime,
@@ -297,6 +335,7 @@ export async function searchActivities(
       tag_rows_fetched: tagRows.length,
       geo_radius_km_used: geoRadiusUsed,
       attractions_in_bbox: attractionsInBbox,
+      osm_filled: osmFilled,
     },
   };
 }

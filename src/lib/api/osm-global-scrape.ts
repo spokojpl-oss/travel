@@ -31,6 +31,7 @@ const ALL_OSM_CATEGORIES: OsmCategory[] = [
   "viewpoint",
   "museum",
   "zoo",
+  "aquarium",
   "theme_park",
   "hiking",
   "waterfall",
@@ -204,6 +205,7 @@ export async function tagAttractionsWithActivities(): Promise<{
 const OSM_CATEGORY_TO_ACTIVITIES: Record<string, string[]> = {
   museum: ["museums"],
   zoo: ["zoo"],
+  aquarium: ["aquarium"],
   theme_park: ["theme_parks"],
   viewpoint: ["viewpoints"],
   cave: ["caves"],
@@ -221,9 +223,9 @@ const SUBCATEGORY_TO_ACTIVITIES: Record<string, string[]> = {
   gallery: ["museums"],
   artworks: ["museums"],
   zoo: ["zoo"],
-  theme_park: ["theme_parks"],
-  viewpoint: ["viewpoints"],
   aquarium: ["aquarium"],
+  dolphinarium: ["aquarium", "zoo"],
+  theme_park: ["theme_parks"],
   waterfall: ["waterfalls"],
   cave_entrance: ["caves"],
   attraction: [],
@@ -237,6 +239,7 @@ const SUBCATEGORY_TO_ACTIVITIES: Record<string, string[]> = {
 const CATEGORY_TAG_HINTS: Record<string, Record<string, string>> = {
   museum: { tourism: "museum" },
   zoo: { tourism: "zoo" },
+  aquarium: { tourism: "aquarium" },
   theme_park: { tourism: "theme_park" },
   viewpoint: { tourism: "viewpoint" },
   cave: { natural: "cave_entrance" },
@@ -351,4 +354,91 @@ function queryMatchesAttraction(
   }
 
   return conditions.length > 0;
+}
+
+function tagRowsForAttraction(
+  attraction: {
+    id: string;
+    category: string;
+    subcategories: string[] | null;
+    tags: Record<string, unknown> | null;
+  },
+  mappings: Array<{ activity_slug: string; osm_query: string; priority: number }>,
+): Array<{
+  attraction_id: string;
+  activity_slug: string;
+  confidence: number;
+}> {
+  const rawTags =
+    attraction.tags && typeof attraction.tags === "object"
+      ? attraction.tags
+      : {};
+  const tags = enrichTagsForMatching(
+    attraction.category,
+    attraction.subcategories ?? [],
+    rawTags,
+  );
+  const matches = matchAttractionToActivities(
+    {
+      category: attraction.category,
+      subcategories: attraction.subcategories ?? [],
+      tags,
+    },
+    mappings,
+  );
+
+  return matches.map((match) => ({
+    attraction_id: attraction.id,
+    activity_slug: match.activitySlug,
+    confidence: match.confidence,
+  }));
+}
+
+export async function tagAttractionsWithActivitiesForIds(
+  attractionIds: string[],
+): Promise<{ tags_created: number }> {
+  if (attractionIds.length === 0) return { tags_created: 0 };
+
+  const supabase = createAdminClient();
+  const { data: mappings, error: mappingsError } = await supabase
+    .from("activity_osm_mappings")
+    .select("*");
+
+  if (mappingsError || !mappings) {
+    throw new Error(mappingsError?.message ?? "Failed to load OSM mappings");
+  }
+
+  const { data: attractions, error: fetchError } = await supabase
+    .from("attractions")
+    .select("id, category, subcategories, tags")
+    .in("id", attractionIds);
+
+  if (fetchError || !attractions?.length) {
+    return { tags_created: 0 };
+  }
+
+  const tagInserts = attractions.flatMap((attraction) =>
+    tagRowsForAttraction(
+      {
+        ...attraction,
+        tags:
+          attraction.tags && typeof attraction.tags === "object"
+            ? (attraction.tags as Record<string, unknown>)
+            : null,
+      },
+      mappings,
+    ),
+  );
+
+  if (tagInserts.length === 0) return { tags_created: 0 };
+
+  const { error: upsertError } = await supabase
+    .from("attraction_activity_tags")
+    .upsert(tagInserts, { onConflict: "attraction_id,activity_slug" });
+
+  if (upsertError) {
+    throw new Error(upsertError.message);
+  }
+
+  return { tags_created: tagInserts.length };
 }

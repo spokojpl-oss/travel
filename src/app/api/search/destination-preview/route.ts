@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { searchActivities } from "@/lib/search/activity-search";
+import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
+import {
+  explorationScopeFromString,
+  scopeSearchRadii,
+} from "@/lib/search/exploration-scope";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
-const searchRequestSchema = z.object({
-  activities: z
-    .array(z.string())
-    .min(1, "Wybierz co najmniej 1 aktywność")
-    .max(10),
-  match_mode: z.enum(["all", "any"]).default("all"),
-  max_radius_km: z.number().min(3).max(80).default(15),
-  min_per_activity: z.number().int().min(1).max(10).default(1),
-  near_lat: z.number().min(-90).max(90).optional(),
-  near_lon: z.number().min(-180).max(180).optional(),
-  near_radius_km: z.number().min(10).max(500).optional(),
+const previewSchema = z.object({
+  near_lat: z.number().min(-90).max(90),
+  near_lon: z.number().min(-180).max(180),
   exploration_scope: z
     .enum(["local", "region", "island", "roadtrip"])
     .optional(),
@@ -38,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const parsed = searchRequestSchema.safeParse(body);
+  const parsed = previewSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", issues: parsed.error.issues },
@@ -46,13 +41,28 @@ export async function POST(request: Request) {
     );
   }
 
+  const scope =
+    explorationScopeFromString(parsed.data.exploration_scope) ?? "region";
+  const { near_radius_km } = scopeSearchRadii(scope);
+
   try {
-    const apiStart = Date.now();
-    const result = await searchActivities(parsed.data);
-    return NextResponse.json(result);
+    const counts = await countActivitiesNearPoint({
+      lat: parsed.data.near_lat,
+      lon: parsed.data.near_lon,
+      radiusKm: near_radius_km,
+    });
+
+    return NextResponse.json({
+      activity_counts: counts,
+      exploration_scope: scope,
+      radius_km: near_radius_km,
+    });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Search failed" },
+      {
+        error: error instanceof Error ? error.message : "Preview failed",
+        activity_counts: {},
+      },
       { status: 500 },
     );
   }
