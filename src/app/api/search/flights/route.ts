@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { BoundingBox } from "@/types/domain";
 import type { FlightOffer } from "@/lib/api/travelpayouts";
 import { buildAviasalesAppLink } from "@/lib/api/travelpayouts";
+import { agentLog } from "@/lib/debug/agent-log";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,23 @@ export async function POST(request: Request) {
     .slice(0, parsed.data.max_destinations)
     .map((a) => a.iata_code);
 
+  agentLog(
+    "api/search/flights/route.ts:POST",
+    "flight search start",
+    {
+      destination_id: parsed.data.destination_id,
+      destination_name: destination.name,
+      origins: origins.slice(0, parsed.data.max_origins),
+      destinations,
+      date_from: parsed.data.departure_date_from,
+      date_to: parsed.data.departure_date_to,
+      trip_length_min: parsed.data.trip_length_min_days ?? null,
+      trip_length_max: parsed.data.trip_length_max_days ?? null,
+      origins_from_request: Boolean(parsed.data.origins),
+    },
+    "H2",
+  );
+
   try {
     const result = await flexibleFlightSearch({
       origins: origins.slice(0, parsed.data.max_origins),
@@ -112,8 +130,30 @@ export async function POST(request: Request) {
       searched_origins: origins.slice(0, parsed.data.max_origins),
     };
 
+    agentLog(
+      "api/search/flights/route.ts:POST",
+      "flight search success",
+      {
+        offers: result.all_offers.length,
+        cheapest: result.cheapest.length,
+        calendar_days: result.price_calendar.length,
+        sample_deep_link: result.cheapest[0]?.deep_link ?? null,
+      },
+      "H2",
+    );
+
     return NextResponse.json({ result, meta });
   } catch (error) {
+    agentLog(
+      "api/search/flights/route.ts:POST",
+      "flight search api error",
+      {
+        error: error instanceof Error ? error.message : String(error),
+        fallback_attempt: true,
+      },
+      "H3",
+    );
+
     const { data: cached } = await admin
       .from("flight_offers_cache")
       .select("*")
@@ -146,6 +186,16 @@ export async function POST(request: Request) {
         },
       });
     }
+
+    agentLog(
+      "api/search/flights/route.ts:POST",
+      "flight search failed no cache",
+      {
+        error: error instanceof Error ? error.message : String(error),
+        cached_rows: 0,
+      },
+      "H3",
+    );
 
     return NextResponse.json(
       {

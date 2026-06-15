@@ -1,5 +1,6 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
 import { apiEnv } from "@/config/api-env";
+import { agentLog } from "@/lib/debug/agent-log";
 
 const AVIATION_BASE = "https://api.travelpayouts.com";
 
@@ -98,18 +99,39 @@ export async function fetchPriceCalendar({
         `${AVIATION_BASE}/aviasales/v3/prices_for_dates?${params}`,
       );
       if (!response.ok) {
-        throw new Error(`Travelpayouts calendar error: ${response.status}`);
+        const status = response.status;
+        agentLog(
+          "travelpayouts.ts:fetchPriceCalendar",
+          "calendar api http error",
+          { origin, destination, departureMonth, status },
+          "H3",
+        );
+        throw new Error(`Travelpayouts calendar error: ${status}`);
       }
       return response.json() as Promise<TravelpayoutsCalendarResponse>;
     },
   });
 
   if (!data.success) {
-    if (data.error) throw new Error(`Travelpayouts: ${data.error}`);
+    if (data.error) {
+      agentLog(
+        "travelpayouts.ts:fetchPriceCalendar",
+        "calendar api logical error",
+        { origin, destination, departureMonth, error: data.error },
+        "H3",
+      );
+      throw new Error(`Travelpayouts: ${data.error}`);
+    }
+    agentLog(
+      "travelpayouts.ts:fetchPriceCalendar",
+      "calendar api empty success",
+      { origin, destination, departureMonth },
+      "H3",
+    );
     return [];
   }
 
-  return Object.entries(data.data ?? {}).map(([, offer]) => ({
+  const offers = Object.entries(data.data ?? {}).map(([, offer]) => ({
     origin_iata: origin,
     destination_iata: destination,
     price_pln: offer.price,
@@ -130,6 +152,8 @@ export async function fetchPriceCalendar({
     }),
     source: "aviasales" as const,
   }));
+
+  return offers;
 }
 
 export async function fetchCheapestFlights({
