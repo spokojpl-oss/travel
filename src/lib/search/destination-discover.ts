@@ -1,7 +1,11 @@
-import { ensureDestinationActivities } from "@/lib/api/destination-activity-prefill";
+import { fillForDestinationDiscovery } from "@/lib/api/destination-discovery-fill";
 import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
 import type { Locale } from "@/i18n/config";
 import { resolveIslandBoundary } from "@/lib/destinations/island-boundary";
+import {
+  buildDiscoveryIntroWithFallback,
+  inferDefaultDiscoveryActivities,
+} from "@/lib/search/discovery-defaults";
 import { buildDestinationOverview } from "@/lib/search/destination-overview";
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
@@ -62,42 +66,7 @@ export function suggestActivities({
   return [...picked].slice(0, 8);
 }
 
-export function buildDiscoveryIntro({
-  placeName,
-  counts,
-  weather,
-  suggested,
-  locale = "pl",
-}: {
-  placeName: string;
-  counts: Record<string, number>;
-  weather: WeatherSummary | null;
-  suggested: string[];
-  locale?: Locale;
-}): string {
-  const found = Object.values(counts).reduce((a, b) => a + b, 0);
-  if (found === 0) {
-    return locale === "en"
-      ? `We're still gathering places around ${placeName} — you can adjust suggestions below.`
-      : `Zbieramy jeszcze miejsca w okolicy ${placeName} — propozycje możecie poprawić poniżej.`;
-  }
-
-  if (locale === "en") {
-    const w = weather
-      ? `For your dates we expect ${weather.avg_temp_min}–${weather.avg_temp_max}°C`
-      : "For your trip";
-    return `${w} we found ${found} places near ${placeName} and pre-selected ${suggested.length} ideas for you — tweak them if you like, then we'll match regions.`;
-  }
-
-  const w = weather
-    ? `Na Wasze daty (${weather.avg_temp_min}–${weather.avg_temp_max}°C`
-    : "Na ten termin";
-  const rain =
-    weather && weather.rainy_days > 0
-      ? `, ${weather.rainy_days} dni z opadami`
-      : "";
-  return `${w}${rain}) znaleźliśmy ${found} miejsc w okolicy ${placeName}. Zaznaczyliśmy ${suggested.length} propozycji — możecie je zmienić, potem dopasujemy rejony i noclegi.`;
-}
+const DISCOVERY_FILL_TIMEOUT_MS = 28_000;
 
 export async function discoverDestination({
   destinationLabel,
@@ -125,62 +94,65 @@ export async function discoverDestination({
     ? Math.min(near_radius_km, island.maxRadiusKm)
     : near_radius_km;
 
-  const prefill = ensureDestinationActivities({
+  const overviewPromise = buildDestinationOverview({
+    destinationLabel,
     lat,
     lon,
-    radiusKm: searchRadius,
-    destinationLabel,
-  }).catch(() => ({ osmPersisted: 0, googlePersisted: 0 }));
+    dateFrom,
+    dateTo,
+    explorationScope,
+    locale,
+  });
 
-  const PREFILL_BUDGET_MS = 12_000;
+  const countsPromise = (async () => {
+    await Promise.race([
+      fillForDestinationDiscovery({
+        lat,
+        lon,
+        radiusKm: searchRadius,
+        destinationLabel,
+      }),
+      new Promise<void>((resolve) =>
+        setTimeout(resolve, DISCOVERY_FILL_TIMEOUT_MS),
+      ),
+    ]);
 
-  const [overview, activity_counts] = await Promise.all([
-    buildDestinationOverview({
-      destinationLabel,
+    return countActivitiesNearPoint({
       lat,
       lon,
-      dateFrom,
-      dateTo,
-      explorationScope,
-      locale,
-    }),
-    Promise.race([
-      prefill.then(() =>
-        countActivitiesNearPoint({
-          lat,
-          lon,
-          radiusKm: searchRadius,
-          destinationLabel,
-        }),
-      ),
-      new Promise<Record<string, number>>((resolve) =>
-        setTimeout(async () => {
-          resolve(
-            await countActivitiesNearPoint({
-              lat,
-              lon,
-              radiusKm: searchRadius,
-              destinationLabel,
-            }),
-          );
-        }, PREFILL_BUDGET_MS),
-      ),
-    ]),
+      radiusKm: searchRadius,
+      destinationLabel,
+    });
+  })();
+
+  const [overview, activity_counts] = await Promise.all([
+    overviewPromise,
+    countsPromise,
   ]);
 
-  void prefill.catch(() => {});
-
-  const suggested_activities = suggestActivities({
+  let suggested_activities = suggestActivities({
     counts: activity_counts,
     weather: overview.weather,
     passengers,
   });
 
-  const discovery_intro = buildDiscoveryIntro({
+  let usedFallback = false;
+  if (suggested_activities.length === 0) {
+    usedFallback = true;
+    suggested_activities = inferDefaultDiscoveryActivities({
+      destinationLabel,
+      weather: overview.weather,
+      passengers,
+      explorationScope,
+    });
+  }
+
+  const discovery_intro = buildDiscoveryIntroWithFallback({
     placeName: overview.place_name,
     counts: activity_counts,
     weather: overview.weather,
     suggested: suggested_activities,
+    usedFallback,
     locale,
   });
 

@@ -106,9 +106,11 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
   {
     name: "Santorini",
     country: "Grecja",
+    aliases: ["santorini", "thira", "fira", "oia"],
+    geocodeQuery: "Santorini, Greece",
     lat: 36.3932,
     lon: 25.4615,
-    islandBbox: { north: 36.5, south: 36.3, east: 25.5, west: 25.3 },
+    islandBbox: { north: 36.55, south: 36.33, east: 25.52, west: 25.32 },
     primaryAirports: ["JTR"],
   },
   { name: "Dubrownik", country: "Chorwacja", aliases: ["dubrovnik"], geocodeQuery: "Dubrovnik, Croatia", lat: 42.6507, lon: 18.0944 },

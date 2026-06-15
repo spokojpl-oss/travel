@@ -83,19 +83,23 @@ export async function fillDestinationAttractionsFromOsm({
   lon,
   radiusKm,
   activitySlugs,
+  searchBbox,
+  forceRefresh = false,
 }: {
   lat: number;
   lon: number;
   radiusKm: number;
   activitySlugs: string[];
+  searchBbox?: BoundingBox;
+  forceRefresh?: boolean;
 }): Promise<{ persisted: number; tagged: number }> {
-  const bbox = bboxFromCenter(lat, lon, radiusKm);
+  const bbox = searchBbox ?? bboxFromCenter(lat, lon, radiusKm);
   const categories = categoriesForActivities(activitySlugs);
 
   const categoryResults = await Promise.all(
     categories.map(async (category) => {
       try {
-        return await fetchOsmPlaces({ bbox, category, forceRefresh: false });
+        return await fetchOsmPlaces({ bbox, category, forceRefresh });
       } catch {
         return [];
       }
