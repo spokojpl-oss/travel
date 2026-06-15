@@ -19,9 +19,13 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
   const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [trip, setTrip] = useState<TripContext>(defaultTripContext);
+  const [trip, setTrip] = useState<TripContext>(defaultTripContext());
   const [submitting, setSubmitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     const fromUrl = tripContextFromParams(searchParams);
@@ -33,6 +37,27 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
       document.getElementById("search")?.scrollIntoView({ behavior: "smooth" });
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!hydrated || searchParams.get("passengers")) return;
+
+    fetch("/api/groups/default")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (data: {
+          group?: { id: string; name: string } | null;
+          passengers?: string | null;
+        } | null) => {
+          if (!data?.group?.id || !data.passengers) return;
+          setActiveGroup(data.group);
+          setTrip((current) => ({
+            ...current,
+            passengers: data.passengers!,
+          }));
+        },
+      )
+      .catch(() => {});
+  }, [hydrated, searchParams]);
 
   async function handleSearch() {
     setSubmitting(true);
@@ -178,6 +203,8 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
               onChange={setTrip}
               showInterests={trip.mode === "activities"}
               showDestination={trip.mode === "destination"}
+              groupSource={activeGroup}
+              onClearGroupSource={() => setActiveGroup(null)}
               large
             />
 

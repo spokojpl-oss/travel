@@ -227,6 +227,7 @@ export const pl = {
     adultsLabel: "Dorośli (18+)",
     childrenLabel: "Dzieci (0–17 lat)",
     whoTravels: "Kto jedzie?",
+    fromGroup: "Z grupy:",
     adults: "Dorośli",
     children: "Dzieci",
     childAge: "Wiek dziecka",

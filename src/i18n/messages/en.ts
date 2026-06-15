@@ -226,6 +226,7 @@ export const en: Messages = {
     adultsLabel: "Adults (18+)",
     childrenLabel: "Children (0–17)",
     whoTravels: "Who's travelling?",
+    fromGroup: "From group:",
     adults: "Adults",
     children: "Children",
     childAge: "Child age",

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
 import { useT } from "@/i18n/locale-provider";
@@ -110,11 +111,13 @@ export function PassengerSelector({
   onChange,
   large,
   className,
+  hint,
 }: {
   value: PassengerBreakdown;
   onChange: (v: PassengerBreakdown) => void;
   large?: boolean;
   className?: string;
+  hint?: ReactNode;
 }) {
   const t = useT();
 
@@ -142,6 +145,10 @@ export function PassengerSelector({
         <Icon name="users" size={14} />
         <span>{t("passengers.whoTravels")}</span>
       </div>
+
+      {hint ? (
+        <p className="mb-3 text-xs text-text-secondary">{hint}</p>
+      ) : null}
 
       <div className="space-y-3">
         <Stepper

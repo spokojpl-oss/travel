@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo } from "react";
 import { Autocomplete } from "@/components/ui/Autocomplete";
 import { DateRangePicker } from "@/components/ui/DatePicker";
@@ -81,6 +82,8 @@ export function TripSearchForm({
   showInterests = false,
   large = false,
   className,
+  groupSource = null,
+  onClearGroupSource,
 }: {
   trip: TripContext;
   onChange: (trip: TripContext) => void;
@@ -88,6 +91,8 @@ export function TripSearchForm({
   showInterests?: boolean;
   large?: boolean;
   className?: string;
+  groupSource?: { id: string; name: string } | null;
+  onClearGroupSource?: () => void;
 }) {
   const t = useT();
   const searchAirports = useCallback(
@@ -307,10 +312,24 @@ export function TripSearchForm({
         )}
         <PassengerSelector
           value={passengers}
-          onChange={(p) =>
-            onChange({ ...trip, passengers: formatPassengers(p) })
-          }
+          onChange={(p) => {
+            onClearGroupSource?.();
+            onChange({ ...trip, passengers: formatPassengers(p) });
+          }}
           large={large}
+          hint={
+            groupSource ? (
+              <>
+                {t("passengers.fromGroup")}{" "}
+                <Link
+                  href={`/app/groups/${groupSource.id}`}
+                  className="font-medium text-brand-700 hover:underline"
+                >
+                  {groupSource.name}
+                </Link>
+              </>
+            ) : undefined
+          }
         />
       </div>
     </div>

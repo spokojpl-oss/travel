@@ -96,7 +96,7 @@ export function ProfileForm({
                   </Link>
                 </>
               ) : (
-                "Używana domyślnie przy wyszukiwaniu hoteli i liczeniu kosztów."
+                "Uzupełnia pasażerów w formularzu wyszukiwania oraz przy zapisanych wyjazdach."
               )}
             </p>
           </div>
