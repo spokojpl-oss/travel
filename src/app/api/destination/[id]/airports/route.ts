@@ -39,6 +39,7 @@ export async function GET(
       lon: Number(destination.center_lon),
     },
     bbox: destination.bounding_box as BoundingBox,
+    destinationLabel: destination.name,
   });
 
   return NextResponse.json({ airports });

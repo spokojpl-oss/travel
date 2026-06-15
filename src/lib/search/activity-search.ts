@@ -2,6 +2,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
 import { ensureDestinationActivities, fillRadiusKm } from "@/lib/api/destination-activity-prefill";
+import {
+  pointInIslandBbox,
+  resolveIslandBoundaryForSearch,
+  settlementConflictsWithIsland,
+  type IslandBoundary,
+} from "@/lib/destinations/island-boundary";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
 import {
   applyExplorationScopeToQuery,
@@ -207,16 +213,44 @@ function missingActivities(tagRows: TagRow[], activities: string[]): string[] {
   return activities.filter((slug) => !covered.has(slug));
 }
 
+function searchRadiiForQuery(
+  query: ActivitySearchQuery,
+  island: IslandBoundary | null,
+): number[] {
+  const base = query.near_radius_km ?? 150;
+
+  if (island) {
+    return [Math.min(base, island.maxRadiusKm)];
+  }
+
+  if (query.destination_label && query.exploration_scope !== "roadtrip") {
+    return [base];
+  }
+
+  return [base, 250, 400];
+}
+
+function filterAttractionsToIsland<T extends { lat: number; lon: number }>(
+  attractions: T[],
+  island: IslandBoundary | null,
+): T[] {
+  if (!island) return attractions;
+  return attractions.filter((a) =>
+    pointInIslandBbox({ lat: a.lat, lon: a.lon }, island.bbox),
+  );
+}
+
 async function fetchTagRowsForRadii(
   supabase: ReturnType<typeof createAdminClient>,
   query: ActivitySearchQuery & { near_lat: number; near_lon: number },
+  island: IslandBoundary | null,
 ): Promise<{
   tagRows: TagRow[];
   geoRadiusUsed: number | null;
   attractionsInBbox: number;
 }> {
   const center = { lat: query.near_lat, lon: query.near_lon };
-  const radii = [query.near_radius_km ?? 150, 250, 400];
+  const radii = searchRadiiForQuery(query, island);
 
   let tagRows: TagRow[] = [];
   let geoRadiusUsed: number | null = null;
@@ -228,7 +262,20 @@ async function fetchTagRowsForRadii(
     if (ids.length === 0) continue;
 
     const rows = await fetchTagRows(supabase, query.activities, ids);
-    tagRows = mergeTagRows(tagRows, rows);
+    const filteredRows = island
+      ? rows.filter(
+          (row) =>
+            row.attraction &&
+            pointInIslandBbox(
+              {
+                lat: Number(row.attraction.lat),
+                lon: Number(row.attraction.lon),
+              },
+              island.bbox,
+            ),
+        )
+      : rows;
+    tagRows = mergeTagRows(tagRows, filteredRows);
     geoRadiusUsed = radiusKm;
 
     if (missingActivities(tagRows, query.activities).length === 0) {
@@ -289,6 +336,12 @@ export async function searchActivities(
   const effectiveQuery = scope
     ? applyExplorationScopeToQuery(query, scope)
     : query;
+  const island = resolveIslandBoundaryForSearch(
+    effectiveQuery.destination_label,
+    hasNearPoint(effectiveQuery)
+      ? { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon }
+      : null,
+  );
 
   let tagRows: TagRow[] = [];
   let geoRadiusUsed: number | null = null;
@@ -304,7 +357,7 @@ export async function searchActivities(
       destinationLabel: effectiveQuery.destination_label,
     }).catch(() => {});
 
-    const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery);
+    const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery, island);
     tagRows = fetched.tagRows;
     geoRadiusUsed = fetched.geoRadiusUsed;
     attractionsInBbox = fetched.attractionsInBbox;
@@ -318,7 +371,11 @@ export async function searchActivities(
       osmFilled = supplemented.osmFilled;
       googleFilled = supplemented.googleFilled;
 
-      const refetched = await fetchTagRowsForRadii(supabase, effectiveQuery);
+      const refetched = await fetchTagRowsForRadii(
+        supabase,
+        effectiveQuery,
+        island,
+      );
       tagRows = refetched.tagRows;
       geoRadiusUsed = refetched.geoRadiusUsed ?? geoRadiusUsed;
       attractionsInBbox = Math.max(attractionsInBbox, refetched.attractionsInBbox);
@@ -344,6 +401,7 @@ export async function searchActivities(
   }
 
   let attractions = buildAttractionMap(tagRows);
+  attractions = filterAttractionsToIsland(attractions, island);
 
   if (!hasNearPoint(effectiveQuery) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
     attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
@@ -388,13 +446,27 @@ export async function searchActivities(
   let filtered = withSettlement;
   if (hasNearPoint(effectiveQuery)) {
     const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
-    const radius = geoRadiusUsed ?? effectiveQuery.near_radius_km ?? 200;
+    const radius = island
+      ? island.maxRadiusKm
+      : (effectiveQuery.near_radius_km ?? geoRadiusUsed ?? 90);
     filtered = withSettlement
       .map((cluster) => ({
         cluster,
         dist: distanceKm(cluster.center, center),
       }))
-      .filter((x) => x.dist <= radius)
+      .filter((x) => {
+        if (x.dist > radius) return false;
+        if (island && !pointInIslandBbox(x.cluster.center, island.bbox)) {
+          return false;
+        }
+        if (
+          island &&
+          settlementConflictsWithIsland(x.cluster.settlement?.name, island)
+        ) {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => a.dist - b.dist)
       .map((x) => x.cluster);
   }

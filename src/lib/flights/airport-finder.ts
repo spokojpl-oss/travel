@@ -1,4 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  resolveIslandBoundary,
+  resolveIslandBoundaryForSearch,
+  type IslandBoundary,
+} from "@/lib/destinations/island-boundary";
 import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox, GeoPoint } from "@/types/domain";
 import type { Database } from "@/types/database";
@@ -20,44 +25,77 @@ export type DestinationAirport = {
 export async function findAirportsForDestination({
   center,
   bbox,
-  maxDistanceKm = 200,
+  destinationLabel,
+  maxDistanceKm = 80,
   maxResults = 5,
 }: {
   center: GeoPoint;
   bbox: BoundingBox;
+  destinationLabel?: string | null;
   maxDistanceKm?: number;
   maxResults?: number;
 }): Promise<DestinationAirport[]> {
+  const island = resolveIslandBoundaryForSearch(destinationLabel, center);
+  const searchBbox = island?.bbox ?? bbox;
+  const effectiveMaxDistance = island ? 50 : maxDistanceKm;
+  const effectiveMaxResults = island ? Math.max(1, island.primaryAirports.length) : maxResults;
+
   const supabase = createAdminClient();
 
-  const margin = 2;
-  const searchBbox = {
-    north: bbox.north + margin,
-    south: bbox.south - margin,
-    east: bbox.east + margin,
-    west: bbox.west - margin,
+  const margin = island ? 0.15 : 0.5;
+  const queryBbox = {
+    north: searchBbox.north + margin,
+    south: searchBbox.south - margin,
+    east: searchBbox.east + margin,
+    west: searchBbox.west - margin,
   };
 
   const { data: candidates } = await supabase
     .from("airports")
     .select("*")
-    .gte("lat", searchBbox.south)
-    .lte("lat", searchBbox.north)
-    .gte("lon", searchBbox.west)
-    .lte("lon", searchBbox.east)
+    .gte("lat", queryBbox.south)
+    .lte("lat", queryBbox.north)
+    .gte("lon", queryBbox.west)
+    .lte("lon", queryBbox.east)
     .eq("scheduled_service", true)
     .limit(50);
 
   if (!candidates || candidates.length === 0) return [];
 
-  return candidates
+  let airports = candidates
     .map((a) => toDestinationAirport(a, center))
-    .filter((a) => a.distance_km <= maxDistanceKm)
+    .filter((a) => a.distance_km <= effectiveMaxDistance);
+
+  if (island) {
+    airports = filterAirportsToIsland(airports, island);
+  }
+
+  return airports
     .sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.distance_km - b.distance_km;
     })
-    .slice(0, maxResults);
+    .slice(0, effectiveMaxResults);
+}
+
+function filterAirportsToIsland(
+  airports: DestinationAirport[],
+  island: IslandBoundary,
+): DestinationAirport[] {
+  if (island.primaryAirports.length > 0) {
+    const preferred = airports.filter((a) =>
+      island.primaryAirports.includes(a.iata_code),
+    );
+    if (preferred.length > 0) return preferred;
+  }
+
+  return airports.filter(
+    (a) =>
+      a.lat >= island.bbox.south &&
+      a.lat <= island.bbox.north &&
+      a.lon >= island.bbox.west &&
+      a.lon <= island.bbox.east,
+  );
 }
 
 export async function persistDestinationAirports(
@@ -82,12 +120,15 @@ export async function getOrFindDestinationAirports({
   destinationId,
   center,
   bbox,
+  destinationLabel,
 }: {
   destinationId: string;
   center: GeoPoint;
   bbox: BoundingBox;
+  destinationLabel?: string | null;
 }): Promise<DestinationAirport[]> {
   const supabase = createAdminClient();
+  const island = resolveIslandBoundaryForSearch(destinationLabel, center);
 
   const { data: cached } = await supabase
     .from("destination_airports")
@@ -103,7 +144,7 @@ export async function getOrFindDestinationAirports({
     .order("priority", { ascending: true });
 
   if (cached && cached.length > 0) {
-    return cached.map((c) => {
+    const mapped = cached.map((c) => {
       const airport = c.airport as unknown as AirportRow;
       return {
         iata_code: airport.iata_code,
@@ -117,9 +158,20 @@ export async function getOrFindDestinationAirports({
         priority: c.priority,
       };
     });
+
+    if (island) {
+      const valid = filterAirportsToIsland(mapped, island);
+      if (valid.length > 0) return valid;
+    } else {
+      return mapped;
+    }
   }
 
-  const airports = await findAirportsForDestination({ center, bbox });
+  const airports = await findAirportsForDestination({
+    center,
+    bbox,
+    destinationLabel,
+  });
   await persistDestinationAirports(destinationId, airports);
   return airports;
 }

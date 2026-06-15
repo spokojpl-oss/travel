@@ -4,6 +4,32 @@ import type { GeoPoint, WeatherSummary } from "@/types/domain";
 
 const FORECAST_API = "https://api.open-meteo.com/v1/forecast";
 const HISTORICAL_API = "https://archive-api.open-meteo.com/v1/archive";
+/** Open-Meteo forecast API — maks. ~16 dni od dziś (włącznie z dniem bieżącym). */
+const FORECAST_HORIZON_DAYS = 15;
+
+function toIsoDate(d: Date): string {
+  return d.toISOString().split("T")[0]!;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function forecastWindow(): { today: string; maxDate: string } {
+  const now = new Date();
+  return {
+    today: toIsoDate(now),
+    maxDate: toIsoDate(addDays(now, FORECAST_HORIZON_DAYS)),
+  };
+}
+
+/** Prognoza tylko gdy cały zakres dat mieści się w horyzoncie API. */
+function canUseForecast(dateFrom: string, dateTo: string): boolean {
+  const { today, maxDate } = forecastWindow();
+  return dateFrom >= today && dateTo <= maxDate;
+}
 
 type OpenMeteoForecastResponse = {
   daily: {
@@ -33,29 +59,64 @@ export async function fetchWeatherForRange({
   forceRefresh?: boolean;
   persist?: boolean;
 }): Promise<WeatherSummary> {
-  const today = new Date();
-  const forecastLimit = new Date(today);
-  forecastLimit.setDate(today.getDate() + 16);
+  const rangeEnd = dateTo >= dateFrom ? dateTo : dateFrom;
 
-  const targetFrom = new Date(dateFrom);
-  const useHistorical = targetFrom > forecastLimit;
-
-  const supabase = createAdminClient();
-
-  if (useHistorical) {
+  if (!canUseForecast(dateFrom, rangeEnd)) {
     const lastYearFrom = shiftYearBack(dateFrom);
-    const lastYearTo = shiftYearBack(dateTo);
+    const lastYearTo = shiftYearBack(rangeEnd);
     return fetchHistoricalWeather({
       location,
       destinationId,
       dateFrom: lastYearFrom,
       dateTo: lastYearTo,
       labelDateFrom: dateFrom,
-      labelDateTo: dateTo,
+      labelDateTo: rangeEnd,
       forceRefresh,
       persist,
     });
   }
+
+  try {
+    return await fetchForecastWeather({
+      location,
+      destinationId,
+      dateFrom,
+      dateTo: rangeEnd,
+      forceRefresh,
+      persist,
+    });
+  } catch {
+    const lastYearFrom = shiftYearBack(dateFrom);
+    const lastYearTo = shiftYearBack(rangeEnd);
+    return fetchHistoricalWeather({
+      location,
+      destinationId,
+      dateFrom: lastYearFrom,
+      dateTo: lastYearTo,
+      labelDateFrom: dateFrom,
+      labelDateTo: rangeEnd,
+      forceRefresh,
+      persist,
+    });
+  }
+}
+
+async function fetchForecastWeather({
+  location,
+  destinationId,
+  dateFrom,
+  dateTo,
+  forceRefresh,
+  persist,
+}: {
+  location: GeoPoint;
+  destinationId: string;
+  dateFrom: string;
+  dateTo: string;
+  forceRefresh: boolean;
+  persist: boolean;
+}): Promise<WeatherSummary> {
+  const supabase = createAdminClient();
 
   const { data } = await fetchWithCache<OpenMeteoForecastResponse>({
     source: "open-meteo-forecast",
@@ -121,15 +182,19 @@ export async function fetchWeatherPreview({
   dateFrom: string;
   dateTo: string;
   forceRefresh?: boolean;
-}): Promise<WeatherSummary> {
-  return fetchWeatherForRange({
-    location,
-    destinationId: "preview",
-    dateFrom,
-    dateTo,
-    forceRefresh,
-    persist: false,
-  });
+}): Promise<WeatherSummary | null> {
+  try {
+    return await fetchWeatherForRange({
+      location,
+      destinationId: "preview",
+      dateFrom,
+      dateTo,
+      forceRefresh,
+      persist: false,
+    });
+  } catch {
+    return null;
+  }
 }
 
 async function fetchHistoricalWeather({

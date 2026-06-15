@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     destinationId: destination.id,
     center: { lat: destination.center_lat, lon: destination.center_lon },
     bbox,
+    destinationLabel: destination.name,
   });
 
   if (destinationAirports.length === 0) {

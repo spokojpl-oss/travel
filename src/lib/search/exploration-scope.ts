@@ -75,7 +75,7 @@ export function scopeSearchRadii(scope: ExplorationScope): {
     case "region":
       return { max_radius_km: 25, near_radius_km: 90 };
     case "island":
-      return { max_radius_km: 35, near_radius_km: 160 };
+      return { max_radius_km: 30, near_radius_km: 55 };
     case "roadtrip":
       return { max_radius_km: 50, near_radius_km: 280 };
   }

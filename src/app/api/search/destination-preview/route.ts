@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       lat: parsed.data.near_lat,
       lon: parsed.data.near_lon,
       radiusKm: near_radius_km,
+      destinationLabel: parsed.data.destination_label,
     });
 
     return NextResponse.json({

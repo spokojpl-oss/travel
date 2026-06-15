@@ -5,6 +5,11 @@ import {
 } from "@/lib/api/osm";
 import { tagAttractionsWithActivitiesForIds } from "@/lib/api/osm-global-scrape";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  pointInIslandBbox,
+  resolveIslandBoundary,
+} from "@/lib/destinations/island-boundary";
+import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox } from "@/types/domain";
 
 const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
@@ -129,13 +134,20 @@ export async function countActivitiesNearPoint({
   lat,
   lon,
   radiusKm,
+  destinationLabel,
 }: {
   lat: number;
   lon: number;
   radiusKm: number;
+  destinationLabel?: string;
 }): Promise<Record<string, number>> {
   const supabase = createAdminClient();
-  const bbox = bboxFromCenter(lat, lon, radiusKm);
+  const island = resolveIslandBoundary(destinationLabel);
+  const center = { lat, lon };
+  const effectiveRadius = island
+    ? Math.min(radiusKm, island.maxRadiusKm)
+    : radiusKm;
+  const bbox = island?.bbox ?? bboxFromCenter(lat, lon, effectiveRadius);
 
   const { data: attractions } = await supabase
     .from("attractions")
@@ -147,7 +159,16 @@ export async function countActivitiesNearPoint({
 
   if (!attractions?.length) return {};
 
-  const ids = attractions.map((a) => a.id);
+  const ids = attractions
+    .filter((a) => {
+      const point = { lat: Number(a.lat), lon: Number(a.lon) };
+      if (island && !pointInIslandBbox(point, island.bbox)) return false;
+      return distanceKm(center, point) <= effectiveRadius;
+    })
+    .map((a) => a.id);
+
+  if (ids.length === 0) return {};
+
   const counts: Record<string, number> = {};
 
   for (let i = 0; i < ids.length; i += 200) {

@@ -1,6 +1,7 @@
 import { ensureDestinationActivities } from "@/lib/api/destination-activity-prefill";
 import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
 import type { Locale } from "@/i18n/config";
+import { resolveIslandBoundary } from "@/lib/destinations/island-boundary";
 import { buildDestinationOverview } from "@/lib/search/destination-overview";
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
@@ -119,11 +120,15 @@ export async function discoverDestination({
 }): Promise<DestinationDiscovery> {
   const { scopeSearchRadii } = await import("@/lib/search/exploration-scope");
   const { near_radius_km } = scopeSearchRadii(explorationScope);
+  const island = resolveIslandBoundary(destinationLabel);
+  const searchRadius = island
+    ? Math.min(near_radius_km, island.maxRadiusKm)
+    : near_radius_km;
 
   const prefill = ensureDestinationActivities({
     lat,
     lon,
-    radiusKm: near_radius_km,
+    radiusKm: searchRadius,
     destinationLabel,
   }).catch(() => ({ osmPersisted: 0, googlePersisted: 0 }));
 
@@ -141,7 +146,12 @@ export async function discoverDestination({
     }),
     Promise.race([
       prefill.then(() =>
-        countActivitiesNearPoint({ lat, lon, radiusKm: near_radius_km }),
+        countActivitiesNearPoint({
+          lat,
+          lon,
+          radiusKm: searchRadius,
+          destinationLabel,
+        }),
       ),
       new Promise<Record<string, number>>((resolve) =>
         setTimeout(async () => {
@@ -149,7 +159,8 @@ export async function discoverDestination({
             await countActivitiesNearPoint({
               lat,
               lon,
-              radiusKm: near_radius_km,
+              radiusKm: searchRadius,
+              destinationLabel,
             }),
           );
         }, PREFILL_BUDGET_MS),
