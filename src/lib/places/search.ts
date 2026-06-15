@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { searchDestinationCatalog } from "@/lib/destinations/catalog";
+import {
+  DESTINATION_CATALOG,
+  searchDestinationCatalog,
+} from "@/lib/destinations/catalog";
+import {
+  geocodeQueryForDestination,
+  matchCatalogDestination,
+  toPolishPlaceName,
+} from "@/lib/destinations/polish-names";
 import { searchAirportCatalog, searchCountryOriginOptions } from "@/lib/flights/airport-catalog";
 
 export type PlaceSuggestion = {
@@ -66,12 +74,16 @@ function countryLabel(code: string | null | undefined): string {
 async function searchNominatim(query: string, limit: number): Promise<PlaceSuggestion[]> {
   if (query.trim().length < 2) return [];
 
+  const catalogMatch = matchCatalogDestination(query, DESTINATION_CATALOG);
+  const geocodeQuery = geocodeQueryForDestination(query, catalogMatch);
+
   try {
     const params = new URLSearchParams({
-      q: query,
+      q: geocodeQuery,
       format: "json",
       limit: String(limit),
       addressdetails: "1",
+      "accept-language": "pl",
     });
 
     const response = await fetch(
@@ -80,6 +92,7 @@ async function searchNominatim(query: string, limit: number): Promise<PlaceSugge
         headers: {
           "User-Agent": "Travel.app/1.0 (https://travel.mpai.pl)",
           Accept: "application/json",
+          "Accept-Language": "pl",
         },
         next: { revalidate: 3600 },
       },
@@ -105,17 +118,35 @@ async function searchNominatim(query: string, limit: number): Promise<PlaceSugge
 
     return data.map((item) => {
       const addr = item.address ?? {};
-      const city =
+      const rawCity =
         addr.city ?? addr.town ?? addr.village ?? item.display_name.split(",")[0];
-      const country = addr.country ?? "";
+      const city = toPolishPlaceName(rawCity?.trim() ?? item.display_name.split(",")[0]);
+      const countryCode = addr.country_code?.toUpperCase();
+      const country =
+        (countryCode ? countryLabel(countryCode) : null) ??
+        toPolishPlaceName(addr.country ?? "");
+      const displayCountry =
+        catalogMatch && countryCode && catalogMatch.country
+          ? catalogMatch.country
+          : country;
+      const displayCity =
+        catalogMatch &&
+        catalogMatch.lat != null &&
+        catalogMatch.lon != null &&
+        Math.abs(Number(item.lat) - catalogMatch.lat) < 1.5 &&
+        Math.abs(Number(item.lon) - catalogMatch.lon) < 1.5
+          ? catalogMatch.name
+          : city;
       return {
         id: `osm:${item.place_id}`,
-        label: city?.trim() ?? item.display_name.split(",")[0],
-        sublabel: [addr.state, country].filter(Boolean).join(", "),
+        label: displayCity,
+        sublabel: [addr.state ? toPolishPlaceName(addr.state) : null, displayCountry]
+          .filter(Boolean)
+          .join(", "),
         type: "city" as const,
         lat: Number(item.lat),
         lon: Number(item.lon),
-        country_code: addr.country_code?.toUpperCase(),
+        country_code: countryCode,
       };
     });
   } catch {
@@ -175,7 +206,9 @@ async function searchAirportsDb(
 
   const airports = data.map((row) => ({
     id: `airport:${row.iata_code}`,
-    label: row.city ? `${row.city} — ${row.name}` : row.name,
+    label: row.city
+      ? `${toPolishPlaceName(row.city)} — ${row.name}`
+      : row.name,
     sublabel: `${row.iata_code} · ${countryLabel(row.country_code)}`,
     type: "airport" as const,
     lat: Number(row.lat),
@@ -199,6 +232,8 @@ async function searchDestinationsDb(
     label: d.name,
     sublabel: d.region ? `${d.region}, ${d.country}` : d.country,
     type: "destination" as const,
+    lat: d.lat,
+    lon: d.lon,
   }));
 
   if (q.length < 2) return catalog;
@@ -213,7 +248,7 @@ async function searchDestinationsDb(
   const fromDb =
     data?.map((row) => ({
       id: `db:${row.id}`,
-      label: row.name,
+      label: toPolishPlaceName(row.name),
       sublabel: countryLabel(row.country_code),
       type: "destination" as const,
       lat: Number(row.center_lat),

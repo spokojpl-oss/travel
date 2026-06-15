@@ -12,7 +12,7 @@ const searchRequestSchema = z.object({
     .min(1, "Wybierz co najmniej 1 aktywność")
     .max(10),
   match_mode: z.enum(["all", "any"]).default("all"),
-  max_radius_km: z.number().min(5).max(200).default(50),
+  max_radius_km: z.number().min(3).max(80).default(15),
   min_per_activity: z.number().int().min(1).max(10).default(1),
   near_lat: z.number().min(-90).max(90).optional(),
   near_lon: z.number().min(-180).max(180).optional(),

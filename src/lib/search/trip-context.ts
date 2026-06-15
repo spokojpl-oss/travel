@@ -332,7 +332,13 @@ export async function resolvePlaceCoords(
     const data = (await r.json()) as {
       places?: Array<{ label: string; sublabel?: string; lat?: number; lon?: number }>;
     };
-    const place = data.places?.[0];
+    const place = data.places?.find(
+      (p) =>
+        p.lat != null &&
+        p.lon != null &&
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lon),
+    );
     if (
       place?.lat == null ||
       place?.lon == null ||
@@ -342,7 +348,9 @@ export async function resolvePlaceCoords(
       return null;
     }
     const resolvedLabel = place.sublabel
-      ? `${place.label}, ${place.sublabel}`
+      ? place.sublabel.includes(place.label)
+        ? place.sublabel
+        : `${place.label}, ${place.sublabel}`
       : place.label;
     return { lat: place.lat, lon: place.lon, label: resolvedLabel };
   } catch {

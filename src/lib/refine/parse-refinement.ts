@@ -73,7 +73,7 @@ function getParamsSchemaDescription(searchType: string): string {
       return `{
   activities: string[] (slugi aktywności np. "bike_rental", "caves"),
   match_mode: "all" | "any",
-  max_radius_km: number (5-200),
+  max_radius_km: number (3-80),
   min_per_activity: number (1-10)
 }`;
     case "flights":

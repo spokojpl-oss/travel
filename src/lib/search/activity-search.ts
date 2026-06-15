@@ -262,7 +262,7 @@ export async function searchActivities(
 
   const topClusters = clusters.slice(0, 10).map((cluster) => ({
     ...cluster,
-    attractions: cluster.attractions.slice(0, 20),
+    attractions: cluster.attractions.slice(0, 12),
   }));
 
   let filtered = topClusters;

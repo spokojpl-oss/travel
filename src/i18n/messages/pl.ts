@@ -114,7 +114,7 @@ export const pl = {
     quickTrips: "Moje wyjazdy",
     quickTripsDesc: "Plany, dokumenty i inteligentne porady",
     quickCompare: "Porównaj tripy",
-    quickCompareDesc: "Madera vs Mallorca vs Kreta — liczby zamiast domysłów",
+    quickCompareDesc: "Madera vs Majorka vs Kreta — liczby zamiast domysłów",
     quickGroups: "Grupy podróżne",
     quickGroupsDesc: "Profil rodziny i preferencje",
   },

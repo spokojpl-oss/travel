@@ -62,7 +62,7 @@ function SearchPageContent() {
     new Set(),
   );
   const [matchMode, setMatchMode] = useState<"all" | "any">("any");
-  const [maxRadius, setMaxRadius] = useState(80);
+  const [maxRadius, setMaxRadius] = useState(15);
   const [minPerActivity, setMinPerActivity] = useState(1);
   const [results, setResults] = useState<ActivitySearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -128,7 +128,7 @@ function SearchPageContent() {
 
       if (merged.mode === "destination") {
         setMatchMode("any");
-        setMaxRadius(80);
+        setMaxRadius(20);
       }
 
       const stepParam = searchParams.get("step");
@@ -442,10 +442,14 @@ function SearchPageContent() {
                   <span className="font-medium text-text-primary">
                     Maks. promień (km)
                   </span>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    Atrakcje w jednym rejonie — np. 10–15 km na jeden dzień,
+                    nie cała wyspa.
+                  </p>
                   <input
                     type="number"
-                    min={5}
-                    max={200}
+                    min={3}
+                    max={80}
                     value={maxRadius}
                     onChange={(e) => setMaxRadius(Number(e.target.value))}
                     className="mt-1 w-full rounded-md border border-border-default px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
@@ -602,8 +606,14 @@ function SearchPageContent() {
                   {cluster.center.lon.toFixed(2)}
                 </h3>
                 <p className="mt-1 text-sm text-text-secondary">
-                  Score: {cluster.score} · Promień: {cluster.radius_km} km ·
+                  Score: {cluster.score} · Rozpiętość: {cluster.radius_km} km ·
                   Atrakcji: {cluster.attractions.length}
+                  {cluster.radius_km > 25 && (
+                    <span className="text-amber-700">
+                      {" "}
+                      · Duży region — rozważ mniejszy promień w ustawieniach
+                    </span>
+                  )}
                 </p>
                 <Button
                   size="sm"

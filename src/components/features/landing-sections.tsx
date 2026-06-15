@@ -22,7 +22,7 @@ export const POPULAR_DESTINATIONS = [
     featured: true,
   },
   {
-    destination: { name: "Mallorca", country: "Hiszpania" },
+    destination: { name: "Majorka", country: "Hiszpania" },
     imageUrl:
       "https://images.unsplash.com/photo-1583422409516-2895a77efded?w=600&q=80",
     pricePerPerson: 1840,

@@ -8,6 +8,14 @@ export function buildClusterMapData(cluster: GeoCluster): {
 } {
   const center = cluster.center;
   const attractions = cluster.attractions.slice(0, 8);
+  const maxDistKm =
+    attractions.length > 0
+      ? Math.max(
+          ...attractions.map((a) =>
+            distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }),
+          ),
+        )
+      : 0;
 
   const points: MapPoint[] = [
     {
@@ -16,6 +24,10 @@ export function buildClusterMapData(cluster: GeoCluster): {
       label: "Centrum regionu",
       lat: center.lat,
       lon: center.lon,
+      badge:
+        maxDistKm > 0
+          ? `Rozpiętość: ${maxDistKm.toFixed(1)} km (linia prosta)`
+          : undefined,
     },
     ...attractions.map((a) => ({
       id: a.id,

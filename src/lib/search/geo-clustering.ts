@@ -46,67 +46,111 @@ export function clusterAttractions({
   const candidateClusters: GeoCluster[] = [];
 
   for (const seed of seeds) {
-    const seedCenter = toGeoPoint(seed);
-
-    const inRange = attractions.filter(
-      (a) => distanceKm(seedCenter, toGeoPoint(a)) <= maxRadiusKm,
-    );
-
-    if (inRange.length < 2) continue;
-
-    const activityCounts: Record<string, number> = {};
-    for (const slug of selectedActivities) activityCounts[slug] = 0;
-
-    for (const attr of inRange) {
-      for (const tag of attr.activity_tags) {
-        if (selectedActivities.includes(tag.activity_slug)) {
-          activityCounts[tag.activity_slug]++;
-        }
-      }
-    }
-
-    const coveredActivities = selectedActivities.filter(
-      (slug) => activityCounts[slug] >= minPerActivity,
-    );
-
-    if (
-      matchMode === "all" &&
-      coveredActivities.length !== selectedActivities.length
-    ) {
-      continue;
-    }
-    if (matchMode === "any" && coveredActivities.length === 0) {
-      continue;
-    }
-
-    const centroid = computeCentroid(inRange);
-    const bbox = computeBoundingBox(inRange);
-    const radius = Math.max(
-      ...inRange.map((a) => distanceKm(centroid, toGeoPoint(a))),
-    );
-
-    const score = computeClusterScore({
-      coveredActivities,
-      totalRequested: selectedActivities.length,
-      radiusKm: radius,
+    const cluster = buildTightCluster({
+      seed,
+      attractions,
+      selectedActivities,
+      matchMode,
       maxRadiusKm,
-      activityCounts,
+      minPerActivity,
     });
-
-    candidateClusters.push({
-      id: deterministicId(centroid),
-      center: centroid,
-      bbox,
-      radius_km: round(radius, 1),
-      attractions: inRange,
-      covered_activities: coveredActivities,
-      score,
-      activity_counts: activityCounts,
-    });
+    if (cluster) candidateClusters.push(cluster);
   }
 
-  const deduped = dedupClusters(candidateClusters, 30);
+  const deduped = dedupClusters(candidateClusters, Math.max(maxRadiusKm, 12));
   return deduped.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Klastr „na jeden dzień” — tylko atrakcje w promieniu maxRadiusKm od centrum,
+ * z iteracyjnym zacieśnianiem (bez rozciągania po całej wyspie).
+ */
+function buildTightCluster({
+  seed,
+  attractions,
+  selectedActivities,
+  matchMode,
+  maxRadiusKm,
+  minPerActivity,
+}: {
+  seed: AttractionWithActivities;
+  attractions: AttractionWithActivities[];
+  selectedActivities: string[];
+  matchMode: "all" | "any";
+  maxRadiusKm: number;
+  minPerActivity: number;
+}): GeoCluster | null {
+  const seedCenter = toGeoPoint(seed);
+  let members = attractions.filter(
+    (a) => distanceKm(seedCenter, toGeoPoint(a)) <= maxRadiusKm,
+  );
+
+  if (members.length < 2) return null;
+
+  for (let i = 0; i < 5; i++) {
+    const centroid = computeCentroid(members);
+    const tightened = members.filter(
+      (a) => distanceKm(centroid, toGeoPoint(a)) <= maxRadiusKm,
+    );
+    if (tightened.length < 2) return null;
+    if (tightened.length === members.length) break;
+    members = tightened;
+  }
+
+  const centroid = computeCentroid(members);
+  const radius = Math.max(
+    ...members.map((a) => distanceKm(centroid, toGeoPoint(a))),
+  );
+
+  if (radius > maxRadiusKm) return null;
+
+  const activityCounts: Record<string, number> = {};
+  for (const slug of selectedActivities) activityCounts[slug] = 0;
+
+  for (const attr of members) {
+    for (const tag of attr.activity_tags) {
+      if (selectedActivities.includes(tag.activity_slug)) {
+        activityCounts[tag.activity_slug]++;
+      }
+    }
+  }
+
+  const coveredActivities = selectedActivities.filter(
+    (slug) => activityCounts[slug] >= minPerActivity,
+  );
+
+  if (
+    matchMode === "all" &&
+    coveredActivities.length !== selectedActivities.length
+  ) {
+    return null;
+  }
+  if (matchMode === "any" && coveredActivities.length === 0) {
+    return null;
+  }
+
+  const score = computeClusterScore({
+    coveredActivities,
+    totalRequested: selectedActivities.length,
+    radiusKm: radius,
+    maxRadiusKm,
+    activityCounts,
+  });
+
+  return {
+    id: deterministicId(centroid),
+    center: centroid,
+    bbox: computeBoundingBox(members),
+    radius_km: round(radius, 1),
+    attractions: members.sort(
+      (a, b) =>
+        distanceKm(centroid, toGeoPoint(a)) -
+        distanceKm(centroid, toGeoPoint(b)),
+    ),
+    covered_activities: coveredActivities,
+    score,
+    activity_counts: activityCounts,
+  };
 }
 
 /** Ogranicza liczbę seedów — pełna pętla po wszystkich atrakcjach to O(n²) i timeout na Vercel */
@@ -117,7 +161,7 @@ function pickGridSeeds(
 ): AttractionWithActivities[] {
   if (attractions.length <= maxSeeds) return attractions;
 
-  const cellKm = Math.max(maxRadiusKm / 2, 8);
+  const cellKm = Math.max(maxRadiusKm / 2, 4);
   const cells = new Map<string, AttractionWithActivities>();
 
   for (const a of attractions) {
@@ -174,7 +218,7 @@ function computeClusterScore({
     Object.values(activityCounts).reduce((s, c) => s + Math.log(c + 1), 0) /
     (totalRequested * Math.log(10));
 
-  return round(coverage * 0.5 + density * 0.3 + Math.min(variety, 1) * 0.2, 3);
+  return round(coverage * 0.35 + density * 0.45 + Math.min(variety, 1) * 0.2, 3);
 }
 
 function dedupClusters(
