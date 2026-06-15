@@ -1,5 +1,5 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
-import { apiEnv } from "@/config/api-env";
+import { apiEnv, getTravelpayoutsPartnerMarker } from "@/config/api-env";
 import type { Json } from "@/types/database";
 
 const HOTELLOOK_BASE = "https://engine.hotellook.com";
@@ -251,7 +251,7 @@ export function buildHotellookDeepLink({
   children?: number;
 }): string {
   const url = new URL("https://search.hotellook.com/");
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_BOOKING?.trim();
+  const marker = getTravelpayoutsPartnerMarker();
   if (marker) url.searchParams.set("marker", marker);
   url.searchParams.set("hotelId", String(hotelId));
   url.searchParams.set("checkIn", checkIn);

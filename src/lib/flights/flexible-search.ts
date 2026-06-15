@@ -13,6 +13,7 @@ export type FlexibleSearchInput = {
   destinations: string[];
   departureDateRange: DateRange;
   tripLengthDays?: { min: number; max: number };
+  passengers?: { adults: number; children: number; infants: number };
 };
 
 export type FlexibleSearchResult = {
@@ -57,6 +58,7 @@ export async function flexibleFlightSearch(
             destination,
             departureMonth: month,
             oneWay: !input.tripLengthDays,
+            passengers: input.passengers,
           }).catch((e) => {
             console.warn(
               `Failed ${origin}->${destination} ${month}:`,

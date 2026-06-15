@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildAviasalesSearchUrl } from "@/lib/api/travelpayouts";
-import { agentLog } from "@/lib/debug/agent-log";
-import { apiEnv } from "@/config/api-env";
 
 export const dynamic = "force-dynamic";
 
@@ -45,27 +43,6 @@ export async function GET(request: Request) {
     children: parsed.data.children,
     infants: parsed.data.infants,
   });
-
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim() ?? "";
-  agentLog(
-    "api/out/aviasales/route.ts:GET",
-    "aviasales redirect built",
-    {
-      origin: parsed.data.origin,
-      destination: parsed.data.destination,
-      dep: parsed.data.dep,
-      ret: parsed.data.ret ?? null,
-      adults: parsed.data.adults,
-      target_host: new URL(target).host,
-      target_path: new URL(target).pathname,
-      has_with_request: target.includes("with_request=true"),
-      has_searches_new: target.includes("/searches/new"),
-      has_marker: target.includes("marker="),
-      marker_len: marker.length,
-      marker_looks_like_drive_project: marker === "539712",
-    },
-    "H1",
-  );
 
   return NextResponse.redirect(target, 302);
 }

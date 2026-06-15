@@ -1,7 +1,7 @@
-import { apiEnv } from "@/config/api-env";
+import { getTravelpayoutsPartnerMarker } from "@/config/api-env";
 
 function affiliateMarker(): string | null {
-  return apiEnv.TRAVELPAYOUTS_MARKER_BOOKING?.trim() || null;
+  return getTravelpayoutsPartnerMarker() ?? null;
 }
 
 function wrapAffiliateLink(targetUrl: string, programId: string): string {

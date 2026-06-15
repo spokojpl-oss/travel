@@ -215,14 +215,23 @@ const OSM_CATEGORY_TO_ACTIVITIES: Record<string, string[]> = {
   beach: [], // obsługiwane osobno wg surface
 };
 
-/** Wartości z subcategories (np. tourism=museum w scrape tourism_attraction) */
+/** Wartości tagu tourism= / amenity= z OSM → slug aktywności */
 const SUBCATEGORY_TO_ACTIVITIES: Record<string, string[]> = {
   museum: ["museums"],
+  gallery: ["museums"],
+  artworks: ["museums"],
   zoo: ["zoo"],
   theme_park: ["theme_parks"],
   viewpoint: ["viewpoints"],
   aquarium: ["aquarium"],
+  waterfall: ["waterfalls"],
+  cave_entrance: ["caves"],
   attraction: [],
+  picnic_site: ["hiking_trails"],
+  wilderness_hut: ["hiking_trails"],
+  camp_site: ["hiking_trails"],
+  nature_reserve: ["national_parks"],
+  park: ["national_parks"],
 };
 
 const CATEGORY_TAG_HINTS: Record<string, Record<string, string>> = {

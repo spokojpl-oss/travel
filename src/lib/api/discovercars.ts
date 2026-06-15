@@ -1,7 +1,7 @@
-import { apiEnv } from "@/config/api-env";
+import { getTravelpayoutsPartnerMarker } from "@/config/api-env";
 
-function requireBookingMarker(): string | null {
-  return apiEnv.TRAVELPAYOUTS_MARKER_BOOKING?.trim() || null;
+function requirePartnerMarker(): string | null {
+  return getTravelpayoutsPartnerMarker() ?? null;
 }
 
 function buildDiscoverCarsTargetUrl({
@@ -43,7 +43,7 @@ export function buildDiscoverCarsDeepLink(
   params: Parameters<typeof buildDiscoverCarsTargetUrl>[0],
 ): string {
   const targetUrl = buildDiscoverCarsTargetUrl(params);
-  const marker = requireBookingMarker();
+  const marker = requirePartnerMarker();
   if (!marker) return targetUrl;
 
   const tpUrl = new URL("https://tp.media/r");
@@ -57,7 +57,7 @@ export function buildDiscoverCarsDirectLink(
   params: Parameters<typeof buildDiscoverCarsTargetUrl>[0],
 ): string {
   const url = new URL(buildDiscoverCarsTargetUrl(params));
-  const marker = requireBookingMarker();
+  const marker = requirePartnerMarker();
   if (marker) url.searchParams.set("marker", marker);
   return url.toString();
 }

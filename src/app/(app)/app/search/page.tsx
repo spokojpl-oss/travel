@@ -33,7 +33,6 @@ import type {
   ActivitySearchResult,
   GeoCluster,
 } from "@/types/domain";
-import { agentLog } from "@/lib/debug/agent-log";
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
@@ -72,12 +71,6 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!hasTripParams(searchParams)) {
-      agentLog(
-        "search/page.tsx:redirect",
-        "no trip params — redirect to /app",
-        { params: searchParams.toString() },
-        "C",
-      );
       router.replace("/app");
     }
   }, [searchParams, router]);
@@ -98,17 +91,6 @@ function SearchPageContent() {
       .then(([taxonomyData, statusData]) => {
         setTaxonomy(taxonomyData.groups ?? []);
         if (statusData) setDataStatus(statusData as DataStatus);
-        agentLog(
-          "search/page.tsx:mount",
-          "page data loaded",
-          {
-            mount_ms: Date.now() - mountStart,
-            taxonomy_groups: taxonomyData.groups?.length ?? 0,
-            search_ready: (statusData as DataStatus | null)?.search_ready ?? null,
-            tags: (statusData as DataStatus | null)?.tags ?? null,
-          },
-          "B",
-        );
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setPageLoading(false));
@@ -142,12 +124,6 @@ function SearchPageContent() {
       );
       if (matched.length > 0) {
         setSelectedActivities(new Set(matched));
-        agentLog(
-          "search/page.tsx:init",
-          "auto-matched activities from interests",
-          { interests: merged.interests, matched_slugs: matched },
-          "H2",
-        );
       }
 
       if (merged.mode === "destination") {
@@ -158,12 +134,6 @@ function SearchPageContent() {
       const stepParam = searchParams.get("step");
       const resolvedStep = stepParam === "3" ? 3 : 2;
       setStep(resolvedStep);
-      agentLog(
-        "search/page.tsx:init",
-        "trip initialized — no step 1 UI",
-        { stepParam, resolvedStep, mode: merged.mode },
-        "A",
-      );
     }
 
     setTrip(merged);
@@ -173,12 +143,6 @@ function SearchPageContent() {
   useEffect(() => {
     if (!initialized) return;
     if (searchParams.get("step") === "1") {
-      agentLog(
-        "search/page.tsx:redirect",
-        "step=1 in URL — redirect to /app#search",
-        { params: searchParams.toString() },
-        "E",
-      );
       const p = tripContextToParams(trip);
       router.replace(`/app?${p.toString()}#search`);
     }
@@ -267,21 +231,9 @@ function SearchPageContent() {
   ) {
     const params = overrideParams ?? getSearchParams();
     if (params.activities.length === 0) {
-      agentLog(
-        "search/page.tsx:handleSearch",
-        "blocked — no activities",
-        { params },
-        "E",
-      );
       return;
     }
     if (!dataStatus?.search_ready) {
-      agentLog(
-        "search/page.tsx:handleSearch",
-        "blocked — db not ready",
-        { dataStatus, params },
-        "E",
-      );
       setError(
         dataStatus?.message ?? t("search.dbNotReady"),
       );
@@ -294,19 +246,6 @@ function SearchPageContent() {
     syncUrl(trip, 3);
 
     const clientStart = Date.now();
-    agentLog(
-      "search/page.tsx:handleSearch",
-      "fetch start",
-      {
-        activities: params.activities,
-        activity_count: params.activities.length,
-        has_near: params.near_lat != null,
-        match_mode: params.match_mode,
-        max_radius_km: params.max_radius_km,
-        near_radius_km: params.near_radius_km,
-      },
-      "H4",
-    );
 
     try {
       const controller = new AbortController();
@@ -328,43 +267,8 @@ function SearchPageContent() {
       }
       setResults(data as ActivitySearchResult);
       const result = data as ActivitySearchResult;
-      agentLog(
-        "search/page.tsx:handleSearch",
-        "fetch done",
-        {
-          client_ms: Date.now() - clientStart,
-          clusters: result.clusters.length,
-          attractions: result.total_attractions_considered,
-          server_ms: result.duration_ms,
-          first_cluster_covered: result.clusters[0]?.covered_activities ?? [],
-          first_cluster_categories: result.clusters[0]
-            ? [...new Set(result.clusters[0].attractions.map((a) => a.category))]
-            : [],
-        },
-        "H5",
-      );
-      agentLog(
-        "search/page.tsx:handleSearch",
-        "fetch done legacy",
-        {
-          client_ms: Date.now() - clientStart,
-          clusters: result.clusters.length,
-          attractions: result.total_attractions_considered,
-          server_ms: result.duration_ms,
-        },
-        "A",
-      );
+
     } catch (e) {
-      agentLog(
-        "search/page.tsx:handleSearch",
-        "fetch error",
-        {
-          client_ms: Date.now() - clientStart,
-          error: e instanceof Error ? e.message : String(e),
-          aborted: e instanceof Error && e.name === "AbortError",
-        },
-        "A",
-      );
       if (e instanceof Error && e.name === "AbortError") {
         setError(t("search.timeout"));
       } else {
@@ -381,16 +285,6 @@ function SearchPageContent() {
       JSON.stringify(Array.from(selectedActivities)),
     );
     const tripParams = tripContextToParams(trip);
-    agentLog(
-      "search/page.tsx:openDestination",
-      "navigate with trip dates",
-      {
-        from_date: trip.departure_date,
-        to_date: trip.return_date,
-        passengers: trip.passengers,
-      },
-      "H1",
-    );
     router.push(
       `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}&${tripParams.toString()}`,
     );

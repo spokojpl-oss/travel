@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/server";
 import type { BoundingBox } from "@/types/domain";
 import type { FlightOffer } from "@/lib/api/travelpayouts";
 import { buildAviasalesAppLink } from "@/lib/api/travelpayouts";
-import { agentLog } from "@/lib/debug/agent-log";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +18,11 @@ const requestSchema = z.object({
   departure_date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   trip_length_min_days: z.number().int().min(1).max(60).optional(),
   trip_length_max_days: z.number().int().min(1).max(60).optional(),
-  max_origins: z.number().int().min(1).max(16).default(4),
+  max_origins: z.number().int().min(1).max(16).optional(),
   max_destinations: z.number().int().min(1).max(5).default(3),
+  adults: z.number().int().min(1).max(9).default(1),
+  children: z.number().int().min(0).max(9).default(0),
+  infants: z.number().int().min(0).max(9).default(0),
 });
 
 export async function POST(request: Request) {
@@ -84,31 +86,25 @@ export async function POST(request: Request) {
     });
   }
 
-  const origins = parsed.data.origins ?? POLISH_AIRPORT_IATAS.slice(0, 7);
+  const defaultOrigins = [...POLISH_AIRPORT_IATAS];
+  const origins = parsed.data.origins ?? defaultOrigins;
+  const maxOrigins =
+    parsed.data.max_origins ??
+    (parsed.data.origins ? parsed.data.origins.length : defaultOrigins.length);
+
   const destinations = destinationAirports
     .slice(0, parsed.data.max_destinations)
     .map((a) => a.iata_code);
 
-  agentLog(
-    "api/search/flights/route.ts:POST",
-    "flight search start",
-    {
-      destination_id: parsed.data.destination_id,
-      destination_name: destination.name,
-      origins: origins.slice(0, parsed.data.max_origins),
-      destinations,
-      date_from: parsed.data.departure_date_from,
-      date_to: parsed.data.departure_date_to,
-      trip_length_min: parsed.data.trip_length_min_days ?? null,
-      trip_length_max: parsed.data.trip_length_max_days ?? null,
-      origins_from_request: Boolean(parsed.data.origins),
-    },
-    "H2",
-  );
+  const passengers = {
+    adults: parsed.data.adults,
+    children: parsed.data.children,
+    infants: parsed.data.infants,
+  };
 
   try {
     const result = await flexibleFlightSearch({
-      origins: origins.slice(0, parsed.data.max_origins),
+      origins: origins.slice(0, maxOrigins),
       destinations,
       departureDateRange: {
         start: parsed.data.departure_date_from,
@@ -121,43 +117,22 @@ export async function POST(request: Request) {
               max: parsed.data.trip_length_max_days,
             }
           : undefined,
+      passengers,
     });
 
     const meta = {
       destination_id: destination.id,
       destination_name: destination.name,
       destination_airports: destinationAirports,
-      searched_origins: origins.slice(0, parsed.data.max_origins),
+      searched_origins: origins.slice(0, maxOrigins),
     };
-
-    agentLog(
-      "api/search/flights/route.ts:POST",
-      "flight search success",
-      {
-        offers: result.all_offers.length,
-        cheapest: result.cheapest.length,
-        calendar_days: result.price_calendar.length,
-        sample_deep_link: result.cheapest[0]?.deep_link ?? null,
-      },
-      "H2",
-    );
 
     return NextResponse.json({ result, meta });
   } catch (error) {
-    agentLog(
-      "api/search/flights/route.ts:POST",
-      "flight search api error",
-      {
-        error: error instanceof Error ? error.message : String(error),
-        fallback_attempt: true,
-      },
-      "H3",
-    );
-
     const { data: cached } = await admin
       .from("flight_offers_cache")
       .select("*")
-      .in("origin_iata", origins.slice(0, parsed.data.max_origins))
+      .in("origin_iata", origins.slice(0, maxOrigins))
       .in("destination_iata", destinations)
       .gte("departure_date", parsed.data.departure_date_from)
       .lte("departure_date", parsed.data.departure_date_to)
@@ -165,7 +140,9 @@ export async function POST(request: Request) {
       .limit(20);
 
     if (cached && cached.length > 0) {
-      const offers = cached.map(cacheRowToFlightOffer);
+      const offers = cached.map((row) =>
+        cacheRowToFlightOffer(row, passengers),
+      );
 
       return NextResponse.json({
         result: {
@@ -178,7 +155,7 @@ export async function POST(request: Request) {
           destination_id: destination.id,
           destination_name: destination.name,
           destination_airports: destinationAirports,
-          searched_origins: origins.slice(0, parsed.data.max_origins),
+          searched_origins: origins.slice(0, maxOrigins),
           warning:
             "API niedostępne, pokazuję ostatnie znane ceny. Dane mogą być nieaktualne.",
           fallback_used: true,
@@ -186,16 +163,6 @@ export async function POST(request: Request) {
         },
       });
     }
-
-    agentLog(
-      "api/search/flights/route.ts:POST",
-      "flight search failed no cache",
-      {
-        error: error instanceof Error ? error.message : String(error),
-        cached_rows: 0,
-      },
-      "H3",
-    );
 
     return NextResponse.json(
       {
@@ -219,6 +186,7 @@ function cacheRowToFlightOffer(
     duration_minutes: number | null;
     deep_link: string;
   },
+  passengers: { adults: number; children: number; infants: number },
 ): FlightOffer {
   return {
     origin_iata: row.origin_iata,
@@ -237,7 +205,9 @@ function cacheRowToFlightOffer(
       destination: row.destination_iata,
       departureDate: row.departure_date,
       returnDate: row.return_date,
-      adults: 1,
+      adults: passengers.adults,
+      children: passengers.children,
+      infants: passengers.infants,
     }),
     source: "aviasales",
   };

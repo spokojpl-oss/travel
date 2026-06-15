@@ -1,4 +1,4 @@
-import { apiEnv } from "@/config/api-env";
+import { getTravelpayoutsPartnerMarker } from "@/config/api-env";
 
 export function buildBookingSearchLink({
   destinationName,
@@ -23,7 +23,7 @@ export function buildBookingSearchLink({
     selected_currency: "PLN",
   });
 
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_BOOKING;
+  const marker = getTravelpayoutsPartnerMarker();
   const base = "https://www.booking.com/searchresults.html";
   const url = `${base}?${params.toString()}`;
   if (!marker) return url;

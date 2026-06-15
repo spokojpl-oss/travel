@@ -1,6 +1,5 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
-import { apiEnv } from "@/config/api-env";
-import { agentLog } from "@/lib/debug/agent-log";
+import { getTravelpayoutsPartnerMarker, apiEnv } from "@/config/api-env";
 
 const AVIATION_BASE = "https://api.travelpayouts.com";
 
@@ -67,18 +66,26 @@ function requireTravelpayoutsToken(): string {
   return token;
 }
 
+export type FlightPassengers = {
+  adults?: number;
+  children?: number;
+  infants?: number;
+};
+
 export async function fetchPriceCalendar({
   origin,
   destination,
   departureMonth,
   oneWay = false,
   forceRefresh = false,
+  passengers = {},
 }: {
   origin: string;
   destination: string;
   departureMonth: string;
   oneWay?: boolean;
   forceRefresh?: boolean;
+  passengers?: FlightPassengers;
 }): Promise<FlightOffer[]> {
   const { data } = await fetchWithCache<TravelpayoutsCalendarResponse>({
     source: "travelpayouts-calendar",
@@ -99,37 +106,20 @@ export async function fetchPriceCalendar({
         `${AVIATION_BASE}/aviasales/v3/prices_for_dates?${params}`,
       );
       if (!response.ok) {
-        const status = response.status;
-        agentLog(
-          "travelpayouts.ts:fetchPriceCalendar",
-          "calendar api http error",
-          { origin, destination, departureMonth, status },
-          "H3",
-        );
-        throw new Error(`Travelpayouts calendar error: ${status}`);
+        throw new Error(`Travelpayouts calendar error: ${response.status}`);
       }
       return response.json() as Promise<TravelpayoutsCalendarResponse>;
     },
   });
 
   if (!data.success) {
-    if (data.error) {
-      agentLog(
-        "travelpayouts.ts:fetchPriceCalendar",
-        "calendar api logical error",
-        { origin, destination, departureMonth, error: data.error },
-        "H3",
-      );
-      throw new Error(`Travelpayouts: ${data.error}`);
-    }
-    agentLog(
-      "travelpayouts.ts:fetchPriceCalendar",
-      "calendar api empty success",
-      { origin, destination, departureMonth },
-      "H3",
-    );
+    if (data.error) throw new Error(`Travelpayouts: ${data.error}`);
     return [];
   }
+
+  const adults = passengers.adults ?? 1;
+  const children = passengers.children ?? 0;
+  const infants = passengers.infants ?? 0;
 
   const offers = Object.entries(data.data ?? {}).map(([, offer]) => ({
     origin_iata: origin,
@@ -148,7 +138,9 @@ export async function fetchPriceCalendar({
       destination,
       departureDate: offer.departure_at.split("T")[0],
       returnDate: offer.return_at?.split("T")[0] ?? null,
-      adults: 1,
+      adults,
+      children,
+      infants,
     }),
     source: "aviasales" as const,
   }));
@@ -162,12 +154,14 @@ export async function fetchCheapestFlights({
   departureDate,
   returnDate,
   forceRefresh = false,
+  passengers = {},
 }: {
   origin: string;
   destination: string;
   departureDate: string;
   returnDate?: string | null;
   forceRefresh?: boolean;
+  passengers?: FlightPassengers;
 }): Promise<FlightOffer[]> {
   const { data } = await fetchWithCache<TravelpayoutsCheapResponse>({
     source: "travelpayouts-cheap",
@@ -199,6 +193,9 @@ export async function fetchCheapestFlights({
 
   const offers: FlightOffer[] = [];
   const destinationData = data.data?.[destination] ?? {};
+  const adults = passengers.adults ?? 1;
+  const children = passengers.children ?? 0;
+  const infants = passengers.infants ?? 0;
 
   for (const [, offer] of Object.entries(destinationData)) {
     offers.push({
@@ -218,7 +215,9 @@ export async function fetchCheapestFlights({
         destination,
         departureDate: offer.departure_at.split("T")[0],
         returnDate: offer.return_at?.split("T")[0] ?? null,
-        adults: 1,
+        adults,
+        children,
+        infants,
       }),
       source: "aviasales" as const,
     });
@@ -298,7 +297,7 @@ export function buildAviasalesSearchUrl({
     params.set("one_way", "true");
   }
 
-  const marker = apiEnv.TRAVELPAYOUTS_MARKER_AVIASALES?.trim();
+  const marker = getTravelpayoutsPartnerMarker();
   if (marker) params.set("marker", marker);
 
   return `https://www.aviasales.pl/?${params.toString()}`;

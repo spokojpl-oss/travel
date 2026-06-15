@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
-import { agentLog } from "@/lib/debug/agent-log";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { localeToIntl } from "@/i18n/config";
 
@@ -183,30 +182,12 @@ export function DateRangePicker({
   }, [activeField]);
 
   function handleDaySelect(iso: string) {
-    // #region agent log
-    agentLog(
-      "DateRangePicker:select",
-      "day selected",
-      { activeField, iso, fromValue, toValue },
-      "CAL",
-    );
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect',message:'day select entry',data:{activeField,iso,fromValue,toValue},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     if (activeField === "from") {
       const fromDate = parseDate(iso);
-      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : undefined;
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'DatePicker.tsx:handleDaySelect:from',message:'single onFromChange with suggestedTo',data:{iso,autoTo},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      onFromChange(iso, autoTo);
+      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : undefined;      onFromChange(iso, autoTo);
     } else if (activeField === "to") {
       onToChange(iso);
-    } else {
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect:none',message:'activeField null - no handler',data:{iso},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-    }
+    } else {    }
     setActiveField(null);
   }
 

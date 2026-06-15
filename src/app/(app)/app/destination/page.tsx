@@ -24,7 +24,6 @@ import {
 } from "@/lib/search/trip-context";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
-import { agentLog } from "@/lib/debug/agent-log";
 
 type BuildEvent = {
   type: string;
@@ -70,20 +69,6 @@ export default function DestinationPage() {
     () => resolveFlightOriginsFromTrip(trip),
     [trip.origin_iata, trip.origin_scope],
   );
-
-  useEffect(() => {
-    agentLog(
-      "destination/page.tsx:trip",
-      "trip context from URL",
-      {
-        from_date: trip.departure_date,
-        to_date: trip.return_date,
-        passengers: trip.passengers,
-        has_from_date: searchParams.has("from_date"),
-      },
-      "H1",
-    );
-  }, [trip.departure_date, trip.return_date, trip.passengers, searchParams]);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -425,6 +410,8 @@ export default function DestinationPage() {
             departureDate={trip.departure_date}
             returnDate={trip.return_date}
             origins={flightOrigins}
+            adults={passengers.adults}
+            children={passengers.children}
           />
         </ErrorBoundary>
       )}

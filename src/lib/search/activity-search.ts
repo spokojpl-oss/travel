@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
-import { agentLog } from "@/lib/debug/agent-log";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
@@ -206,19 +205,6 @@ export async function searchActivities(
       const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
       attractionsInBbox = ids.length;
 
-      agentLog(
-        "activity-search.ts:bbox",
-        "attractions in radius",
-        {
-          radius_km: radiusKm,
-          attraction_ids: ids.length,
-          center_lat: center.lat,
-          center_lon: center.lon,
-          activities: query.activities,
-        },
-        "I",
-      );
-
       if (ids.length === 0) continue;
 
       tagRows = await fetchTagRows(supabase, query.activities, ids);
@@ -230,25 +216,6 @@ export async function searchActivities(
   } else {
     tagRows = await fetchTagRows(supabase, query.activities);
   }
-
-  agentLog(
-    "activity-search.ts:db",
-    "tag rows fetched",
-    {
-      tag_rows: tagRows.length,
-      db_ms: Date.now() - dbStart,
-      activities: query.activities,
-      has_near: hasNearPoint(query),
-      geo_radius_km_used: geoRadiusUsed,
-      attractions_in_bbox: attractionsInBbox,
-      tags_per_activity_slug: countBy(tagRows, (r) => r.activity_slug),
-      attraction_categories: countBy(
-        tagRows.filter((r) => r.attraction),
-        (r) => r.attraction!.category,
-      ),
-    },
-    "H1",
-  );
 
   if (tagRows.length === 0) {
     return {
@@ -269,16 +236,6 @@ export async function searchActivities(
   if (!hasNearPoint(query) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
     attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
   }
-
-  agentLog(
-    "activity-search.ts:geo",
-    "attractions ready for cluster",
-    {
-      count: attractions.length,
-      elapsed_ms: Date.now() - startTime,
-    },
-    "A",
-  );
 
   if (attractions.length === 0) {
     return {
@@ -302,28 +259,6 @@ export async function searchActivities(
     maxRadiusKm: query.max_radius_km,
     minPerActivity: query.min_per_activity,
   });
-
-  agentLog(
-    "activity-search.ts:cluster",
-    "clustering done",
-    {
-      raw_clusters: clusters.length,
-      cluster_ms: Date.now() - clusterStart,
-      total_ms: Date.now() - startTime,
-      match_mode: query.match_mode,
-      top_clusters: clusters.slice(0, 5).map((c) => ({
-        covered_activities: c.covered_activities,
-        activity_counts: c.activity_counts,
-        attraction_categories: [
-          ...new Set(c.attractions.map((a) => a.category)),
-        ],
-        beach_attractions: c.attractions.filter((a) => a.category === "beach")
-          .length,
-        total_attractions: c.attractions.length,
-      })),
-    },
-    "H3",
-  );
 
   const topClusters = clusters.slice(0, 10).map((cluster) => ({
     ...cluster,

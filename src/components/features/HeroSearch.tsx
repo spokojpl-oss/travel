@@ -13,7 +13,6 @@ import {
   tripContextToParams,
   type TripContext,
 } from "@/lib/search/trip-context";
-import { agentLog } from "@/lib/debug/agent-log";
 import { useT } from "@/i18n/locale-provider";
 
 function HeroSearchContent({ compact = false }: { compact?: boolean }) {
@@ -49,16 +48,6 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
           nextTrip.destination_label ?? nextTrip.destination ?? "";
         const geoStart = Date.now();
         const coords = await resolvePlaceCoords(label);
-        agentLog(
-          "HeroSearch.tsx:handleSearch",
-          "geocode done",
-          {
-            geo_ms: Date.now() - geoStart,
-            found: coords != null,
-            label_len: label.length,
-          },
-          "D",
-        );
         if (coords) {
           nextTrip = {
             ...nextTrip,
@@ -96,16 +85,6 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             : nextTrip.destination,
       });
       params.set("step", "2");
-      agentLog(
-        "HeroSearch.tsx:handleSearch",
-        "navigate to search",
-        {
-          hero_ms: Date.now() - heroStart,
-          mode: nextTrip.mode,
-          has_coords: nextTrip.destination_lat != null,
-        },
-        "C",
-      );
       router.push(`/app/search?${params.toString()}`);
     } finally {
       setSubmitting(false);

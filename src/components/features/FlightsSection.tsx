@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { POLISH_AIRPORTS } from "@/lib/flights/polish-airports";
 import { RefineInput } from "@/components/features/RefineInput";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -9,7 +9,7 @@ import {
   daysBetweenIso,
   defaultDateRangeFromToday,
 } from "@/lib/search/trip-context";
-import { agentLog } from "@/lib/debug/agent-log";
+import { useT } from "@/i18n/locale-provider";
 
 type FlightOffer = {
   origin_iata: string;
@@ -63,12 +63,17 @@ export function FlightsSection({
   departureDate,
   returnDate,
   origins,
+  adults = 1,
+  children = 0,
 }: {
   destinationId: string;
   departureDate?: string;
   returnDate?: string | null;
   origins?: string[];
+  adults?: number;
+  children?: number;
 }) {
+  const t = useT();
   const defaults = defaultDateRangeFromToday(30, 14);
   const resolvedFrom = departureDate || defaults.from;
   const resolvedTo = returnDate || defaults.to;
@@ -81,24 +86,6 @@ export function FlightsSection({
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // #region agent log
-    agentLog(
-      "FlightsSection.tsx:init",
-      "flight dates initialized",
-      {
-        departureDate,
-        returnDate,
-        dateFrom,
-        dateTo,
-        tripLength,
-        fromTrip: Boolean(departureDate),
-      },
-      "H2",
-    );
-    // #endregion
-  }, [departureDate, returnDate, dateFrom, dateTo, tripLength]);
-
   function buildSearchParams() {
     const resolvedOrigins = origins?.length ? origins : undefined;
     return {
@@ -107,12 +94,15 @@ export function FlightsSection({
       departure_date_to: dateTo,
       trip_length_min_days: tripLength,
       trip_length_max_days: tripLength,
+      adults,
+      children,
+      infants: 0,
       ...(resolvedOrigins
         ? {
             origins: resolvedOrigins,
             max_origins: resolvedOrigins.length,
           }
-        : { max_origins: 4 }),
+        : {}),
       max_destinations: 3,
     };
   }
@@ -138,14 +128,14 @@ export function FlightsSection({
       if (!response.ok) {
         const err = await response.json();
         throw new Error(
-          typeof err.error === "string" ? err.error : "Search failed",
+          typeof err.error === "string" ? err.error : t("flights.searchFailed"),
         );
       }
 
       const data: FlightSearchResult = await response.json();
       setResults(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      setError(e instanceof Error ? e.message : t("flights.searchFailed"));
     } finally {
       setIsSearching(false);
     }
@@ -153,11 +143,11 @@ export function FlightsSection({
 
   return (
     <section className="mb-8 border p-4 rounded">
-      <h2 className="text-lg font-semibold mb-3">Loty</h2>
+      <h2 className="text-lg font-semibold mb-3">{t("flights.title")}</h2>
 
       <div className="flex flex-wrap gap-3 items-end mb-4 text-sm">
         <label>
-          Wyjazd od:{" "}
+          {t("flights.departFrom")}{" "}
           <input
             type="date"
             value={dateFrom}
@@ -166,7 +156,7 @@ export function FlightsSection({
           />
         </label>
         <label>
-          do:{" "}
+          {t("flights.departTo")}{" "}
           <input
             type="date"
             value={dateTo}
@@ -175,7 +165,7 @@ export function FlightsSection({
           />
         </label>
         <label>
-          Długość pobytu (dni):{" "}
+          {t("flights.tripLength")}{" "}
           <input
             type="number"
             min={1}
@@ -190,7 +180,7 @@ export function FlightsSection({
           disabled={isSearching || !dateFrom || !dateTo}
           className="border px-3 py-1 rounded bg-black text-white disabled:opacity-50"
         >
-          {isSearching ? "Szukam..." : "Szukaj lotów"}
+          {isSearching ? t("flights.searching") : t("flights.search")}
         </button>
       </div>
 
@@ -199,7 +189,7 @@ export function FlightsSection({
         currentParams={buildSearchParams()}
         onApply={(newParams) => {
           handleSearch({
-            destination_id: destinationId,
+            ...buildSearchParams(),
             departure_date_from:
               (newParams.departure_date_from as string) ?? dateFrom,
             departure_date_to:
@@ -208,13 +198,17 @@ export function FlightsSection({
               (newParams.trip_length_min_days as number) ?? tripLength,
             trip_length_max_days:
               (newParams.trip_length_max_days as number) ?? tripLength,
-            max_origins: (newParams.max_origins as number) ?? origins?.length ?? 4,
+            max_origins: newParams.max_origins as number | undefined,
             max_destinations: (newParams.max_destinations as number) ?? 3,
           });
         }}
       />
 
-      {error && <p className="text-red-600 mb-4">Błąd: {error}</p>}
+      {error && (
+        <p className="text-red-600 mb-4">
+          {t("flights.error")}: {error}
+        </p>
+      )}
 
       {isSearching && <SkeletonList count={4} />}
 
@@ -225,7 +219,7 @@ export function FlightsSection({
               {results.meta.warning}
               {results.meta.oldest_fetched_at && (
                 <span className="block text-xs mt-1">
-                  Ostatnia aktualizacja cache:{" "}
+                  {t("flights.cacheUpdated")}{" "}
                   {new Date(results.meta.oldest_fetched_at).toLocaleString(
                     "pl-PL",
                   )}
@@ -235,17 +229,17 @@ export function FlightsSection({
           )}
 
           <div>
-            <h3 className="font-medium mb-1">Lotniska docelowe</h3>
+            <h3 className="font-medium mb-1">{t("flights.destAirports")}</h3>
             <ul className="list-disc pl-5">
               {results.meta.destination_airports.map((a) => (
                 <li key={a.iata_code}>
                   {a.iata_code} ({a.name}, {a.city ?? "-"}) –{" "}
-                  {Math.round(a.distance_km)} km od centrum
+                  {Math.round(a.distance_km)} km
                 </li>
               ))}
             </ul>
             <p className="text-gray-600 mt-1">
-              Szukano z:{" "}
+              {t("flights.searchedFrom")}:{" "}
               {results.meta.searched_origins
                 .map((iata) => polishAirportLabel(iata))
                 .join(", ")}
@@ -254,7 +248,7 @@ export function FlightsSection({
 
           {results.result.suggestions.length > 0 && (
             <div>
-              <h3 className="font-medium mb-1">Podpowiedzi cenowe</h3>
+              <h3 className="font-medium mb-1">{t("flights.priceTips")}</h3>
               <ul className="list-disc pl-5">
                 {results.result.suggestions.map((s, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -267,20 +261,17 @@ export function FlightsSection({
           )}
 
           <div>
-            <h3 className="font-medium mb-1">Top 5 najtańszych</h3>
+            <h3 className="font-medium mb-1">{t("flights.cheapest")}</h3>
             {results.result.cheapest.length === 0 ? (
-              <p>
-                Brak wyników. Spróbuj inny zakres dat lub sprawdź konfigurację
-                Travelpayouts.
-              </p>
+              <p>{t("flights.noResults")}</p>
             ) : (
               <ol className="space-y-2 list-decimal pl-5">
                 {results.result.cheapest.map((o, i) => (
                   <li key={i}>
                     <strong>{o.price_pln} PLN</strong> –{" "}
                     {polishAirportLabel(o.origin_iata)} → {o.destination_iata}{" "}
-                    ({o.airline_code ?? "b/d"}, {o.transfers} przesiadek) –{" "}
-                    {o.departure_date}
+                    ({o.airline_code ?? "—"}, {o.transfers}{" "}
+                    {t("flights.stops")}) – {o.departure_date}
                     {o.return_date ? ` ↔ ${o.return_date}` : ""}{" "}
                     <a
                       href={o.deep_link}
@@ -288,7 +279,7 @@ export function FlightsSection({
                       rel="noopener noreferrer"
                       className="underline"
                     >
-                      Zobacz na Aviasales →
+                      {t("flights.viewOnAviasales")}
                     </a>
                   </li>
                 ))}
@@ -299,17 +290,17 @@ export function FlightsSection({
           {results.result.price_calendar.length > 0 && (
             <div>
               <h3 className="font-medium mb-1">
-                Kalendarz cenowy ({results.result.price_calendar.length} dni)
+                {t("flights.priceCalendar")} ({results.result.price_calendar.length})
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b">
-                      <th className="py-1 pr-3">Data wyjazdu</th>
-                      <th className="py-1 pr-3">Najtaniej PLN</th>
-                      <th className="py-1 pr-3">Z lotniska</th>
-                      <th className="py-1 pr-3">Do lotniska</th>
-                      <th className="py-1">Link</th>
+                      <th className="py-1 pr-3">{t("flights.departDate")}</th>
+                      <th className="py-1 pr-3">{t("flights.minPrice")}</th>
+                      <th className="py-1 pr-3">{t("flights.fromAirport")}</th>
+                      <th className="py-1 pr-3">{t("flights.toAirport")}</th>
+                      <th className="py-1">{t("flights.link")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -326,7 +317,7 @@ export function FlightsSection({
                             rel="noopener noreferrer"
                             className="underline"
                           >
-                            Zobacz →
+                            {t("flights.view")}
                           </a>
                         </td>
                       </tr>

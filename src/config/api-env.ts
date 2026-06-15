@@ -31,3 +31,13 @@ export const apiEnv: ApiEnv = new Proxy({} as ApiEnv, {
     return loadApiEnv()[prop];
   },
 });
+
+/** Partner ID (marker) — ten sam dla wszystkich programów Travelpayouts. */
+export function getTravelpayoutsPartnerMarker(): string | undefined {
+  const env = loadApiEnv();
+  return (
+    env.TRAVELPAYOUTS_MARKER_AVIASALES?.trim() ||
+    env.TRAVELPAYOUTS_MARKER_BOOKING?.trim() ||
+    undefined
+  );
+}

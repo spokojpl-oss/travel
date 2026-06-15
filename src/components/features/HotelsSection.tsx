@@ -9,7 +9,6 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { defaultDateRangeFromToday } from "@/lib/search/trip-context";
 import { readApiError } from "@/lib/utils/api-response";
-import { agentLog } from "@/lib/debug/agent-log";
 
 type HotelSearchResult = {
   hotels: Array<{
@@ -99,23 +98,7 @@ export function HotelsSection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // #region agent log
-    agentLog(
-      "HotelsSection.tsx:init",
-      "hotel dates initialized",
-      {
-        initialCheckIn,
-        initialCheckOut,
-        checkIn,
-        checkOut,
-        adults,
-        fromTrip: Boolean(initialCheckIn),
-      },
-      "H2",
-    );
-    // #endregion
-  }, [initialCheckIn, initialCheckOut, checkIn, checkOut, adults]);
+  useEffect(() => {  }, [initialCheckIn, initialCheckOut, checkIn, checkOut, adults]);
 
   useEffect(() => {
     if (attractions.length > 0 && selectedAttractionIds.size === 0) {
