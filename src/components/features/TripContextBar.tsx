@@ -109,8 +109,8 @@ export function SearchStepIndicator({
   tripComplete = false,
   tripMode = "activities",
 }: {
-  step: 2 | 3 | 4;
-  onStep?: (s: 2 | 3 | 4) => void;
+  step: 2 | 3 | 4 | 5;
+  onStep?: (s: 2 | 3 | 4 | 5) => void;
   tripComplete?: boolean;
   tripMode?: "activities" | "destination";
 }) {
@@ -119,8 +119,9 @@ export function SearchStepIndicator({
       ? [
           { n: 1 as const, label: "Podróż", key: "trip" },
           { n: 2 as const, label: "Zakres", key: "scope" },
-          { n: 3 as const, label: "Aktywności", key: "activities" },
-          { n: 4 as const, label: "Wyniki", key: "results" },
+          { n: 3 as const, label: "O destynacji", key: "overview" },
+          { n: 4 as const, label: "Aktywności", key: "activities" },
+          { n: 5 as const, label: "Wyniki", key: "results" },
         ]
       : [
           { n: 1 as const, label: "Podróż", key: "trip" },
@@ -147,12 +148,16 @@ export function SearchStepIndicator({
           (stepNum === 1
             ? tripComplete
             : stepNum === 2
-              ? tripMode === "destination" && displayStep >= 2
+              ? displayStep >= 2
               : stepNum === 3
                 ? tripMode === "destination"
                   ? displayStep >= 3
                   : displayStep >= 2
-                : false);
+                : stepNum === 4
+                  ? tripMode === "destination" && displayStep >= 4
+                  : stepNum === 5
+                    ? tripMode === "destination" && displayStep >= 5
+                    : false);
 
         return (
         <div key={s.key} className="flex items-center gap-2">
@@ -166,7 +171,7 @@ export function SearchStepIndicator({
             onClick={() => {
               if (!clickable || !onStep) return;
               if (stepNum === 1) onStep(2);
-              else if (tripMode === "destination") onStep(stepNum as 2 | 3 | 4);
+              else if (tripMode === "destination") onStep(stepNum as 2 | 3 | 4 | 5);
               else onStep(stepNum === 2 ? 2 : 3);
             }}
             disabled={!clickable}

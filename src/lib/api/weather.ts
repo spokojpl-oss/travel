@@ -24,12 +24,14 @@ export async function fetchWeatherForRange({
   dateFrom,
   dateTo,
   forceRefresh = false,
+  persist = true,
 }: {
   location: GeoPoint;
   destinationId: string;
   dateFrom: string;
   dateTo: string;
   forceRefresh?: boolean;
+  persist?: boolean;
 }): Promise<WeatherSummary> {
   const today = new Date();
   const forecastLimit = new Date(today);
@@ -51,6 +53,7 @@ export async function fetchWeatherForRange({
       labelDateFrom: dateFrom,
       labelDateTo: dateTo,
       forceRefresh,
+      persist,
     });
   }
 
@@ -98,11 +101,35 @@ export async function fetchWeatherForRange({
     source: "open-meteo-forecast",
   }));
 
-  await supabase
-    .from("weather_cache")
-    .upsert(dailyRows, { onConflict: "destination_id,forecast_date" });
+  if (persist) {
+    await supabase
+      .from("weather_cache")
+      .upsert(dailyRows, { onConflict: "destination_id,forecast_date" });
+  }
 
   return summarizeWeather(data, destinationId, dateFrom, dateTo);
+}
+
+/** Pogoda na etapie planowania — bez zapisu do weather_cache (brak destination_id). */
+export async function fetchWeatherPreview({
+  location,
+  dateFrom,
+  dateTo,
+  forceRefresh = false,
+}: {
+  location: GeoPoint;
+  dateFrom: string;
+  dateTo: string;
+  forceRefresh?: boolean;
+}): Promise<WeatherSummary> {
+  return fetchWeatherForRange({
+    location,
+    destinationId: "preview",
+    dateFrom,
+    dateTo,
+    forceRefresh,
+    persist: false,
+  });
 }
 
 async function fetchHistoricalWeather({
@@ -113,6 +140,7 @@ async function fetchHistoricalWeather({
   labelDateFrom,
   labelDateTo,
   forceRefresh,
+  persist = true,
 }: {
   location: GeoPoint;
   destinationId: string;
@@ -121,6 +149,7 @@ async function fetchHistoricalWeather({
   labelDateFrom: string;
   labelDateTo: string;
   forceRefresh: boolean;
+  persist?: boolean;
 }): Promise<WeatherSummary> {
   const { data } = await fetchWithCache<OpenMeteoForecastResponse>({
     source: "open-meteo-historical",
@@ -169,9 +198,11 @@ async function fetchHistoricalWeather({
     source: "open-meteo-historical",
   }));
 
-  await supabase
-    .from("weather_cache")
-    .upsert(dailyRows, { onConflict: "destination_id,forecast_date" });
+  if (persist) {
+    await supabase
+      .from("weather_cache")
+      .upsert(dailyRows, { onConflict: "destination_id,forecast_date" });
+  }
 
   return summarizeWeather(data, destinationId, labelDateFrom, labelDateTo, true);
 }

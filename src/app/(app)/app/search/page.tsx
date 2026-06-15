@@ -29,10 +29,12 @@ import {
   type ExplorationScope,
   type TripContext,
 } from "@/lib/search/trip-context";
+import { DestinationOverviewPanel } from "@/components/features/DestinationOverviewPanel";
 import {
   EXPLORATION_SCOPE_OPTIONS,
   scopeSearchRadii,
 } from "@/lib/search/exploration-scope";
+import type { DestinationOverview } from "@/lib/search/destination-overview";
 import type {
   Activity,
   ActivityGroup,
@@ -59,15 +61,14 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState<2 | 3 | 4>(2);
+  const [step, setStep] = useState<2 | 3 | 4 | 5>(2);
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
-  const [activityPreview, setActivityPreview] = useState<Record<string, number>>(
-    {},
-  );
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [overview, setOverview] = useState<DestinationOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
   );
@@ -118,7 +119,7 @@ function SearchPageContent() {
         const params = JSON.parse(restored) as { activities?: string[] };
         if (params.activities?.length) {
           setSelectedActivities(new Set(params.activities));
-          setStep(merged.mode === "destination" ? 3 : 2);
+          setStep(merged.mode === "destination" ? 4 : 2);
         }
         sessionStorage.removeItem("restore_search_activities");
       } catch {
@@ -143,14 +144,16 @@ function SearchPageContent() {
       }
 
       const stepParam = searchParams.get("step");
-      const resolvedStep: 2 | 3 | 4 =
+      const resolvedStep: 2 | 3 | 4 | 5 =
         merged.mode === "destination"
-          ? stepParam === "4"
-            ? 4
-            : stepParam === "3"
-              ? 3
-              : 2
-          : stepParam === "3" || stepParam === "4"
+          ? stepParam === "5"
+            ? 5
+            : stepParam === "4"
+              ? 4
+              : stepParam === "3"
+                ? 3
+                : 2
+          : stepParam === "3" || stepParam === "4" || stepParam === "5"
             ? 3
             : 2;
       setStep(resolvedStep);
@@ -205,28 +208,46 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!initialized || trip.mode !== "destination") return;
+    if (step !== 3 && !(step === 4 && !overview)) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
+    if (!trip.departure_date) return;
 
     let cancelled = false;
-    setPreviewLoading(true);
-    fetch("/api/search/destination-preview", {
+    setOverviewLoading(true);
+    setOverviewError(null);
+
+    fetch("/api/search/destination-overview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        destination_label: trip.destination_label ?? trip.destination ?? "",
         near_lat: trip.destination_lat,
         near_lon: trip.destination_lon,
+        from_date: trip.departure_date,
+        to_date: trip.return_date ?? trip.departure_date,
         exploration_scope: trip.exploration_scope ?? "region",
       }),
     })
-      .then((r) => (r.ok ? r.json() : { activity_counts: {} }))
-      .then((data: { activity_counts?: Record<string, number> }) => {
-        if (!cancelled) setActivityPreview(data.activity_counts ?? {});
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          throw new Error(
+            typeof data.error === "string" ? data.error : `HTTP ${r.status}`,
+          );
+        }
+        return data as DestinationOverview;
       })
-      .catch(() => {
-        if (!cancelled) setActivityPreview({});
+      .then((data) => {
+        if (!cancelled) setOverview(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setOverviewError(e instanceof Error ? e.message : String(e));
+          setOverview(null);
+        }
       })
       .finally(() => {
-        if (!cancelled) setPreviewLoading(false);
+        if (!cancelled) setOverviewLoading(false);
       });
 
     return () => {
@@ -234,9 +255,15 @@ function SearchPageContent() {
     };
   }, [
     initialized,
+    step,
+    overview,
     trip.mode,
     trip.destination_lat,
     trip.destination_lon,
+    trip.destination_label,
+    trip.destination,
+    trip.departure_date,
+    trip.return_date,
     trip.exploration_scope,
   ]);
 
@@ -252,10 +279,12 @@ function SearchPageContent() {
 
   const isDestinationFlow = trip.mode === "destination";
   const showScopeStep = isDestinationFlow && step === 2;
-  const showActivitiesStep = isDestinationFlow ? step === 3 : step === 2;
-  const showResultsStep = isDestinationFlow ? step === 4 : step === 3;
+  const showOverviewStep = isDestinationFlow && step === 3;
+  const showActivitiesStep = isDestinationFlow ? step === 4 : step === 2;
+  const showResultsStep = isDestinationFlow ? step === 5 : step === 3;
+  const activityCounts = overview?.activity_counts ?? {};
 
-  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4) {
+  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4 | 5) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
     router.replace(`/app/search?${p.toString()}`, { scroll: false });
@@ -330,8 +359,8 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
-    setStep(isDestinationFlow ? 4 : 3);
-    syncUrl(trip, isDestinationFlow ? 4 : 3);
+    setStep(isDestinationFlow ? 5 : 3);
+    syncUrl(trip, isDestinationFlow ? 5 : 3);
 
     const clientStart = Date.now();
 
@@ -385,7 +414,10 @@ function SearchPageContent() {
     Boolean(trip.destination_label ?? trip.destination);
 
   const showDataInfo =
-    dataStatus && !dataStatus.search_ready && !pageLoading && step >= 2;
+    dataStatus &&
+    !dataStatus.search_ready &&
+    !pageLoading &&
+    (isDestinationFlow ? step >= 4 : step >= 2);
 
   return (
     <PageContainer>
@@ -401,14 +433,18 @@ function SearchPageContent() {
           ? t("search.titleResults")
           : showScopeStep
             ? t("search.titleScope")
-            : t("search.titleActivities")}
+            : showOverviewStep
+              ? t("search.titleOverview")
+              : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
         {showResultsStep
           ? t("search.subtitleResults")
           : showScopeStep
             ? t("search.subtitleScope")
-            : t("search.subtitleActivities")}
+            : showOverviewStep
+              ? t("search.subtitleOverview")
+              : t("search.subtitleActivities")}
       </p>
 
       <SearchStepIndicator
@@ -416,16 +452,8 @@ function SearchPageContent() {
         tripMode={trip.mode}
         tripComplete
         onStep={(s) => {
-          if (s === 2) {
-            setStep(2);
-            syncUrl(trip, 2);
-          } else if (s === 3 && isDestinationFlow) {
-            setStep(3);
-            syncUrl(trip, 3);
-          } else if (s === 3 && !isDestinationFlow && showResultsStep) {
-            setStep(2);
-            syncUrl(trip, 2);
-          }
+          setStep(s);
+          syncUrl(trip, s);
         }}
       />
 
@@ -483,32 +511,6 @@ function SearchPageContent() {
             </CardBody>
           </Card>
 
-          {!previewLoading && Object.keys(activityPreview).length > 0 && (
-            <Card className="mb-8">
-              <CardHeader title={t("search.previewTitle")} />
-              <CardBody>
-                <p className="mb-4 text-sm text-text-secondary">
-                  {t("search.previewHint")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {taxonomy.flatMap((g) =>
-                    g.activities
-                      .filter((a) => (activityPreview[a.slug] ?? 0) > 0)
-                      .map((a) => (
-                        <span
-                          key={a.slug}
-                          className="rounded-full bg-bg-soft px-3 py-1 text-sm text-text-secondary"
-                        >
-                          {locale === "en" ? a.name_en : a.name_pl} ·{" "}
-                          {activityPreview[a.slug]}
-                        </span>
-                      )),
-                  )}
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
           <Button
             size="lg"
             disabled={missingDestinationCoords}
@@ -517,9 +519,22 @@ function SearchPageContent() {
               syncUrl(trip, 3);
             }}
           >
-            {t("search.continueToActivities")}
+            {t("search.continueToOverview")}
           </Button>
         </>
+      )}
+
+      {showOverviewStep && (
+        <DestinationOverviewPanel
+          overview={overview}
+          loading={overviewLoading}
+          error={overviewError}
+          taxonomy={taxonomy}
+          onContinue={() => {
+            setStep(4);
+            syncUrl(trip, 4);
+          }}
+        />
       )}
 
       {showActivitiesStep && (
@@ -584,13 +599,14 @@ function SearchPageContent() {
                           >
                             {locale === "en" ? activity.name_en : activity.name_pl}
                             {isDestinationFlow &&
-                              activityPreview[activity.slug] != null && (
+                              activityCounts[activity.slug] != null &&
+                              activityCounts[activity.slug] > 0 && (
                                 <span
                                   className={`ml-1.5 text-xs ${
                                     selected ? "text-white/80" : "text-text-tertiary"
                                   }`}
                                 >
-                                  ({activityPreview[activity.slug]})
+                                  ({activityCounts[activity.slug]})
                                 </span>
                               )}
                           </button>

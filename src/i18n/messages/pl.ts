@@ -150,7 +150,7 @@ export const pl = {
     titleActivities: "Wybierz aktywności",
     titleScope: "Jak chcecie zwiedzać?",
     subtitleScope:
-      "Najpierw określ zakres — potem wybierzesz atrakcje dopasowane do tego miejsca.",
+      "Najpierw zakres zwiedzania — potem krótki przewodnik po miejscu, a na końcu wybór aktywności.",
     scopeTitle: "Zakres podróży",
     scopeIntro: "Wybraliście",
     scopeIntroEnd:
@@ -158,7 +158,21 @@ export const pl = {
     previewTitle: "Co jest w okolicy",
     previewHint:
       "Liczba miejsc w bazie w wybranym zakresie — przy wyszukiwaniu uzupełnimy braki z map OpenStreetMap.",
+    continueToOverview: "Dalej — poznaj destynację →",
     continueToActivities: "Dalej — wybierz aktywności →",
+    titleOverview: "Poznaj destynację",
+    subtitleOverview:
+      "Krótki przewodnik, pogoda na wyjazd i co można tu robić — potem wybierzesz atrakcje.",
+    overviewUnderstand: "O miejscu",
+    overviewWeather: "Pogoda na wyjazd",
+    overviewRainyDays: "dni z opadami",
+    overviewSee: "Co zobaczyć",
+    overviewDo: "Co robić",
+    overviewEat: "Kuchnia regionalna",
+    overviewGettingAround: "Poruszanie się",
+    overviewActivitiesHint:
+      "Na następnym kroku wybierzesz konkretne atrakcje — tu masz kontekst całej destynacji.",
+    overviewSource: "Źródło:",
     subtitleResults:
       "Regiony dopasowane do Twojej podróży i wybranych aktywności.",
     subtitleActivities:

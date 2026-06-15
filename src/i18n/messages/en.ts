@@ -152,7 +152,7 @@ export const en: Messages = {
     titleActivities: "Choose activities",
     titleScope: "How do you want to explore?",
     subtitleScope:
-      "First choose your scope — then pick activities available in that area.",
+      "First choose your scope — then a short destination guide, then pick activities.",
     scopeTitle: "Travel scope",
     scopeIntro: "You selected",
     scopeIntroEnd:
@@ -160,7 +160,21 @@ export const en: Messages = {
     previewTitle: "What's nearby",
     previewHint:
       "Places in our database for this scope — we'll fill gaps from OpenStreetMap when you search.",
+    continueToOverview: "Continue — discover the destination →",
     continueToActivities: "Continue — choose activities →",
+    titleOverview: "Discover the destination",
+    subtitleOverview:
+      "A short guide, weather for your dates, and what you can do — then you pick activities.",
+    overviewUnderstand: "About the place",
+    overviewWeather: "Weather for your trip",
+    overviewRainyDays: "rainy days",
+    overviewSee: "What to see",
+    overviewDo: "What to do",
+    overviewEat: "Regional cuisine",
+    overviewGettingAround: "Getting around",
+    overviewActivitiesHint:
+      "On the next step you'll pick specific activities — this is the big picture.",
+    overviewSource: "Source:",
     subtitleResults: "Regions matched to your trip and selected activities.",
     subtitleActivities:
       "Trip details from the home page — select what you want to do and search regions.",
