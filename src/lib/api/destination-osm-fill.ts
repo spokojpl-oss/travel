@@ -23,6 +23,10 @@ const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
   kayaking: ["tourism_attraction"],
   snorkeling: ["tourism_attraction"],
   diving: ["tourism_attraction"],
+  castles: ["castle"],
+  archaeology: ["archaeological_site"],
+  old_towns: ["tourism_attraction"],
+  canyons: ["viewpoint", "hiking"],
 };
 
 const DEFAULT_FILL_CATEGORIES: OsmCategory[] = [
@@ -33,6 +37,12 @@ const DEFAULT_FILL_CATEGORIES: OsmCategory[] = [
   "viewpoint",
   "beach",
   "tourism_attraction",
+  "cave",
+  "waterfall",
+  "hiking",
+  "bicycle_rental",
+  "castle",
+  "archaeological_site",
 ];
 
 function bboxFromCenter(
@@ -76,15 +86,24 @@ export async function fillDestinationAttractionsFromOsm({
 }): Promise<{ persisted: number; tagged: number }> {
   const bbox = bboxFromCenter(lat, lon, radiusKm);
   const categories = categoriesForActivities(activitySlugs);
-  const allPlaces = [];
 
-  for (const category of categories) {
-    try {
-      const places = await fetchOsmPlaces({ bbox, category, forceRefresh: true });
-      allPlaces.push(...places);
-      await sleep(800);
-    } catch {
-      /* skip failed category */
+  const categoryResults = await Promise.all(
+    categories.map(async (category) => {
+      try {
+        return await fetchOsmPlaces({ bbox, category, forceRefresh: false });
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  const seen = new Set<string>();
+  const allPlaces = [];
+  for (const places of categoryResults) {
+    for (const place of places) {
+      if (seen.has(place.external_id)) continue;
+      seen.add(place.external_id);
+      allPlaces.push(place);
     }
   }
 
@@ -104,10 +123,6 @@ export async function fillDestinationAttractionsFromOsm({
   const { tags_created } = await tagAttractionsWithActivitiesForIds(ids);
 
   return { persisted: upserted, tagged: tags_created };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function countActivitiesNearPoint({

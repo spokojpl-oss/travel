@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
+import { ensureDestinationActivities, fillRadiusKm } from "@/lib/api/destination-activity-prefill";
 import { clusterAttractions, distanceKm } from "./geo-clustering";
 import {
   applyExplorationScopeToQuery,
@@ -243,7 +244,7 @@ async function supplementMissingActivities(
   missing: string[],
 ): Promise<{ osmFilled: boolean; googleFilled: boolean }> {
   const center = { lat: query.near_lat, lon: query.near_lon };
-  const radiusKm = query.near_radius_km ?? 120;
+  const radiusKm = fillRadiusKm(query.near_radius_km ?? 120);
   let osmFilled = false;
   let googleFilled = false;
 
@@ -296,6 +297,13 @@ export async function searchActivities(
   let googleFilled = false;
 
   if (hasNearPoint(effectiveQuery)) {
+    await ensureDestinationActivities({
+      lat: effectiveQuery.near_lat,
+      lon: effectiveQuery.near_lon,
+      radiusKm: effectiveQuery.near_radius_km ?? 120,
+      destinationLabel: effectiveQuery.destination_label,
+    }).catch(() => {});
+
     const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery);
     tagRows = fetched.tagRows;
     geoRadiusUsed = fetched.geoRadiusUsed;

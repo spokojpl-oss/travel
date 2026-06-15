@@ -21,6 +21,8 @@ const OSM_QUERY_TEMPLATES = {
   theme_park: `["tourism"="theme_park"]`,
   hiking: `["sport"="hiking"]`,
   waterfall: `["waterway"="waterfall"]`,
+  castle: `["historic"="castle"]`,
+  archaeological_site: `["historic"="archaeological_site"]`,
 } as const;
 
 export type OsmCategory = keyof typeof OSM_QUERY_TEMPLATES;

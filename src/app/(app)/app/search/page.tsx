@@ -313,7 +313,8 @@ function SearchPageContent() {
   ]);
 
   useEffect(() => {
-    if (!initialized || trip.mode !== "destination" || step !== 4) return;
+    if (!initialized || trip.mode !== "destination") return;
+    if (step !== 3 && step !== 4) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
 
     let cancelled = false;
@@ -324,6 +325,7 @@ function SearchPageContent() {
         near_lat: trip.destination_lat,
         near_lon: trip.destination_lon,
         exploration_scope: trip.exploration_scope ?? "region",
+        destination_label: trip.destination_label ?? trip.destination ?? "",
       }),
     })
       .then((r) => (r.ok ? r.json() : { activity_counts: {} }))
@@ -343,6 +345,8 @@ function SearchPageContent() {
     trip.mode,
     trip.destination_lat,
     trip.destination_lon,
+    trip.destination_label,
+    trip.destination,
     trip.exploration_scope,
   ]);
 

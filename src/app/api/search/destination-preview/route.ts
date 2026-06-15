@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { ensureDestinationActivities } from "@/lib/api/destination-activity-prefill";
 import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
 import {
   explorationScopeFromString,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/search/exploration-scope";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const previewSchema = z.object({
   near_lat: z.number().min(-90).max(90),
@@ -15,6 +17,7 @@ const previewSchema = z.object({
   exploration_scope: z
     .enum(["local", "region", "island", "roadtrip"])
     .optional(),
+  destination_label: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -46,6 +49,13 @@ export async function POST(request: Request) {
   const { near_radius_km } = scopeSearchRadii(scope);
 
   try {
+    await ensureDestinationActivities({
+      lat: parsed.data.near_lat,
+      lon: parsed.data.near_lon,
+      radiusKm: near_radius_km,
+      destinationLabel: parsed.data.destination_label,
+    });
+
     const counts = await countActivitiesNearPoint({
       lat: parsed.data.near_lat,
       lon: parsed.data.near_lon,
