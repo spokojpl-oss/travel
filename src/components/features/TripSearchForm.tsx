@@ -163,15 +163,20 @@ export function TripSearchForm({
         labelTo="Powrót"
         fromValue={trip.departure_date}
         toValue={trip.return_date ?? ""}
-        onFromChange={(v) => {
+        onFromChange={(v, suggestedTo) => {
+          const nextReturn = suggestedTo ?? trip.return_date;
           // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'TripSearchForm.tsx:onFromChange',message:'onFromChange called',data:{newFrom:v,staleDeparture:trip.departure_date,staleReturn:trip.return_date},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'TripSearchForm.tsx:onFromChange',message:'combined date update',data:{newFrom:v,newReturn:nextReturn},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
           // #endregion
-          onChange({ ...trip, departure_date: v });
+          onChange({
+            ...trip,
+            departure_date: v,
+            return_date: nextReturn,
+          });
         }}
         onToChange={(v) => {
           // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'TripSearchForm.tsx:onToChange',message:'onToChange called',data:{newTo:v,staleDeparture:trip.departure_date,staleReturn:trip.return_date},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'TripSearchForm.tsx:onToChange',message:'return only update',data:{newTo:v},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           onChange({ ...trip, return_date: v || null });
         }}

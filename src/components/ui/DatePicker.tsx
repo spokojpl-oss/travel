@@ -138,7 +138,7 @@ export function DateRangePicker({
   labelTo?: string;
   fromValue: string;
   toValue: string;
-  onFromChange: (v: string) => void;
+  onFromChange: (v: string, suggestedTo?: string) => void;
   onToChange: (v: string) => void;
   min?: string;
   className?: string;
@@ -182,14 +182,11 @@ export function DateRangePicker({
 
     if (activeField === "from") {
       const fromDate = parseDate(iso);
-      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : null;
+      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : undefined;
       // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect:from',message:'calling onFromChange then onToChange',data:{iso,autoTo},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'DatePicker.tsx:handleDaySelect:from',message:'single onFromChange with suggestedTo',data:{iso,autoTo},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
       // #endregion
-      onFromChange(iso);
-      if (fromDate) {
-        onToChange(toIsoDate(addDays(fromDate, 1)));
-      }
+      onFromChange(iso, autoTo);
     } else if (activeField === "to") {
       onToChange(iso);
     } else {
