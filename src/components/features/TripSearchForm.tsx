@@ -163,8 +163,18 @@ export function TripSearchForm({
         labelTo="Powrót"
         fromValue={trip.departure_date}
         toValue={trip.return_date ?? ""}
-        onFromChange={(v) => onChange({ ...trip, departure_date: v })}
-        onToChange={(v) => onChange({ ...trip, return_date: v || null })}
+        onFromChange={(v) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'TripSearchForm.tsx:onFromChange',message:'onFromChange called',data:{newFrom:v,staleDeparture:trip.departure_date,staleReturn:trip.return_date},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          onChange({ ...trip, departure_date: v });
+        }}
+        onToChange={(v) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'TripSearchForm.tsx:onToChange',message:'onToChange called',data:{newTo:v,staleDeparture:trip.departure_date,staleReturn:trip.return_date},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          onChange({ ...trip, return_date: v || null });
+        }}
         min={minDate}
       />
 

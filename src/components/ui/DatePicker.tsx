@@ -177,16 +177,25 @@ export function DateRangePicker({
       { activeField, iso, fromValue, toValue },
       "CAL",
     );
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect',message:'day select entry',data:{activeField,iso,fromValue,toValue},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     if (activeField === "from") {
-      onFromChange(iso);
       const fromDate = parseDate(iso);
+      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : null;
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect:from',message:'calling onFromChange then onToChange',data:{iso,autoTo},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      onFromChange(iso);
       if (fromDate) {
         onToChange(toIsoDate(addDays(fromDate, 1)));
       }
     } else if (activeField === "to") {
       onToChange(iso);
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',location:'DatePicker.tsx:handleDaySelect:none',message:'activeField null - no handler',data:{iso},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     }
     setActiveField(null);
   }
