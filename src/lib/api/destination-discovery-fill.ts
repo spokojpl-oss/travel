@@ -75,7 +75,7 @@ export async function fillForDestinationDiscovery({
     radiusKm: effectiveRadius,
     activitySlugs: [...UNIQUE_DISCOVERY_SLUGS],
     searchBbox,
-    forceRefresh: true,
+    forceRefresh: false,
   }).catch(() => ({ persisted: 0, tagged: 0 }));
 
   let googlePersisted = 0;

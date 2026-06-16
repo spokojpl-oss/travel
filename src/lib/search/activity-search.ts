@@ -87,6 +87,22 @@ function latLonBBox(lat: number, lon: number, radiusKm: number) {
   };
 }
 
+async function fetchAttractionIdsInBbox(
+  supabase: ReturnType<typeof createAdminClient>,
+  bbox: { south: number; north: number; west: number; east: number },
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("attractions")
+    .select("id, lat, lon")
+    .gte("lat", bbox.south)
+    .lte("lat", bbox.north)
+    .gte("lon", bbox.west)
+    .lte("lon", bbox.east)
+    .limit(8000);
+
+  return data?.map((a) => a.id) ?? [];
+}
+
 async function fetchAttractionIdsNear(
   supabase: ReturnType<typeof createAdminClient>,
   center: { lat: number; lon: number },
@@ -220,11 +236,11 @@ function searchRadiiForQuery(
   const base = query.near_radius_km ?? 150;
 
   if (island) {
-    return [Math.min(base, island.maxRadiusKm)];
+    return [Math.max(base, island.maxRadiusKm)];
   }
 
   if (query.destination_label && query.exploration_scope !== "roadtrip") {
-    return [base];
+    return [base, base * 1.5];
   }
 
   return [base, 250, 400];
@@ -256,30 +272,52 @@ async function fetchTagRowsForRadii(
   let geoRadiusUsed: number | null = null;
   let attractionsInBbox = 0;
 
-  for (const radiusKm of radii) {
-    const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
-    attractionsInBbox = Math.max(attractionsInBbox, ids.length);
-    if (ids.length === 0) continue;
+  if (island) {
+    const ids = await fetchAttractionIdsInBbox(supabase, island.bbox);
+    attractionsInBbox = ids.length;
+    if (ids.length > 0) {
+      const rows = await fetchTagRows(supabase, query.activities, ids);
+      tagRows = rows.filter(
+        (row) =>
+          row.attraction &&
+          pointInIslandBbox(
+            {
+              lat: Number(row.attraction.lat),
+              lon: Number(row.attraction.lon),
+            },
+            island.bbox,
+          ),
+      );
+      geoRadiusUsed = island.maxRadiusKm;
+    }
+  }
 
-    const rows = await fetchTagRows(supabase, query.activities, ids);
-    const filteredRows = island
-      ? rows.filter(
-          (row) =>
-            row.attraction &&
-            pointInIslandBbox(
-              {
-                lat: Number(row.attraction.lat),
-                lon: Number(row.attraction.lon),
-              },
-              island.bbox,
-            ),
-        )
-      : rows;
-    tagRows = mergeTagRows(tagRows, filteredRows);
-    geoRadiusUsed = radiusKm;
+  if (tagRows.length === 0) {
+    for (const radiusKm of radii) {
+      const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
+      attractionsInBbox = Math.max(attractionsInBbox, ids.length);
+      if (ids.length === 0) continue;
 
-    if (missingActivities(tagRows, query.activities).length === 0) {
-      break;
+      const rows = await fetchTagRows(supabase, query.activities, ids);
+      const filteredRows = island
+        ? rows.filter(
+            (row) =>
+              row.attraction &&
+              pointInIslandBbox(
+                {
+                  lat: Number(row.attraction.lat),
+                  lon: Number(row.attraction.lon),
+                },
+                island.bbox,
+              ),
+          )
+        : rows;
+      tagRows = mergeTagRows(tagRows, filteredRows);
+      geoRadiusUsed = radiusKm;
+
+      if (missingActivities(tagRows, query.activities).length === 0) {
+        break;
+      }
     }
   }
 
@@ -291,6 +329,10 @@ async function supplementMissingActivities(
   missing: string[],
 ): Promise<{ osmFilled: boolean; googleFilled: boolean }> {
   const center = { lat: query.near_lat, lon: query.near_lon };
+  const island = resolveIslandBoundaryForSearch(
+    query.destination_label,
+    center,
+  );
   const radiusKm = fillRadiusKm(query.near_radius_km ?? 120);
   let osmFilled = false;
   let googleFilled = false;
@@ -301,8 +343,9 @@ async function supplementMissingActivities(
     await fillDestinationAttractionsFromOsm({
       lat: center.lat,
       lon: center.lon,
-      radiusKm,
+      radiusKm: island ? island.maxRadiusKm : radiusKm,
       activitySlugs: missing,
+      searchBbox: island?.bbox,
     });
     osmFilled = true;
   } catch {

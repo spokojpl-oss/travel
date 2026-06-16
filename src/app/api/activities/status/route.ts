@@ -42,12 +42,21 @@ export async function GET() {
       tagCounts[row.activity_slug] = (tagCounts[row.activity_slug] ?? 0) + 1;
     }
 
+    const { count: greeceAttractions } = await admin
+      .from("attractions")
+      .select("*", { count: "exact", head: true })
+      .gte("lat", 34.9)
+      .lte("lat", 35.7)
+      .gte("lon", 23.5)
+      .lte("lon", 26.4);
+
     return NextResponse.json({
       activities,
       attractions,
       tags,
       search_ready: tags > 0,
       taxonomy_ready: activities > 0,
+      greece_crete_attractions: greeceAttractions ?? 0,
       message:
         tags === 0
           ? attractions === 0

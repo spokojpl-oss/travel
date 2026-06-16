@@ -96,24 +96,21 @@ export async function fillDestinationAttractionsFromOsm({
   const bbox = searchBbox ?? bboxFromCenter(lat, lon, radiusKm);
   const categories = categoriesForActivities(activitySlugs);
 
-  const categoryResults = await Promise.all(
-    categories.map(async (category) => {
-      try {
-        return await fetchOsmPlaces({ bbox, category, forceRefresh });
-      } catch {
-        return [];
-      }
-    }),
-  );
-
   const seen = new Set<string>();
   const allPlaces = [];
-  for (const places of categoryResults) {
-    for (const place of places) {
-      if (seen.has(place.external_id)) continue;
-      seen.add(place.external_id);
-      allPlaces.push(place);
+
+  for (const category of categories) {
+    try {
+      const places = await fetchOsmPlaces({ bbox, category, forceRefresh });
+      for (const place of places) {
+        if (seen.has(place.external_id)) continue;
+        seen.add(place.external_id);
+        allPlaces.push(place);
+      }
+    } catch {
+      /* pojedyncza kategoria — kontynuuj */
     }
+    await sleep(400);
   }
 
   const { upserted } = await persistOsmPlaces(allPlaces, null);
@@ -188,4 +185,8 @@ export async function countActivitiesNearPoint({
   }
 
   return counts;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

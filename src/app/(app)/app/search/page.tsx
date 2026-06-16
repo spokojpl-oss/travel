@@ -871,6 +871,13 @@ function SearchPageContent() {
                       ? ` w okolicy ${trip.destination_label}`
                       : ""}
                     . Przy wyszukiwaniu próbujemy uzupełnić dane z OpenStreetMap.
+                    {dataStatus && dataStatus.attractions === 0 && (
+                      <span className="mt-2 block text-amber-800">
+                        {t("search.attractionsEmptyHint")} (w bazie:{" "}
+                        {dataStatus.attractions} atrakcji, {dataStatus.tags}{" "}
+                        tagów)
+                      </span>
+                    )}
                     {selectedActivities.has("zoo") &&
                       !selectedActivities.has("aquarium") && (
                         <>

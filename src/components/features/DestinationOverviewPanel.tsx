@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { DestinationClimateBudgetPanel } from "@/components/features/DestinationClimateBudgetPanel";
 import { DestinationOverviewLoader } from "@/components/features/DestinationOverviewLoader";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
 import type { Activity, ActivityGroup } from "@/types/domain";
@@ -153,9 +154,14 @@ export function DestinationOverviewPanel({
               {discovery.weather.avg_uv_index > 5 &&
                 ` · UV ~${discovery.weather.avg_uv_index}`}
             </p>
+            <p className="mt-1 text-xs text-text-tertiary">
+              {t("search.overviewWeatherHint")}
+            </p>
           </CardBody>
         </Card>
       )}
+
+      <DestinationClimateBudgetPanel destinationLabel={destinationLabel} />
 
       {!discovery.summary.includes("krótki przegląd przed wyborem") &&
         !discovery.summary.includes("quick snapshot before") && (

@@ -1,5 +1,6 @@
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
+import { resolveIslandBoundaryForSearch } from "@/lib/destinations/island-boundary";
 
 /** Promień uzupełniania OSM/Google — mniejszy niż zasięg liczenia (Overpass timeout). */
 export function fillRadiusKm(searchRadiusKm: number): number {
@@ -47,7 +48,11 @@ export async function ensureDestinationActivities({
   radiusKm: number;
   destinationLabel?: string;
 }): Promise<{ osmPersisted: number; googlePersisted: number }> {
-  const fillRadius = fillRadiusKm(radiusKm);
+  const island = resolveIslandBoundaryForSearch(destinationLabel, { lat, lon });
+  const fillRadius = island
+    ? Math.min(radiusKm, island.maxRadiusKm)
+    : fillRadiusKm(radiusKm);
+  const searchBbox = island?.bbox;
 
   const [osm, google] = await Promise.all([
     fillDestinationAttractionsFromOsm({
@@ -55,6 +60,7 @@ export async function ensureDestinationActivities({
       lon,
       radiusKm: fillRadius,
       activitySlugs: [...GOOGLE_PREFILL_SLUGS],
+      searchBbox,
     }).catch(() => ({ persisted: 0, tagged: 0 })),
     fillDestinationAttractionsFromGoogle({
       lat,
@@ -62,6 +68,8 @@ export async function ensureDestinationActivities({
       radiusKm: fillRadius,
       activitySlugs: [...GOOGLE_PREFILL_SLUGS],
       destinationLabel,
+      searchBbox,
+      islandBbox: island?.bbox,
     }).catch(() => ({ persisted: 0, tagged: 0 })),
   ]);
 
