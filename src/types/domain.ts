@@ -68,6 +68,11 @@ export type Attraction = Database["public"]["Tables"]["attractions"]["Row"];
 export type ApiCacheEntry = Database["public"]["Tables"]["api_cache"]["Row"];
 export type WeatherCacheEntry =
   Database["public"]["Tables"]["weather_cache"]["Row"];
+export type DestinationClimateMonthlyRow =
+  Database["public"]["Tables"]["destination_climate_monthly"]["Row"];
+export type DestinationBudgetProfileRow =
+  Database["public"]["Tables"]["destination_budget_profiles"]["Row"];
+export type ClimateRating = Database["public"]["Enums"]["climate_rating"];
 
 export type DestinationType = Database["public"]["Enums"]["destination_type"];
 

@@ -522,6 +522,121 @@ export type Database = {
           },
         ];
       };
+      destination_budget_profiles: {
+        Row: {
+          cpi_index: number | null;
+          cpi_vs_reference_pct: number | null;
+          currency: string;
+          daily_budget_high: number | null;
+          daily_budget_low: number | null;
+          daily_budget_mid: number | null;
+          destination_id: string;
+          fetched_at: string;
+          groceries_index: number | null;
+          id: string;
+          numbeo_city_id: number | null;
+          reference_location: string;
+          rent_index: number | null;
+          restaurant_index: number | null;
+          sample_prices: Json;
+          source: string;
+        };
+        Insert: {
+          cpi_index?: number | null;
+          cpi_vs_reference_pct?: number | null;
+          currency?: string;
+          daily_budget_high?: number | null;
+          daily_budget_low?: number | null;
+          daily_budget_mid?: number | null;
+          destination_id: string;
+          fetched_at?: string;
+          groceries_index?: number | null;
+          id?: string;
+          numbeo_city_id?: number | null;
+          reference_location?: string;
+          rent_index?: number | null;
+          restaurant_index?: number | null;
+          sample_prices?: Json;
+          source?: string;
+        };
+        Update: {
+          cpi_index?: number | null;
+          cpi_vs_reference_pct?: number | null;
+          currency?: string;
+          daily_budget_high?: number | null;
+          daily_budget_low?: number | null;
+          daily_budget_mid?: number | null;
+          destination_id?: string;
+          fetched_at?: string;
+          groceries_index?: number | null;
+          id?: string;
+          numbeo_city_id?: number | null;
+          reference_location?: string;
+          rent_index?: number | null;
+          restaurant_index?: number | null;
+          sample_prices?: Json;
+          source?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destination_budget_profiles_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      destination_climate_monthly: {
+        Row: {
+          climate_rating: Database["public"]["Enums"]["climate_rating"];
+          destination_id: string;
+          fetched_at: string;
+          id: string;
+          month: number;
+          precip_mm_avg: number;
+          rainy_days_avg: number;
+          sample_years: number;
+          source: string;
+          temp_max_avg: number;
+          temp_min_avg: number;
+        };
+        Insert: {
+          climate_rating: Database["public"]["Enums"]["climate_rating"];
+          destination_id: string;
+          fetched_at?: string;
+          id?: string;
+          month: number;
+          precip_mm_avg: number;
+          rainy_days_avg: number;
+          sample_years?: number;
+          source?: string;
+          temp_max_avg: number;
+          temp_min_avg: number;
+        };
+        Update: {
+          climate_rating?: Database["public"]["Enums"]["climate_rating"];
+          destination_id?: string;
+          fetched_at?: string;
+          id?: string;
+          month?: number;
+          precip_mm_avg?: number;
+          rainy_days_avg?: number;
+          sample_years?: number;
+          source?: string;
+          temp_max_avg?: number;
+          temp_min_avg?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "destination_climate_monthly_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       destinations: {
         Row: {
           bounding_box: Json;
@@ -1337,6 +1452,7 @@ export type Database = {
         | "transport";
       airport_size: "large" | "medium" | "small";
       build_status: "in_progress" | "completed" | "failed";
+      climate_rating: "ideal" | "good" | "fair" | "poor" | "very_poor";
       document_type: "itinerary" | "packing_list" | "pre_trip_todo";
       destination_type: "country" | "region" | "city" | "island" | "area";
       intensity_level: "low" | "medium" | "high";

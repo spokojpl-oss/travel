@@ -65,10 +65,24 @@ export async function GET(
     .order("forecast_date", { ascending: true })
     .limit(30);
 
+  const { data: climateMonthly } = await supabase
+    .from("destination_climate_monthly")
+    .select("*")
+    .eq("destination_id", id)
+    .order("month", { ascending: true });
+
+  const { data: budgetProfile } = await supabase
+    .from("destination_budget_profiles")
+    .select("*")
+    .eq("destination_id", id)
+    .maybeSingle();
+
   return NextResponse.json({
     destination,
     attractions: attractions ?? [],
     summary,
     weather: weather ?? [],
+    climate_monthly: climateMonthly ?? [],
+    budget: budgetProfile ?? null,
   });
 }
