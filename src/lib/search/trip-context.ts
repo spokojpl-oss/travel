@@ -83,6 +83,20 @@ export function daysBetweenIso(from: string, to: string): number {
   return Math.max(1, diff);
 }
 
+/** Domyślna długość wyjazdu przy wyborze daty wyjazdu (najczęstszy case). */
+export const DEFAULT_TRIP_LENGTH_DAYS = 7;
+
+export function suggestedReturnDateIso(
+  departureIso: string,
+  tripLengthDays = DEFAULT_TRIP_LENGTH_DAYS,
+): string {
+  const start = parseIsoDateLocal(departureIso);
+  if (!start) return departureIso;
+  const end = new Date(start);
+  end.setDate(start.getDate() + tripLengthDays);
+  return localIsoDate(end);
+}
+
 export function defaultDateRangeFromToday(
   offsetDays = 30,
   lengthDays = 7,

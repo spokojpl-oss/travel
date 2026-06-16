@@ -39,6 +39,13 @@ type MonthBucket = {
   rainyDays: number[];
 };
 
+/** Progi temperatury (°C) dla oceny komfortu podróży. */
+const HEAT_EXTREME = 38;
+const HEAT_HIGH = 35;
+const HEAT_WARM = 32;
+const COLD_HARSH = 8;
+const COLD_COOL = 12;
+
 export function rateClimateMonth({
   tempMax,
   rainyDays,
@@ -48,20 +55,84 @@ export function rateClimateMonth({
   rainyDays: number;
   precipMm: number;
 }): ClimateRating {
-  // Heurystyka podróży słonecznych / city break (jak gdzie-i-kiedy)
-  if (tempMax >= 24 && tempMax <= 32 && rainyDays <= 3 && precipMm <= 40) {
+  // Upał i mrozy dominują nad resztą heurystyki
+  if (tempMax >= HEAT_EXTREME) return "very_poor";
+  if (tempMax >= HEAT_HIGH) return "poor";
+
+  if (tempMax < COLD_HARSH) return "very_poor";
+  if (tempMax < COLD_COOL) return "poor";
+
+  if (rainyDays > 12 || precipMm > 150) return "very_poor";
+  if (rainyDays > 8 || precipMm > 100) return "poor";
+
+  // Sweet spot na city break / plażę
+  if (tempMax >= 22 && tempMax <= 30 && rainyDays <= 3 && precipMm <= 40) {
     return "ideal";
   }
-  if (tempMax >= 20 && tempMax <= 34 && rainyDays <= 6 && precipMm <= 70) {
+
+  // Ciepło, ale komfortowo (do ~32°C)
+  if (tempMax >= 18 && tempMax <= 32 && rainyDays <= 6 && precipMm <= 70) {
     return "good";
   }
-  if (tempMax >= 14 && tempMax <= 38 && rainyDays <= 10 && precipMm <= 120) {
+
+  // Sezon przejściowy lub gorąco (32–34°C) przy umiarkowanym deszczu
+  if (tempMax >= 14 && tempMax <= 34 && rainyDays <= 10 && precipMm <= 120) {
     return "fair";
   }
-  if (rainyDays <= 14 && tempMax >= 8 && tempMax <= 42) {
-    return "poor";
+
+  return "poor";
+}
+
+export function climateRatingLabel(
+  rating: ClimateRating,
+  {
+    tempMax,
+    rainyDays,
+  }: {
+    tempMax: number;
+    rainyDays?: number;
+  },
+): string {
+  if (tempMax >= HEAT_EXTREME) return "Ekstremalny upał";
+  if (tempMax >= HEAT_HIGH) return "Upał";
+  if (tempMax >= HEAT_WARM && rating !== "ideal") return "Bardzo gorąco";
+  if (tempMax < COLD_HARSH) return "Za zimno";
+  if (tempMax < COLD_COOL) return "Chłodno";
+  if (
+    (rainyDays ?? 0) >= 10 &&
+    (rating === "poor" || rating === "very_poor")
+  ) {
+    return "Deszczowo";
   }
-  return "very_poor";
+  return CLIMATE_RATING_LABELS_PL[rating];
+}
+
+export function resolveClimateMonth(
+  row: Omit<MonthlyClimateNormal, "climate_rating"> & {
+    climate_rating?: ClimateRating;
+  },
+): MonthlyClimateNormal {
+  const climate_rating = rateClimateMonth({
+    tempMax: row.temp_max_avg,
+    rainyDays: row.rainy_days_avg,
+    precipMm: row.precip_mm_avg,
+  });
+  return { ...row, climate_rating };
+}
+
+export function climateMonthForDisplay(
+  row: Omit<MonthlyClimateNormal, "climate_rating"> & {
+    climate_rating?: ClimateRating;
+  },
+): MonthlyClimateNormal & { rating_label: string } {
+  const resolved = resolveClimateMonth(row);
+  return {
+    ...resolved,
+    rating_label: climateRatingLabel(resolved.climate_rating, {
+      tempMax: resolved.temp_max_avg,
+      rainyDays: resolved.rainy_days_avg,
+    }),
+  };
 }
 
 function avg(values: number[]): number {
@@ -174,15 +245,20 @@ export function bestMonthsForTravel(
     ideal: 5,
     good: 4,
     fair: 3,
-    poor: 2,
-    very_poor: 1,
+    poor: 1,
+    very_poor: 0,
   };
 
-  return [...normals]
+  const resolved = normals.map((row) => resolveClimateMonth(row));
+
+  return [...resolved]
+    .filter(
+      (n) => n.climate_rating !== "poor" && n.climate_rating !== "very_poor",
+    )
     .sort(
       (a, b) =>
         score[b.climate_rating] - score[a.climate_rating] ||
-        b.temp_max_avg - a.temp_max_avg,
+        Math.abs(a.temp_max_avg - 26) - Math.abs(b.temp_max_avg - 26),
     )
     .slice(0, limit)
     .map((n) => n.month);
@@ -191,9 +267,9 @@ export function bestMonthsForTravel(
 export const CLIMATE_RATING_LABELS_PL: Record<ClimateRating, string> = {
   ideal: "Idealna pogoda",
   good: "Dobra pogoda",
-  fair: "Znośna pogoda",
-  poor: "Słaba pogoda",
-  very_poor: "Bardzo słaba pogoda",
+  fair: "Przeciętna pogoda",
+  poor: "Słabe warunki",
+  very_poor: "Bardzo słabe warunki",
 };
 
 export const MONTH_NAMES_PL = [

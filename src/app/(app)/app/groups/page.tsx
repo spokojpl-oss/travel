@@ -43,7 +43,7 @@ export default async function GroupsListPage() {
       {(!groups || groups.length === 0) && (
         <EmptyStateGuide
           title="Nie masz jeszcze żadnej grupy"
-          description="Grupa to profil rodziny: kto jedzie, ile osób, wiek dzieci. Nie jest wymagana na start — możesz najpierw wyszukać aktywności, a grupę dodać później."
+          description="Grupa to profil rodziny: kto jedzie, ile osób, wiek dzieci. Nie jest wymagana na początek — możesz najpierw wyszukać aktywności, a grupę dodać później."
           actionHref="/app/groups/new"
           actionLabel="Stwórz pierwszą grupę"
         />

@@ -386,6 +386,16 @@ export const en: Messages = {
   common: {
     home: "Home",
   },
+  localServices: {
+    title: "Rentals & services ({n})",
+    intro:
+      "Businesses from Google Maps matching your selected activities. Names stay original (how you'll find them locally) — we explain in plain language what each one offers.",
+    address: "Address",
+    openMaps: "Open in Google Maps",
+    website: "Website",
+    phone: "Phone",
+    moreHint: "… and {n} more in the search results.",
+  },
   steps: {
     trip: "Trip",
     scope: "Scope",

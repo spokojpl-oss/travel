@@ -139,7 +139,7 @@ export function WhatToSeeStep({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold text-text-primary">
-              {pl ? "Nasze propozycje na start" : "Our picks to start with"}
+              {pl ? "Nasze propozycje na początek" : "Our picks to start with"}
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
               {pl

@@ -28,6 +28,7 @@ import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
+import { LocalServicesSection } from "@/components/features/LocalServicesSection";
 
 type BuildEvent = {
   type: string;
@@ -549,20 +550,10 @@ export default function DestinationPage() {
       )}
 
       {planComplete && googlePlaces.length > 0 && (
-        <Card className="mb-8">
-          <CardHeader title={`Lokalne usługi (${googlePlaces.length})`} />
-          <CardBody>
-            <ul className="space-y-2 text-sm text-text-secondary">
-              {googlePlaces.slice(0, 10).map((p) => (
-                <li key={p.place_id}>
-                  <strong>{p.name}</strong>
-                  {p.rating != null && ` ★ ${p.rating}`}
-                  {p.address && ` – ${p.address}`}
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+        <LocalServicesSection
+          places={googlePlaces}
+          selectedActivities={selectedActivities}
+        />
       )}
 
       {planComplete && destination && trip.travel_mode === "flight" && (

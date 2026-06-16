@@ -1,6 +1,6 @@
 import {
   bestMonthsForTravel,
-  CLIMATE_RATING_LABELS_PL,
+  climateMonthForDisplay,
   MONTH_NAMES_PL,
   type MonthlyClimateNormal,
 } from "@/lib/api/climate-normals";
@@ -76,11 +76,21 @@ export async function fetchSeededDestinationProfile(
     climate:
       climateMonthly && climateMonthly.length > 0
         ? {
-            monthly: climateMonthly.map((row) => ({
-              ...row,
-              month_name: MONTH_NAMES_PL[row.month] ?? String(row.month),
-              rating_label: CLIMATE_RATING_LABELS_PL[row.climate_rating],
-            })),
+            monthly: climateMonthly.map((row) => {
+              const display = climateMonthForDisplay({
+                month: row.month,
+                temp_max_avg: Number(row.temp_max_avg),
+                temp_min_avg: Number(row.temp_min_avg),
+                precip_mm_avg: Number(row.precip_mm_avg),
+                rainy_days_avg: Number(row.rainy_days_avg),
+              });
+              return {
+                ...row,
+                climate_rating: display.climate_rating,
+                month_name: MONTH_NAMES_PL[display.month] ?? String(display.month),
+                rating_label: display.rating_label,
+              };
+            }),
             best_months: bestMonthsForTravel(normals).map((m) => ({
               month: m,
               name: MONTH_NAMES_PL[m] ?? String(m),

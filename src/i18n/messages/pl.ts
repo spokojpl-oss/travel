@@ -387,6 +387,16 @@ export const pl = {
   common: {
     home: "Start",
   },
+  localServices: {
+    title: "Wypożyczalnie i usługi ({n})",
+    intro:
+      "Firmy z Google Maps pasujące do wybranych aktywności. Nazwy zostawiamy oryginalne (tak je znajdziesz na miejscu) — poniżej po polsku wyjaśniamy, czym się zajmują.",
+    address: "Adres",
+    openMaps: "Otwórz w Google Maps",
+    website: "Strona www",
+    phone: "Telefon",
+    moreHint: "… i jeszcze {n} innych w wynikach wyszukiwania.",
+  },
   steps: {
     trip: "Podróż",
     scope: "Zakres",

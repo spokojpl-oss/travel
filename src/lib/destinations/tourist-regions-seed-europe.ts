@@ -101,7 +101,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     center_lat: 40.08,
     center_lon: 23.44,
     picks: [
-      { day_theme: "beach_relax", name_pl: "Plaża Hanioti", name_en: "Hanioti beach", why_pl: "Piaszczysta, płytka, pełna infrastruktura — klasyk rodzin.", why_en: "Sandy, shallow, full facilities — family classic.", activity_slugs: ["sandy_beaches"], rank: 1 },
+      { day_theme: "beach_relax", name_pl: "Plaża Hanioti", name_en: "Hanioti beach", why_pl: "Piaszczysta, płytka, pełna infrastruktura — klasyk dla rodzin.", why_en: "Sandy, shallow, full facilities — family classic.", activity_slugs: ["sandy_beaches"], rank: 1 },
       { day_theme: "beach_relax", name_pl: "Ammon Zeus", name_en: "Ammon Zeus area", why_pl: "Plaże przy starożytnych ruinach — spacer po kąpieli.", why_en: "Beaches near ancient ruins — post-swim walk.", activity_slugs: ["sandy_beaches","archaeology"], rank: 2 },
       { day_theme: "city_culture", name_pl: "Afitos", name_en: "Afitos village", why_pl: "Kamienna wioska z widokiem — kolacja bez zgiełku kurortu.", why_en: "Stone village with views — dinner away from resort noise.", activity_slugs: ["old_towns","viewpoints"], rank: 1 },
       { day_theme: "kids", name_pl: "Waterland", name_en: "Waterland Thessaloniki", why_pl: "Duży park wodny — wycieczka samochodem ok. 1 h.", why_en: "Large water park — ~1 h drive.", activity_slugs: ["water_parks"], rank: 1 },
@@ -1047,7 +1047,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     center_lon: 16.18,
     picks: [
       { day_theme: "beach_relax", name_pl: "Stiniva", name_en: "Stiniva cove", why_pl: "Ukryta zatoczka z otworem w skale — rejs łodzią lub wspinaczka.", why_en: "Hidden cove with rock opening — boat or climb access.", activity_slugs: ["rocky_beaches","boat_tour"], rank: 1 },
-      { day_theme: "beach_relax", name_pl: "Stončica", name_en: "Stončica beach", why_pl: "Piaszczysta zatoka z latarnią — spokojna z rodziną.", why_en: "Sandy bay with lighthouse — calm with family.", activity_slugs: ["sandy_beaches"], rank: 2 },
+      { day_theme: "beach_relax", name_pl: "Stončica", name_en: "Stončica beach", why_pl: "Piaszczysta zatoka z latarnią — spokojna atmosfera dla rodzin.", why_en: "Sandy bay with lighthouse — calm with family.", activity_slugs: ["sandy_beaches"], rank: 2 },
       { day_theme: "city_culture", name_pl: "Komiža", name_en: "Komiža harbour", why_pl: "Port rybacki z fortem — kolacja z ryb zmorza.", why_en: "Fishing port with fort — dinner with catch of the day.", activity_slugs: ["old_towns"], rank: 1 },
       { day_theme: "active_outdoor", name_pl: "Rejs Błękitna Grota", name_en: "Blue Cave trip", why_pl: "Wycieczka łodzią na Biševo — rezerwacja rano.", why_en: "Biševo Blue Cave boat trip — book early morning.", activity_slugs: ["boat_tour"], rank: 1 },
     ],
@@ -1215,7 +1215,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     center_lon: 18.3,
     picks: [
       { day_theme: "city_culture", name_pl: "Visby — mury UNESCO", name_en: "Visby UNESCO walls", why_pl: "Średniowieczne mury i róże — Tydzień Średniowiecza w sierpniu.", why_en: "Medieval walls and roses — Medieval Week in August.", activity_slugs: ["old_towns","castles"], rank: 1 },
-      { day_theme: "beach_relax", name_pl: "Tofta Strand", name_en: "Tofta beach", why_pl: "Piaszczysta plaża z łagodnym zejściem — popularna z rodzinami.", why_en: "Sandy beach with gentle entry — family favourite.", activity_slugs: ["sandy_beaches"], rank: 1 },
+      { day_theme: "beach_relax", name_pl: "Tofta Strand", name_en: "Tofta beach", why_pl: "Piaszczysta plaża z łagodnym zejściem — popularna wśród rodzin.", why_en: "Sandy beach with gentle entry — family favourite.", activity_slugs: ["sandy_beaches"], rank: 1 },
       { day_theme: "beach_relax", name_pl: "Sudersand (Fårö)", name_en: "Sudersand Fårö", why_pl: "Piaszczysta plaża na małej wyspie — prom z Fårösund.", why_en: "Small-island sandy beach — ferry from Fårösund.", activity_slugs: ["sandy_beaches","boat_tour"], rank: 1 },
       { day_theme: "nature", name_pl: "Raukar (wapienne skały)", name_en: "Gotland rauks", why_pl: "Formacje skalne nad morzem — krótki spacer z dziećmi.", why_en: "Coastal rock formations — short walk with kids.", activity_slugs: ["viewpoints","hiking_trails"], rank: 1 },
     ],
@@ -1333,7 +1333,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     name_en: "Wolfgangsee & St. Wolfgang",
     character: "mixed",
     vibe: "balanced",
-    overview_pl: "Alpejskie jezioro z promami, szlakami i pastelowymi wioskami — spokojne Austria rodzinna.",
+    overview_pl: "Alpejskie jezioro z promami, szlakami i pastelowymi wioskami — spokojna, rodzinna Austria.",
     overview_en: "Alpine lake with ferries, trails and pastel villages — calm family Austria.",
     stay_hint_pl: "St. Wolfgang na klimat; St. Gilgen na spokojniejsze noclegi.",
     stay_hint_en: "St. Wolfgang for charm; St. Gilgen for quieter stays.",
@@ -1425,7 +1425,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     center_lon: 19.49,
     picks: [
       { day_theme: "beach_relax", name_pl: "Plaża Radhime", name_en: "Radhime beach", why_pl: "Piaszczysta zatoka przy Vlorë — łatwy dojazd z miasta.", why_en: "Sandy bay near Vlorë — easy city access.", activity_slugs: ["sandy_beaches"], rank: 1 },
-      { day_theme: "beach_relax", name_pl: "Jale Beach", name_en: "Jale beach", why_pl: "Turkus i bary plażowe — popularna z młodymi rodzinami.", why_en: "Turquoise and beach bars — popular with young families.", activity_slugs: ["rocky_beaches"], rank: 1 },
+      { day_theme: "beach_relax", name_pl: "Jale Beach", name_en: "Jale beach", why_pl: "Turkus i bary plażowe — popularna wśród młodych rodzin.", why_en: "Turquoise and beach bars — popular with young families.", activity_slugs: ["rocky_beaches"], rank: 1 },
       { day_theme: "nature", name_pl: "Park Narodowy Karaburun", name_en: "Karaburun park", why_pl: "Dziki półwysep z łodziami — rejs do groty Haxhi Ali.", why_en: "Wild peninsula boats — Haxhi Ali cave cruise.", activity_slugs: ["boat_tour","national_parks"], rank: 1 },
       { day_theme: "city_culture", name_pl: "Muzeum Niepodległości Vlorë", name_en: "Vlorë independence museum", why_pl: "Historia Albanii nad morzem — krótka wizyta.", why_en: "Albanian history by the sea — short visit.", activity_slugs: ["museums"], rank: 1 },
     ],
@@ -1606,7 +1606,7 @@ export const SEED_TOURIST_REGIONS_EUROPE: TouristRegion[] = [
     name_en: "Djerba",
     character: "resort",
     vibe: "balanced",
-    overview_pl: "Wyspa z białymi wioskami, plażami Djerba i spokojnym tempem — dobra na pierwszy wyjazd do Afryki Północnej.",
+    overview_pl: "Wyspa z białymi wioskami, plażami Djerba i spokojnym tempem — dobra na pierwszą wizytę w Afryce Północnej.",
     overview_en: "Island with white villages, Djerba beaches and calm pace — good first North Africa trip.",
     stay_hint_pl: "Houmt Souk na bazę; Midoun na plażę.",
     stay_hint_en: "Houmt Souk for base; Midoun for beach.",

@@ -39,7 +39,7 @@ export const SEED_TOURIST_REGIONS_COASTAL: TouristRegion[] = [
     center_lat: 40.056,
     center_lon: 18.12,
     picks: [
-      { day_theme: "beach_relax", name_pl: "Baia Verde (Gallipoli)", name_en: "Baia Verde", why_pl: "Piaszczysta, płytka woda — ulubiona plaża rodzin z południa Italii.", why_en: "Sandy, shallow — southern Italy family favourite.", activity_slugs: ["sandy_beaches"], rank: 1 },
+      { day_theme: "beach_relax", name_pl: "Baia Verde (Gallipoli)", name_en: "Baia Verde", why_pl: "Piaszczysta, płytka woda — ulubiona plaża wśród rodzin z południa Włoch.", why_en: "Sandy, shallow — southern Italy family favourite.", activity_slugs: ["sandy_beaches"], rank: 1 },
       { day_theme: "beach_relax", name_pl: "Torre dell'Orso", name_en: "Torre dell'Orso", why_pl: "Dwie skalne wieże w morzu — płytkie zejście i kąpiel.", why_en: "Twin sea stacks — shallow entry and swim.", activity_slugs: ["rocky_beaches"], rank: 2 },
       { day_theme: "city_culture", name_pl: "Otranto — katedra", name_en: "Otranto cathedral", why_pl: "Mozaikowa posadzka i port — krótki spacer z plaży.", why_en: "Mosaic floor and harbour — short walk from beach.", activity_slugs: ["old_towns", "castles"], rank: 1 },
       { day_theme: "kids", name_pl: "Park wodny (Gallipoli okolice)", name_en: "Water park (near Gallipoli)", why_pl: "Aquaparki w regionie — dzień przerwy od morza w upał.", why_en: "Regional aquaparks — break from the beach on hot days.", activity_slugs: ["water_parks"], rank: 1 },
@@ -115,7 +115,7 @@ export const SEED_TOURIST_REGIONS_COASTAL: TouristRegion[] = [
     vibe: "balanced",
     overview_pl: "Camogli, Portofino i Santa Margherita — mniejsze plaże, rejsy i pesto liguryjskie.",
     overview_en: "Camogli, Portofino and Santa Margherita — small beaches, boat trips and Ligurian pesto.",
-    stay_hint_pl: "Camogli na rodzinny klimat; Rapallo na dłuższą plażę i pociąg do Genui.",
+    stay_hint_pl: "Camogli — rodzinny klimat; Rapallo na dłuższą plażę i pociąg do Genui.",
     stay_hint_en: "Camogli for family vibe; Rapallo for longer beach and Genoa train.",
     center_lat: 44.303,
     center_lon: 9.209,

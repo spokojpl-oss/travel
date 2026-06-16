@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { localeToIntl } from "@/i18n/config";
+import { suggestedReturnDateIso } from "@/lib/search/trip-context";
 
 const WEEKDAYS_PL = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
 const WEEKDAYS_EN = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -55,12 +56,6 @@ function isSameDay(a: Date, b: Date): boolean {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   );
-}
-
-function addDays(d: Date, days: number): Date {
-  const next = new Date(d);
-  next.setDate(next.getDate() + days);
-  return next;
 }
 
 function formatDisplay(value: string, intlLocale: string, pickDateLabel: string): string {
@@ -185,11 +180,10 @@ export function DateRangePicker({
 
   function handleDaySelect(iso: string) {
     if (activeField === "from") {
-      const fromDate = parseDate(iso);
-      const autoTo = fromDate ? toIsoDate(addDays(fromDate, 1)) : undefined;      onFromChange(iso, autoTo);
+      onFromChange(iso, suggestedReturnDateIso(iso));
     } else if (activeField === "to") {
       onToChange(iso);
-    } else {    }
+    }
     setActiveField(null);
   }
 

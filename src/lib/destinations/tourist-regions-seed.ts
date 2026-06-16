@@ -287,7 +287,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     "vibe": "popular",
     "overview_pl": "Największy kurort na wyspie — plaża, restauracje, łatwy wypad w całą Lanzarote.",
     "overview_en": "The island's largest resort — beach, restaurants, easy access to all Lanzarote.",
-    "stay_hint_pl": "Dużo hoteli all-inclusive; dobra baza na pierwszy wyjazd.",
+    "stay_hint_pl": "Dużo hoteli all-inclusive; dobra baza na pierwszą wizytę.",
     "stay_hint_en": "Many all-inclusive hotels; good base for a first trip.",
     "center_lat": 28.92,
     "center_lon": -13.67,
@@ -548,7 +548,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
         "day_theme": "beach_relax",
         "name_pl": "Coral Bay",
         "name_en": "Coral Bay",
-        "why_pl": "Piaszczysta zatoka na północ od centrum — dobra na rodziny.",
+        "why_pl": "Piaszczysta zatoka na północ od centrum — dobra dla rodzin.",
         "why_en": "Sandy bay north of centre — family-friendly.",
         "activity_slugs": [
           "sandy_beaches"
@@ -606,7 +606,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
         "day_theme": "beach_relax",
         "name_pl": "Platja d'Alcúdia",
         "name_en": "Platja d'Alcúdia",
-        "why_pl": "Piaszczysta, płytka woda — najlepsza na rodzinne plażowanie.",
+        "why_pl": "Piaszczysta, płytka woda — najlepsza do rodzinnego plażowania.",
         "why_en": "Sandy, shallow water — best for family beach days.",
         "activity_slugs": [
           "sandy_beaches"
@@ -733,7 +733,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     character: "resort",
     vibe: "balanced",
     overview_pl:
-      "Czarne plaże wulkaniczne na wschodzie — tańsze noclegi niż kaldera, dobre na rodziny.",
+      "Czarne plaże wulkaniczne na wschodzie — tańsze noclegi niż kaldera, dobre dla rodzin.",
     overview_en:
       "Black volcanic beaches on the east — cheaper stays than the caldera, family-friendly.",
     stay_hint_pl:
@@ -861,7 +861,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     overview_en:
       "Quieter north — sandy beaches, less party noise than Laganas.",
     stay_hint_pl:
-      "Alykes lub Tsilivi — dobre na rodzinny wypoczynek, wynajem auta na Navagio.",
+      "Alykes lub Tsilivi — dobre dla rodzinnego wypoczynku, wynajem auta na Navagio.",
     stay_hint_en:
       "Alykes or Tsilivi — relaxed family stays, car useful for Navagio.",
     center_lat: 37.83,

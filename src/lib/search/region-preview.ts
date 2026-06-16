@@ -89,7 +89,7 @@ export function buildRegionPreview({
         : `A practical base for exploring this part of the destination.`;
   } else {
     overview = dest
-      ? `${base} to jeden z rejonów, które proponujemy na ${dest}. W promieniu ok. ${radius} km od bazy jest ${cluster.attractions.length} dopasowanych miejsc`
+      ? `${base} to jeden z proponowanych rejonów (${dest}). W promieniu ok. ${radius} km od bazy jest ${cluster.attractions.length} dopasowanych miejsc`
       : `W promieniu ok. ${radius} km od ${base} jest ${cluster.attractions.length} dopasowanych miejsc`;
     if (highlightNames.length > 0) {
       overview += `, m.in. ${formatList(highlightNames, locale)}.`;

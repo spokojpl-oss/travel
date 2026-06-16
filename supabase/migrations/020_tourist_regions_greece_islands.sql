@@ -21,7 +21,7 @@ insert into tourist_regions (
   array['santorini','thira','perissa','kamari','grecja','greece'],
   'Perissa i Kamari', 'Perissa & Kamari',
   'resort', 'balanced',
-  'Czarne plaże wulkaniczne na wschodzie — tańsze noclegi niż kaldera, dobre na rodziny.',
+  'Czarne plaże wulkaniczne na wschodzie — tańsze noclegi niż kaldera, dobre dla rodzin.',
   'Black volcanic beaches on the east — cheaper stays than the caldera, family-friendly.',
   'Perissa i Kamari mają długie plaże i taverny — bus do Firy ok. 15 min.',
   'Perissa and Kamari have long beaches and tavernas — bus to Fira ~15 min.',
@@ -45,7 +45,7 @@ insert into tourist_regions (
   'mixed', 'balanced',
   'Spokojniejsza północ — piaszczyste plaże, mniej imprezowego zgiełku niż Laganas.',
   'Quieter north — sandy beaches, less party noise than Laganas.',
-  'Alykes lub Tsilivi — dobre na rodzinny wypoczynek, wynajem auta na Navagio.',
+  'Alykes lub Tsilivi — dobre dla rodzinnego wypoczynku, wynajem auta na Navagio.',
   'Alykes or Tsilivi — relaxed family stays, car useful for Navagio.',
   37.83, 20.78, true, 13
 )

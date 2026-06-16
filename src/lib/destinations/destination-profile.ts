@@ -1,8 +1,8 @@
 import {
   bestMonthsForTravel,
-  CLIMATE_RATING_LABELS_PL,
   CLIMATE_SAMPLE_END_YEAR,
   CLIMATE_SAMPLE_START_YEAR,
+  climateMonthForDisplay,
   fetchMonthlyClimateNormals,
   MONTH_NAMES_PL,
   type MonthlyClimateNormal,
@@ -107,16 +107,19 @@ function climateFromNormals(
   source: string,
 ): DestinationProfileClimate {
   return {
-    monthly: normals.map((row) => ({
-      month: row.month,
-      temp_max_avg: row.temp_max_avg,
-      temp_min_avg: row.temp_min_avg,
-      precip_mm_avg: row.precip_mm_avg,
-      rainy_days_avg: row.rainy_days_avg,
-      climate_rating: row.climate_rating,
-      month_name: MONTH_NAMES_PL[row.month] ?? String(row.month),
-      rating_label: CLIMATE_RATING_LABELS_PL[row.climate_rating],
-    })),
+    monthly: normals.map((row) => {
+      const display = climateMonthForDisplay(row);
+      return {
+        month: display.month,
+        temp_max_avg: display.temp_max_avg,
+        temp_min_avg: display.temp_min_avg,
+        precip_mm_avg: display.precip_mm_avg,
+        rainy_days_avg: display.rainy_days_avg,
+        climate_rating: display.climate_rating,
+        month_name: MONTH_NAMES_PL[display.month] ?? String(display.month),
+        rating_label: display.rating_label,
+      };
+    }),
     best_months: bestMonthsForTravel(normals).map((m) => ({
       month: m,
       name: MONTH_NAMES_PL[m] ?? String(m),
@@ -170,16 +173,25 @@ async function fetchSeededClimateAndBudget(slug: string): Promise<{
 
   return {
     climate: {
-      monthly: climateMonthly.map((row) => ({
-        month: row.month,
-        temp_max_avg: Number(row.temp_max_avg),
-        temp_min_avg: Number(row.temp_min_avg),
-        precip_mm_avg: Number(row.precip_mm_avg),
-        rainy_days_avg: Number(row.rainy_days_avg),
-        climate_rating: row.climate_rating,
-        month_name: MONTH_NAMES_PL[row.month] ?? String(row.month),
-        rating_label: CLIMATE_RATING_LABELS_PL[row.climate_rating],
-      })),
+      monthly: climateMonthly.map((row) => {
+        const display = climateMonthForDisplay({
+          month: row.month,
+          temp_max_avg: Number(row.temp_max_avg),
+          temp_min_avg: Number(row.temp_min_avg),
+          precip_mm_avg: Number(row.precip_mm_avg),
+          rainy_days_avg: Number(row.rainy_days_avg),
+        });
+        return {
+          month: display.month,
+          temp_max_avg: display.temp_max_avg,
+          temp_min_avg: display.temp_min_avg,
+          precip_mm_avg: display.precip_mm_avg,
+          rainy_days_avg: display.rainy_days_avg,
+          climate_rating: display.climate_rating,
+          month_name: MONTH_NAMES_PL[display.month] ?? String(display.month),
+          rating_label: display.rating_label,
+        };
+      }),
       best_months: bestMonthsForTravel(normals).map((m) => ({
         month: m,
         name: MONTH_NAMES_PL[m] ?? String(m),
