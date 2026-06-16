@@ -81,6 +81,7 @@ export function TripSearchForm({
   showDestination = true,
   showInterests = false,
   large = false,
+  compact = false,
   className,
   groupSource = null,
   onClearGroupSource,
@@ -90,6 +91,7 @@ export function TripSearchForm({
   showDestination?: boolean;
   showInterests?: boolean;
   large?: boolean;
+  compact?: boolean;
   className?: string;
   groupSource?: { id: string; name: string } | null;
   onClearGroupSource?: () => void;
@@ -127,9 +129,9 @@ export function TripSearchForm({
     source === "own" ? t("travel.own") : t("travel.rental");
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn(compact ? "space-y-2" : "space-y-3", className)}>
       {showInterests && (
-        <FieldShell label={t("form.interests")} icon="target" large={large}>
+        <FieldShell label={t("form.interests")} icon="target" large={large && !compact} compact={compact}>
           <input
             type="text"
             placeholder={t("form.interestsPlaceholder")}
@@ -171,7 +173,7 @@ export function TripSearchForm({
           }
           options={[]}
           onSearch={searchDestinations}
-          large={large}
+          large={large && !compact}
         />
       )}
 
@@ -181,26 +183,20 @@ export function TripSearchForm({
         fromValue={trip.departure_date}
         toValue={trip.return_date ?? ""}
         onFromChange={(v, suggestedTo) => {
-          const nextReturn = suggestedTo ?? trip.return_date;
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'TripSearchForm.tsx:onFromChange',message:'combined date update',data:{newFrom:v,newReturn:nextReturn},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           onChange({
             ...trip,
             departure_date: v,
-            return_date: nextReturn,
+            return_date: suggestedTo ?? trip.return_date,
           });
         }}
         onToChange={(v) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'04f6ea'},body:JSON.stringify({sessionId:'04f6ea',runId:'post-fix',location:'TripSearchForm.tsx:onToChange',message:'return only update',data:{newTo:v},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           onChange({ ...trip, return_date: v || null });
         }}
         min={minDate}
+        large={large && !compact}
       />
 
-      <FieldShell label={t("form.howTravel")} icon="route" large={large}>
+      <FieldShell label={t("form.howTravel")} icon="route" large={large && !compact} compact={compact}>
         <div className="flex flex-wrap gap-2">
           {TRAVEL_MODE_OPTIONS.map((option) => (
             <ChoiceChip
@@ -208,6 +204,7 @@ export function TripSearchForm({
               active={trip.travel_mode === option.value}
               icon={travelModeIcon(option.value)}
               label={travelModeLabel(option.value)}
+              compact={compact}
               onClick={() => onChange(applyTravelModeChange(trip, option.value))}
             />
           ))}
@@ -215,7 +212,7 @@ export function TripSearchForm({
       </FieldShell>
 
       {isCar && (
-        <FieldShell label={t("form.car")} icon="car" large={large}>
+        <FieldShell label={t("form.car")} icon="car" large={large && !compact} compact={compact}>
           <div className="flex flex-wrap gap-2">
             {VEHICLE_SOURCE_OPTIONS.map((option) => (
               <ChoiceChip
@@ -223,6 +220,7 @@ export function TripSearchForm({
                 active={trip.vehicle_source === option.value}
                 icon={option.value === "own" ? "car" : "route"}
                 label={vehicleSourceLabel(option.value)}
+                compact={compact}
                 onClick={() =>
                   onChange({
                     ...trip,
@@ -235,7 +233,7 @@ export function TripSearchForm({
         </FieldShell>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={cn("grid gap-3", compact ? "sm:grid-cols-2" : "sm:grid-cols-2")}>
         {isFlight ? (
           <Autocomplete
             label={t("form.fromFlight")}
@@ -279,7 +277,7 @@ export function TripSearchForm({
             }}
             options={[]}
             onSearch={searchAirports}
-            large={large}
+            large={large && !compact}
           />
         ) : (
           <Autocomplete
@@ -307,7 +305,7 @@ export function TripSearchForm({
             }
             options={[]}
             onSearch={searchCities}
-            large={large}
+            large={large && !compact}
           />
         )}
         <PassengerSelector
@@ -316,7 +314,8 @@ export function TripSearchForm({
             onClearGroupSource?.();
             onChange({ ...trip, passengers: formatPassengers(p) });
           }}
-          large={large}
+          large={large && !compact}
+          compact={compact}
           hint={
             groupSource ? (
               <>
@@ -340,11 +339,13 @@ function ChoiceChip({
   active,
   icon,
   label,
+  compact,
   onClick,
 }: {
   active: boolean;
   icon: IconName;
   label: string;
+  compact?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -352,13 +353,14 @@ function ChoiceChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+        "inline-flex items-center gap-2 rounded-lg border font-medium transition-colors",
+        compact ? "px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm",
         active
           ? "border-brand-700 bg-brand-50 text-brand-800"
           : "border-border-default bg-white text-text-secondary hover:border-brand-300 hover:text-text-primary",
       )}
     >
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={compact ? 14 : 16} />
       {label}
     </button>
   );
@@ -368,21 +370,28 @@ function FieldShell({
   label,
   icon,
   large,
+  compact,
   children,
 }: {
   label: string;
   icon: IconName;
   large?: boolean;
+  compact?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border-default p-3 transition-all hover:border-brand-300 focus-within:border-brand-700 focus-within:ring-2 focus-within:ring-brand-100",
-        large && "border-2 p-4 focus-within:ring-4",
+        "rounded-xl border border-border-default transition-all hover:border-brand-300 focus-within:border-brand-700 focus-within:ring-2 focus-within:ring-brand-100",
+        compact ? "p-2.5" : large ? "border-2 p-4 focus-within:ring-4" : "p-3",
       )}
     >
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+      <div
+        className={cn(
+          "mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide text-text-tertiary",
+          compact ? "text-[10px]" : "text-xs",
+        )}
+      >
         <Icon name={icon} size={14} />
         <span>{label}</span>
       </div>

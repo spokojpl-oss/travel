@@ -217,6 +217,25 @@ export const en: Messages = {
     editTrip: "← Edit trip on home page",
     timeout: "Search took too long — try fewer activities or narrow the destination.",
     dbNotReady: "Attractions database not ready — run tagging in admin panel.",
+    suggestionsUnverifiedTitle: "Suggestions not verified in database",
+    suggestionsUnverifiedBody:
+      "We don't have OSM attractions for this place in the database yet. Selected activities are typical trip ideas — you can change them, but region search may return no results.",
+    noRegionsTitle: "No regions for selected activities",
+    noRegionsUnverified:
+      "Activity suggestions were typical trip ideas — we don't have verified places near {destination} yet. We also tried OpenStreetMap, but nothing was saved.",
+    noRegionsEmptyDb:
+      "We found no attractions near {destination} matching your selection. Try fewer categories, “any of selected” mode, or a wider travel scope.",
+    noRegionsClusters:
+      "We found {count} attractions, but no region meets all criteria — try “any of selected” or increase radius in advanced settings.",
+    changeActivities: "Change activities",
+    changeScope: "Change travel scope",
+    searchLooser: "Search more loosely (any activity)",
+    adminScrapeHint:
+      "Admin: fill OSM data for this region in the admin panel (Europe / Greece + Cyprus).",
+    searchMetaDetail:
+      "Within search radius: {places} places in database, {tags} tag matches{radius}.",
+    searchMetaOsm:
+      "We tried OpenStreetMap — {places} places in database, {tags} tag matches{radius}.",
   },
   flights: {
     title: "Flights",

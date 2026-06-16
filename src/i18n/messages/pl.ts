@@ -218,6 +218,25 @@ export const pl = {
       "Szukanie trwało zbyt długo — spróbuj mniej aktywności lub zawęź destynację.",
     dbNotReady:
       "Baza atrakcji nie jest gotowa — uruchom tagowanie w panelu admina.",
+    suggestionsUnverifiedTitle: "Propozycje bez weryfikacji w bazie",
+    suggestionsUnverifiedBody:
+      "Nie mamy jeszcze atrakcji OSM dla tego miejsca w bazie. Zaznaczone aktywności to typowe pomysły na wyjazd — możecie je zmienić, ale wyszukiwanie regionów może zwrócić pusty wynik.",
+    noRegionsTitle: "Brak regionów dla wybranych aktywności",
+    noRegionsUnverified:
+      "Propozycje aktywności były typowymi pomysłami — w bazie nie mamy jeszcze zweryfikowanych miejsc w okolicy {destination}. Próbowaliśmy też uzupełnić dane z OpenStreetMap, ale nic nie zapisano.",
+    noRegionsEmptyDb:
+      "W okolicy {destination} nie znaleźliśmy atrakcji pasujących do wybranych aktywności. Spróbujcie mniej kategorii, trybu „dowolna z wybranych” albo szerszego zakresu podróży.",
+    noRegionsClusters:
+      "Znaleźliśmy {count} atrakcji, ale żaden rejon nie spełnia wszystkich kryteriów — spróbujcie trybu „dowolna z wybranych” lub zwiększcie promień w ustawieniach zaawansowanych.",
+    changeActivities: "Zmień aktywności",
+    changeScope: "Zmień zakres podróży",
+    searchLooser: "Szukaj łagodniej (dowolna aktywność)",
+    adminScrapeHint:
+      "Administrator: uzupełnij dane OSM dla tego regionu w panelu admina (Europa / Grecja + Cypr).",
+    searchMetaDetail:
+      "W promieniu wyszukiwania: {places} miejsc w bazie, {tags} dopasowań tagów{radius}.",
+    searchMetaOsm:
+      "Próbowaliśmy uzupełnić dane z OpenStreetMap — {places} miejsc w bazie, {tags} dopasowań tagów{radius}.",
   },
   flights: {
     title: "Loty",

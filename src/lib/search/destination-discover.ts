@@ -18,6 +18,8 @@ export type DestinationDiscovery = DestinationOverview & {
   activity_counts: Record<string, number>;
   suggested_activities: string[];
   discovery_intro: string;
+  /** Propozycje aktywności bez potwierdzenia w bazie OSM. */
+  suggestions_unverified: boolean;
 };
 
 function hasChildren(passengers: string | undefined): boolean {
@@ -121,6 +123,7 @@ export function buildFallbackDiscovery({
       locale,
     }),
     enriching: false,
+    suggestions_unverified: true,
   };
 }
 
@@ -228,5 +231,6 @@ export async function discoverDestination({
     suggested_activities,
     discovery_intro,
     enriching: false,
+    suggestions_unverified: usedFallback,
   };
 }

@@ -122,7 +122,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         id="search"
         className={cn(
           "relative bg-brand-900",
-          compact ? "pt-8 pb-12" : "pt-16 pb-24",
+          compact ? "pt-6 pb-8" : "pt-12 pb-16",
         )}
       />
     );
@@ -133,7 +133,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
       id="search"
       className={cn(
         "relative bg-brand-900",
-        compact ? "pt-8 pb-12" : "pt-16 pb-24 lg:pt-24 lg:pb-32",
+        compact ? "pt-6 pb-8" : "pt-12 pb-16 lg:pt-16 lg:pb-20",
       )}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -158,16 +158,16 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         <div
           className={cn(
-            "mx-auto mb-10 max-w-4xl text-center text-white",
-            compact && "mb-8",
+            "mx-auto max-w-4xl text-center text-white",
+            compact ? "mb-5" : "mb-8",
           )}
         >
           <h1
             className={cn(
-              "font-display font-bold tracking-tight leading-[1.05]",
+              "font-display font-bold tracking-tight leading-[1.08]",
               compact
-                ? "text-3xl md:text-4xl"
-                : "text-4xl md:text-5xl lg:text-6xl",
+                ? "text-2xl md:text-3xl"
+                : "text-3xl md:text-4xl lg:text-5xl",
             )}
           >
             {t("hero.title1")}
@@ -175,14 +175,14 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             <span className="text-accent-500">{t("hero.title2")}</span>
           </h1>
           {!compact && (
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/70">
+            <p className="mx-auto mt-4 max-w-2xl text-base text-white/70">
               {t("hero.subtitle")}
             </p>
           )}
         </div>
 
-        <div className="relative z-10 mx-auto max-w-5xl rounded-2xl bg-white p-2 shadow-hero">
-          <div className="flex gap-1 border-b border-border-default px-4 pt-3">
+        <div className="relative z-10 mx-auto max-w-4xl rounded-2xl bg-white p-1.5 shadow-hero">
+          <div className="flex gap-1 border-b border-border-default px-3 pt-2">
             <TabButton
               active={trip.mode === "activities"}
               onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
@@ -197,7 +197,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             />
           </div>
 
-          <div className="p-3 md:p-4">
+          <div className={cn("p-2", !compact && "md:p-3")}>
             <TripSearchForm
               trip={trip}
               onChange={setTrip}
@@ -205,14 +205,18 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
               showDestination={trip.mode === "destination"}
               groupSource={activeGroup}
               onClearGroupSource={() => setActiveGroup(null)}
-              large
+              large={!compact}
+              compact={compact}
             />
 
             <button
               type="button"
               onClick={handleSearch}
               disabled={submitting}
-              className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent-500 px-8 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99] disabled:opacity-70"
+              className={cn(
+                "mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-6 font-semibold text-white shadow-md transition-all hover:bg-accent-600 hover:shadow-lg active:scale-[0.99] disabled:opacity-70",
+                compact ? "py-3 text-sm" : "py-3.5 text-base",
+              )}
             >
               <Icon name="search" size={20} />
               {submitting ? t("hero.searching") : t("hero.search")}
@@ -221,7 +225,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         </div>
 
         {!compact && (
-          <div className="mt-12 flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm text-white/70">
+          <div className="mt-8 flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm text-white/70">
             <TrustBadge>{t("hero.trustNoFees")}</TrustBadge>
             <TrustBadge>{t("hero.trustDirectLinks")}</TrustBadge>
             <TrustBadge>{t("hero.trustAdvisories")}</TrustBadge>
@@ -240,7 +244,7 @@ export function HeroSearch({ compact = false }: { compact?: boolean }) {
           id="search"
           className={cn(
             "relative bg-brand-900",
-            compact ? "pt-8 pb-12" : "pt-16 pb-24",
+            compact ? "pt-6 pb-8" : "pt-12 pb-16",
           )}
         />
       }

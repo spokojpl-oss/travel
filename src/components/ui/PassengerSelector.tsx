@@ -61,12 +61,14 @@ export function PassengerSelector({
   value,
   onChange,
   large,
+  compact,
   className,
   hint,
 }: {
   value: PassengerBreakdown;
   onChange: (v: PassengerBreakdown) => void;
   large?: boolean;
+  compact?: boolean;
   className?: string;
   hint?: ReactNode;
 }) {
@@ -87,12 +89,17 @@ export function PassengerSelector({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border-default p-3 transition-all hover:border-brand-300",
-        large && "border-2 p-4",
+        "rounded-xl border border-border-default transition-all hover:border-brand-300",
+        compact ? "p-2.5" : large ? "border-2 p-4" : "p-3",
         className,
       )}
     >
-      <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+      <div
+        className={cn(
+          "mb-3 flex items-center gap-2 font-semibold uppercase tracking-wide text-text-tertiary",
+          compact ? "mb-2 text-[10px]" : "text-xs",
+        )}
+      >
         <Icon name="users" size={14} />
         <span>{t("passengers.whoTravels")}</span>
       </div>
@@ -101,7 +108,7 @@ export function PassengerSelector({
         <p className="mb-3 text-xs text-text-secondary">{hint}</p>
       ) : null}
 
-      <div className="space-y-3">
+      <div className={cn(compact ? "space-y-2" : "space-y-3")}>
         <Stepper
           label={t("passengers.adultsLabel")}
           value={value.adults}
@@ -118,10 +125,12 @@ export function PassengerSelector({
         />
 
         {value.children > 0 && (
-          <div className="space-y-2 rounded-lg bg-bg-soft/80 p-3">
-            <p className="text-xs font-medium text-text-secondary">
-              Wiek dzieci (wpływa na ceny lotów i hoteli)
-            </p>
+          <div className={cn("space-y-2 rounded-lg bg-bg-soft/80", compact ? "p-2" : "p-3")}>
+            {!compact && (
+              <p className="text-xs font-medium text-text-secondary">
+                Wiek dzieci (wpływa na ceny lotów i hoteli)
+              </p>
+            )}
             {Array.from({ length: value.children }, (_, i) => (
               <label
                 key={i}
@@ -144,9 +153,11 @@ export function PassengerSelector({
           </div>
         )}
 
-        <p className="text-xs text-text-tertiary">
-          Podsumowanie: {formatPassengers(value)}
-        </p>
+        {!compact && (
+          <p className="text-xs text-text-tertiary">
+            Podsumowanie: {formatPassengers(value)}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -37,10 +37,8 @@ export const TRAVEL_MODE_OPTIONS: Array<{
   label: string;
   shortLabel: string;
 }> = [
-  { value: "car", label: "Samochód", shortLabel: "Auto" },
-  { value: "train", label: "Pociąg", shortLabel: "Pociąg" },
-  { value: "bus", label: "Autokar", shortLabel: "Autokar" },
   { value: "flight", label: "Samolot", shortLabel: "Lot" },
+  { value: "car", label: "Samochód", shortLabel: "Auto" },
 ];
 
 export const VEHICLE_SOURCE_OPTIONS: Array<{
@@ -132,7 +130,7 @@ export function resolveFlightOriginFields(
 export function defaultTripContext(): TripContext {
   const { from, to } = defaultDateRangeFromToday(30, 7);
 
-  return {
+  return normalizeTripContext({
     mode: "activities",
     interests: "",
     destination: null,
@@ -141,16 +139,16 @@ export function defaultTripContext(): TripContext {
     destination_lon: null,
     departure_date: from,
     return_date: to,
-    travel_mode: "car",
-    vehicle_source: "own",
+    travel_mode: "flight",
+    vehicle_source: null,
     origin_iata: null,
-    origin_label: "Warszawa",
+    origin_label: null,
     origin_scope: null,
     origin_lat: null,
     origin_lon: null,
     passengers: "2 dorosłych",
     exploration_scope: null,
-  };
+  });
 }
 
 export function inferTravelMode(
@@ -163,7 +161,10 @@ export function inferTravelMode(
 }
 
 export function normalizeTripContext(trip: TripContext): TripContext {
-  const travel_mode = trip.travel_mode ?? inferTravelMode(trip) ?? "car";
+  let travel_mode = trip.travel_mode ?? inferTravelMode(trip) ?? "flight";
+  if (travel_mode === "train" || travel_mode === "bus") {
+    travel_mode = "flight";
+  }
 
   if (travel_mode === "flight") {
     return {

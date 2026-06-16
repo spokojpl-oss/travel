@@ -55,62 +55,83 @@ type DataStatus = {
 function EmptyResultsCard({
   results,
   trip,
-  dataStatus,
-  selectedActivities,
+  suggestionsUnverified,
+  locale,
+  onChangeActivities,
+  onChangeScope,
+  onSearchLooser,
   t,
 }: {
   results: ActivitySearchResult;
   trip: TripContext;
-  dataStatus: DataStatus | null;
-  selectedActivities: Set<string>;
-  t: (key: string) => string;
+  suggestionsUnverified: boolean;
+  locale: "pl" | "en";
+  onChangeActivities: () => void;
+  onChangeScope: () => void;
+  onSearchLooser: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
+  const destination = trip.destination_label ?? trip.destination ?? "";
+  const destSuffix = destination ? ` ${destination}` : "";
+  const radiusSuffix =
+    results.meta?.geo_radius_km_used != null
+      ? locale === "en"
+        ? ` (up to ${results.meta.geo_radius_km_used} km)`
+        : ` (do ${results.meta.geo_radius_km_used} km)`
+      : "";
+
+  let body: string;
+  if (suggestionsUnverified && results.total_attractions_considered === 0) {
+    body = t("search.noRegionsUnverified", { destination: destSuffix.trim() || "—" });
+  } else if (results.total_attractions_considered === 0) {
+    body = t("search.noRegionsEmptyDb", {
+      destination: destSuffix.trim() || "—",
+    });
+  } else {
+    body = t("search.noRegionsClusters", {
+      count: results.total_attractions_considered,
+    });
+  }
+
   return (
-    <Card>
-      <CardBody>
-        <p className="text-text-secondary">
-          Nie znaleziono regionów
-          {trip.destination_label ? ` w okolicy ${trip.destination_label}` : ""}{" "}
-          dla wybranych aktywności.
-        </p>
-        {results.total_attractions_considered === 0 && (
-          <p className="mt-3 text-sm text-text-secondary">
-            Brak atrakcji w bazie dla wybranych aktywności
-            {trip.destination_label ? ` w okolicy ${trip.destination_label}` : ""}
-            . Przy wyszukiwaniu próbujemy uzupełnić dane z OpenStreetMap.
-            {dataStatus && dataStatus.attractions === 0 && (
-              <span className="mt-2 block text-amber-800">
-                {t("search.attractionsEmptyHint")} (w bazie:{" "}
-                {dataStatus.attractions} atrakcji, {dataStatus.tags} tagów)
-              </span>
-            )}
-            {selectedActivities.has("zoo") &&
-              !selectedActivities.has("aquarium") && (
-                <>
-                  {" "}
-                  Delfinaria często są oznaczone jako akwaria — spróbuj też
-                  zaznaczyć „Akwaria”.
-                </>
-              )}
-            {results.meta && (
-              <>
-                {" "}
-                (w promieniu: {results.meta.attractions_in_bbox} miejsc OSM,{" "}
-                {results.meta.tag_rows_fetched} tagów
-                {results.meta.geo_radius_km_used
-                  ? `, szukano do ${results.meta.geo_radius_km_used} km`
-                  : ""}
-                )
-              </>
+    <Card className="border-amber-200 bg-amber-50/40">
+      <CardBody className="space-y-4">
+        <div>
+          <p className="font-display text-lg font-bold text-text-primary">
+            {t("search.noRegionsTitle")}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            {body}
+          </p>
+        </div>
+
+        {results.meta && results.total_attractions_considered === 0 && (
+          <p className="text-xs text-text-tertiary">
+            {t(
+              results.meta.osm_filled ? "search.searchMetaOsm" : "search.searchMetaDetail",
+              {
+                places: results.meta.attractions_in_bbox,
+                tags: results.meta.tag_rows_fetched,
+                radius: radiusSuffix,
+              },
             )}
           </p>
         )}
-        {results.total_attractions_considered > 0 && (
-          <p className="mt-3 text-sm text-text-secondary">
-            Znaleziono {results.total_attractions_considered} atrakcji, ale żaden
-            klaster nie spełnia kryteriów — spróbuj trybu „dowolna z wybranych”
-            lub zwiększ promień w ustawieniach zaawansowanych.
-          </p>
+
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={onChangeActivities}>{t("search.changeActivities")}</Button>
+          <Button variant="secondary" onClick={onChangeScope}>
+            {t("search.changeScope")}
+          </Button>
+          {results.total_attractions_considered > 0 && (
+            <Button variant="ghost" onClick={onSearchLooser}>
+              {t("search.searchLooser")}
+            </Button>
+          )}
+        </div>
+
+        {suggestionsUnverified && (
+          <p className="text-xs text-text-tertiary">{t("search.adminScrapeHint")}</p>
         )}
       </CardBody>
     </Card>
@@ -468,6 +489,29 @@ function SearchPageContent() {
     router.replace(`/app/search?${p.toString()}`, { scroll: false });
   }
 
+  function goToActivitiesStep() {
+    scrollToActivitiesPending.current = true;
+    setStep(4);
+    syncUrl(trip, 4);
+  }
+
+  function goToScopeStep() {
+    setStep(2);
+    syncUrl(trip, 2);
+  }
+
+  function searchLooser() {
+    setMatchMode("any");
+    setMinPerActivity(1);
+    void handleSearch({
+      ...getSearchParams(),
+      match_mode: "any",
+      min_per_activity: 1,
+    });
+  }
+
+  const suggestionsUnverified = discovery?.suggestions_unverified ?? false;
+
   function toggleActivity(slug: string) {
     const next = new Set(selectedActivities);
     if (next.has(slug)) next.delete(slug);
@@ -716,16 +760,25 @@ function SearchPageContent() {
             setDiscoveryRetry((n) => n + 1);
           }}
           waitingForCoords={missingDestinationCoords}
-          onChooseActivities={() => {
-            scrollToActivitiesPending.current = true;
-            setStep(4);
-            syncUrl(trip, 4);
-          }}
+          onChooseActivities={goToActivitiesStep}
         />
       )}
 
       {showActivitiesStep && (
         <>
+          {suggestionsUnverified && (
+            <Card className="mb-6 border-amber-300 bg-amber-50/90">
+              <CardBody className="text-sm">
+                <p className="font-semibold text-text-primary">
+                  {t("search.suggestionsUnverifiedTitle")}
+                </p>
+                <p className="mt-1 text-text-secondary">
+                  {t("search.suggestionsUnverifiedBody")}
+                </p>
+              </CardBody>
+            </Card>
+          )}
+
           {showDataInfo && (
             <Card className="mb-6 border-warning/40 bg-orange-50/60">
               <CardBody>
@@ -1072,8 +1125,11 @@ function SearchPageContent() {
                 <EmptyResultsCard
                   results={results}
                   trip={trip}
-                  dataStatus={dataStatus}
-                  selectedActivities={selectedActivities}
+                  suggestionsUnverified={suggestionsUnverified}
+                  locale={locale}
+                  onChangeActivities={goToActivitiesStep}
+                  onChangeScope={goToScopeStep}
+                  onSearchLooser={searchLooser}
                   t={t}
                 />
               )}
