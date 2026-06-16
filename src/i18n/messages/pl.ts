@@ -13,7 +13,7 @@ export const pl = {
   },
   hero: {
     title1: "Zaplanuj wakacje",
-    title2: "dopasowane do rodziny",
+    title2: "dopasowane do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
     tabActivities: "Od aktywności",

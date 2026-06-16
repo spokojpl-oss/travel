@@ -166,8 +166,8 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
             className={cn(
               "font-display font-bold tracking-tight leading-[1.08]",
               compact
-                ? "text-2xl md:text-3xl"
-                : "text-3xl md:text-4xl lg:text-5xl",
+                ? "text-3xl md:text-4xl lg:text-5xl"
+                : "text-4xl md:text-5xl lg:text-6xl xl:text-7xl",
             )}
           >
             {t("hero.title1")}

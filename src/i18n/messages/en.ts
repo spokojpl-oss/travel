@@ -15,7 +15,7 @@ export const en: Messages = {
   },
   hero: {
     title1: "Plan your holiday",
-    title2: "tailored for your family",
+    title2: "tailored to ...",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
     tabActivities: "By activities",
