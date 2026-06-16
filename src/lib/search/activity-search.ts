@@ -20,6 +20,7 @@ import {
   explorationScopeFromString,
 } from "./exploration-scope";
 import { enrichClustersWithSettlements } from "./settlement-resolver";
+import { agentLog } from "@/lib/debug/agent-log";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
@@ -499,10 +500,23 @@ export async function searchActivities(
   let googleFilled = false;
 
   if (hasNearPoint(effectiveQuery)) {
+    const fetchT0 = Date.now();
     let fetched = await fetchTagRowsForRadii(supabase, effectiveQuery, island);
     tagRows = fetched.tagRows;
     geoRadiusUsed = fetched.geoRadiusUsed;
     attractionsInBbox = fetched.attractionsInBbox;
+
+    agentLog(
+      "activity-search.ts:searchActivities",
+      "initial fetch",
+      {
+        ms: Date.now() - fetchT0,
+        tagRows: tagRows.length,
+        attractionsInBbox,
+        destination: effectiveQuery.destination_label,
+      },
+      "H3",
+    );
 
     if (tagRows.length === 0 || attractionsInBbox === 0) {
       const emptyFillBudget = Math.min(
@@ -510,6 +524,7 @@ export async function searchActivities(
         remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
       );
       if (emptyFillBudget > 4_000) {
+        const fillT0 = Date.now();
         const filled = await withTimeout(
           ensureDestinationActivities({
             lat: effectiveQuery.near_lat,
@@ -526,6 +541,18 @@ export async function searchActivities(
         );
         osmFilled = osmFilled || filled.osmPersisted > 0;
         googleFilled = googleFilled || filled.googlePersisted > 0;
+
+        agentLog(
+          "activity-search.ts:searchActivities",
+          "empty db fill finished",
+          {
+            ms: Date.now() - fillT0,
+            budgetMs: emptyFillBudget,
+            osmPersisted: filled.osmPersisted,
+            googlePersisted: filled.googlePersisted,
+          },
+          "H3",
+        );
 
         fetched = await fetchTagRowsForRadii(
           supabase,
@@ -722,6 +749,20 @@ export async function searchActivities(
       }
     }
   }
+
+  agentLog(
+    "activity-search.ts:searchActivities",
+    "search complete",
+    {
+      msTotal: Date.now() - startTime,
+      clusters: filtered.length,
+      tagRows: tagRows.length,
+      attractionsInBbox,
+      osmFilled,
+      googleFilled,
+    },
+    "H4",
+  );
 
   return {
     query: effectiveQuery,

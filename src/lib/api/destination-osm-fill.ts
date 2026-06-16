@@ -11,6 +11,7 @@ import {
 } from "@/lib/destinations/island-boundary";
 import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox } from "@/types/domain";
+import { agentLog } from "@/lib/debug/agent-log";
 
 const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
   zoo: ["zoo", "aquarium"],
@@ -200,6 +201,7 @@ export async function countActivitiesNearPoint({
   radiusKm: number;
   destinationLabel?: string;
 }): Promise<Record<string, number>> {
+  const countT0 = Date.now();
   try {
     const supabase = createAdminClient();
   const island = resolveIslandBoundary(destinationLabel);
@@ -217,7 +219,19 @@ export async function countActivitiesNearPoint({
     .gte("lon", bbox.west)
     .lte("lon", bbox.east);
 
-  if (!attractions?.length) return {};
+  if (!attractions?.length) {
+    agentLog(
+      "destination-osm-fill.ts:countActivitiesNearPoint",
+      "zero attractions in bbox",
+      {
+        ms: Date.now() - countT0,
+        destinationLabel,
+        bbox,
+      },
+      "H4",
+    );
+    return {};
+  }
 
   const ids = attractions
     .filter((a) => {
@@ -243,8 +257,31 @@ export async function countActivitiesNearPoint({
     }
   }
 
+  agentLog(
+    "destination-osm-fill.ts:countActivitiesNearPoint",
+    "count done",
+    {
+      ms: Date.now() - countT0,
+      attractionRows: attractions.length,
+      idsAfterFilter: ids.length,
+      tagSlugs: Object.keys(counts).length,
+      destinationLabel,
+    },
+    "H4",
+  );
+
   return counts;
-  } catch {
+  } catch (err) {
+    agentLog(
+      "destination-osm-fill.ts:countActivitiesNearPoint",
+      "count failed",
+      {
+        ms: Date.now() - countT0,
+        error: err instanceof Error ? err.message : String(err),
+        destinationLabel,
+      },
+      "H4",
+    );
     return {};
   }
 }

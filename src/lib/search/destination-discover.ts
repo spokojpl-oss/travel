@@ -13,6 +13,7 @@ import {
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
+import { agentLog } from "@/lib/debug/agent-log";
 
 export type DestinationDiscovery = DestinationOverview & {
   activity_counts: Record<string, number>;
@@ -135,6 +136,14 @@ export async function discoverDestination({
   locale?: Locale;
   passengers?: string;
 }): Promise<DestinationDiscovery> {
+  const discoverT0 = Date.now();
+  agentLog(
+    "destination-discover.ts:discoverDestination",
+    "discover start",
+    { destinationLabel, explorationScope },
+    "H5",
+  );
+
   const { scopeSearchRadii } = await import("@/lib/search/exploration-scope");
   const { near_radius_km } = scopeSearchRadii(explorationScope);
   const island = resolveIslandBoundary(destinationLabel);
@@ -159,17 +168,31 @@ export async function discoverDestination({
   );
 
   const countsPromise = (async () => {
+    const countT0 = Date.now();
     const initial = await countActivitiesNearPoint({
       lat,
       lon,
       radiusKm: searchRadius,
       destinationLabel,
     });
+    const initialTotal = Object.values(initial).reduce((a, b) => a + b, 0);
+
+    agentLog(
+      "destination-discover.ts:countsPromise",
+      "initial count",
+      {
+        ms: Date.now() - countT0,
+        initialTotal,
+        slugCount: Object.keys(initial).length,
+      },
+      "H2",
+    );
 
     if (Object.values(initial).some((n) => n > 0)) {
       return initial;
     }
 
+    const fillT0 = Date.now();
     await Promise.race([
       fillForDestinationDiscovery({
         lat,
@@ -179,6 +202,13 @@ export async function discoverDestination({
       }),
       sleep(DISCOVERY_FILL_BUDGET_MS),
     ]);
+
+    agentLog(
+      "destination-discover.ts:countsPromise",
+      "osm fill race finished",
+      { ms: Date.now() - fillT0, budgetMs: DISCOVERY_FILL_BUDGET_MS },
+      "H2",
+    );
 
     return countActivitiesNearPoint({
       lat,
@@ -193,7 +223,23 @@ export async function discoverDestination({
     countsPromise,
   ]);
 
-  // Dalsze uzupełnianie w tle — następny krok wyszukiwania skorzysta z danych.
+  agentLog(
+    "destination-discover.ts:discoverDestination",
+    "discover complete",
+    {
+      msTotal: Date.now() - discoverT0,
+      activityTotal: Object.values(activity_counts).reduce((a, b) => a + b, 0),
+      suggestedCount: suggestActivities({
+        counts: activity_counts,
+        weather: overview.weather,
+        passengers,
+      }).length,
+      hasWeather: !!overview.weather,
+    },
+    "H5",
+  );
+
+  // Dalsze uzupełnianie w tle
   if (!Object.values(activity_counts).some((n) => n > 0)) {
     void fillForDestinationDiscovery({
       lat,
