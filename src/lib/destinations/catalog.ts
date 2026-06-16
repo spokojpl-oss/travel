@@ -1,4 +1,5 @@
 import type { BoundingBox } from "@/types/domain";
+import { ISLAND_CATALOG_ENTRIES } from "@/lib/destinations/catalog-islands";
 
 export type DestinationSuggestion = {
   name: string;
@@ -134,6 +135,22 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
     islandBbox: { north: 35.7, south: 34.5, east: 34.6, west: 32.2 },
     primaryAirports: ["LCA", "PFO"],
   },
+  {
+    name: "Malta",
+    country: "Malta",
+    aliases: ["malta", "valletta", "gozo", "malta mt", "mdina", "sliema"],
+    geocodeQuery: "Malta",
+    lat: 35.8989,
+    lon: 14.5146,
+    islandBbox: { north: 36.1, south: 35.78, east: 14.85, west: 14.15 },
+    primaryAirports: ["MLA"],
+    islandProfile: {
+      wholeWithBeachDays: 5,
+      wholeSightseeingDays: 4,
+      kidsExtraDays: 1,
+    },
+  },
+  ...ISLAND_CATALOG_ENTRIES,
   { name: "Antalya", country: "Turcja", lat: 36.8969, lon: 30.7133 },
   { name: "Bodrum", country: "Turcja", lat: 37.0344, lon: 27.4305 },
   { name: "Lizbona", country: "Portugalia", aliases: ["lisbon", "lisboa"], geocodeQuery: "Lisbon, Portugal", lat: 38.7223, lon: -9.1393 },

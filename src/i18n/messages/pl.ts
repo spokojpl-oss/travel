@@ -336,6 +336,10 @@ export const pl = {
     mapAirport: "Lotnisko",
     viewOnMap: "Zobacz rejon w Google Maps",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",
+    wholeIslandTitle: "Chcę zwiedzać całą wyspę",
+    wholeIslandBody:
+      "Wyspa jest na tyle mała, że rejony nachodzą na siebie — możesz objechać całość z jedną lub dwiema bazami.",
+    wholeIslandCta: "Cała wyspa →",
   },
   flights: {
     title: "Loty",

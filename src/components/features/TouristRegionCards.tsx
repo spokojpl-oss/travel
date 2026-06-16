@@ -15,6 +15,7 @@ import {
   type ScoredTouristRegion,
 } from "@/lib/destinations/tourist-regions";
 import { MAX_TOURIST_REGIONS } from "@/lib/search/trip-context";
+import { isCompactIslandDestination } from "@/lib/search/destination-size";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import {
   RegionSelectionMap,
@@ -134,6 +135,8 @@ export function TouristRegionCards({
   onContinue,
   onBack,
   onSkip,
+  destinationLabel = "",
+  onChooseWholeIsland,
 }: {
   regions: ScoredTouristRegion[];
   selectedIds: string[];
@@ -141,9 +144,15 @@ export function TouristRegionCards({
   onContinue: () => void;
   onBack?: () => void;
   onSkip?: () => void;
+  destinationLabel?: string;
+  /** Mała wyspa — przejście do objazdu całej wyspy z pominięciem wyboru rejonu. */
+  onChooseWholeIsland?: () => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
+  const showWholeIsland =
+    Boolean(onChooseWholeIsland) &&
+    isCompactIslandDestination(destinationLabel);
 
   const [focusedId, setFocusedId] = useState<string | null>(
     () => selectedIds[0] ?? regions[0]?.id ?? null,
@@ -205,12 +214,31 @@ export function TouristRegionCards({
     <div className="space-y-4">
       <p className="text-sm text-text-secondary">{t("regions.introDesktop")}</p>
 
+      {showWholeIsland && (
+        <Card className="border-brand-200 bg-brand-50/40">
+          <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-display text-base font-bold text-text-primary">
+                {t("regions.wholeIslandTitle")}
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                {t("regions.wholeIslandBody")}
+              </p>
+            </div>
+            <Button className="shrink-0" onClick={onChooseWholeIsland}>
+              {t("regions.wholeIslandCta")}
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(240px,300px)] lg:items-start lg:gap-4">
         <RegionSelectionMap
           regions={regions}
           focusedId={focusedId}
           selectedIds={selectedIds}
           onFocus={setFocusedId}
+          destinationLabel={destinationLabel}
           className="min-w-0"
         />
 

@@ -335,6 +335,10 @@ export const en: Messages = {
     mapAirport: "Airport",
     viewOnMap: "View area in Google Maps",
     skipToActivities: "Skip — pick activities manually →",
+    wholeIslandTitle: "Explore the whole island",
+    wholeIslandBody:
+      "The island is small enough that sub-regions overlap — you can tour the whole area with one or two bases.",
+    wholeIslandCta: "Whole island →",
   },
   flights: {
     title: "Flights",

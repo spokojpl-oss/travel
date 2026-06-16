@@ -41,6 +41,7 @@ type RegionSelectionMapProps = {
   focusedId: string | null;
   selectedIds: string[];
   onFocus: (regionId: string) => void;
+  destinationLabel?: string;
   className?: string;
 };
 
@@ -49,6 +50,7 @@ export function RegionSelectionMap({
   focusedId,
   selectedIds,
   onFocus,
+  destinationLabel,
   className,
 }: RegionSelectionMapProps) {
   const apiKey = getGoogleMapsApiKey();
@@ -137,7 +139,7 @@ export function RegionSelectionMap({
 
     regions.forEach((region, index) => {
       const center = { lat: region.center_lat, lng: region.center_lon };
-      const radiusM = regionMapRadiusKm(region) * 1000;
+      const radiusM = regionMapRadiusKm(region, destinationLabel) * 1000;
       const isSelected = selectedIds.includes(region.id);
       const isFocused = region.id === focusedId;
       const baseColor =
@@ -184,9 +186,9 @@ export function RegionSelectionMap({
 
       overlaysRef.current.push(circle, marker);
 
-      const latDelta = regionMapRadiusKm(region) / 111;
+      const latDelta = regionMapRadiusKm(region, destinationLabel) / 111;
       const lonDelta =
-        regionMapRadiusKm(region) /
+        regionMapRadiusKm(region, destinationLabel) /
         (111 * Math.cos((region.center_lat * Math.PI) / 180));
       bounds.extend({
         lat: region.center_lat + latDelta,

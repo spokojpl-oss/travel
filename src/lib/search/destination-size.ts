@@ -137,6 +137,14 @@ export function wholeIslandDayTargets(
   };
 }
 
+/** Mała wyspa (Malta, Gozo…) — rejony na mapie nachodzą na siebie; sensowny jest objazd całości. */
+export function isCompactIslandDestination(
+  destinationLabel: string | null | undefined,
+): boolean {
+  const profile = resolveDestinationSizeProfile(destinationLabel);
+  return profile?.kind === "island" && profile.maxDriveKm <= 95;
+}
+
 export function resolveDestinationSizeProfile(
   destinationLabel: string | null | undefined,
 ): DestinationSizeProfile | null {

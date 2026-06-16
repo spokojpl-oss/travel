@@ -736,6 +736,30 @@ function SearchPageContent() {
     });
   }
 
+  function handleWholeIslandChoice() {
+    let nextActivities = selectedActivities;
+    const nextTrip = {
+      ...trip,
+      exploration_scope: "island" as const,
+      tourist_region_ids: [] as string[],
+      tourist_region_id: null as string | null,
+    };
+    if (nextTrip.trip_rhythm && selectedActivities.size === 0) {
+      nextActivities = new Set(
+        suggestActivitiesFromRhythm({
+          rhythm: nextTrip.trip_rhythm,
+          counts: activityCounts,
+          weather: discovery?.weather ?? null,
+          passengers: nextTrip.passengers,
+        }),
+      );
+      setSelectedActivities(nextActivities);
+    }
+    setTrip(nextTrip);
+    setStep(6);
+    syncUrl(nextTrip, 6);
+  }
+
   function goToActivitiesStep() {
     let nextActivities = selectedActivities;
     if (trip.trip_rhythm && selectedActivities.size === 0) {
@@ -1270,6 +1294,10 @@ function SearchPageContent() {
               regions={scoredRegions}
               selectedIds={trip.tourist_region_ids}
               onSelectedIdsChange={handleRegionSelectionChange}
+              destinationLabel={
+                trip.destination_label ?? trip.destination ?? ""
+              }
+              onChooseWholeIsland={handleWholeIslandChoice}
               onContinue={goToActivitiesStep}
               onSkip={goToActivitiesStep}
               onBack={() => {

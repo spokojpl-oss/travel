@@ -1,6 +1,7 @@
 import type { Locale } from "@/i18n/config";
 import type { TripDayTheme, TripRhythm } from "@/lib/search/trip-rhythm";
 import { activeThemes } from "@/lib/search/trip-rhythm";
+import { isCompactIslandDestination } from "@/lib/search/destination-size";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 
 export type RegionCharacter = "resort" | "historic" | "wild" | "mixed";
@@ -173,20 +174,33 @@ export function regionAreaLabel(
   return label?.trim() || null;
 }
 
-export function regionMapRadiusKm(region: TouristRegion): number {
+export function regionMapRadiusKm(
+  region: TouristRegion,
+  destinationLabel?: string | null,
+): number {
+  let km: number;
   if (region.radius_km != null && region.radius_km > 0) {
-    return region.radius_km;
+    km = region.radius_km;
+  } else {
+    switch (region.character) {
+      case "resort":
+        km = 16;
+        break;
+      case "historic":
+        km = 14;
+        break;
+      case "wild":
+        km = 28;
+        break;
+      default:
+        km = 20;
+    }
   }
-  switch (region.character) {
-    case "resort":
-      return 16;
-    case "historic":
-      return 14;
-    case "wild":
-      return 28;
-    default:
-      return 20;
+
+  if (destinationLabel && isCompactIslandDestination(destinationLabel)) {
+    return Math.min(km, 6);
   }
+  return km;
 }
 
 const GENERAL_REGION_IDS = new Set([
