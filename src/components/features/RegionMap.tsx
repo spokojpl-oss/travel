@@ -28,6 +28,8 @@ type RegionMapProps = {
   showRouteList?: boolean;
   highlightedPointId?: string | null;
   onPointClick?: (point: MapPoint) => void;
+  /** Bez dymka Google Maps — klik tylko do panelu bocznego. */
+  suppressInfoWindow?: boolean;
 };
 
 export function RegionMap({
@@ -39,12 +41,19 @@ export function RegionMap({
   showRouteList = true,
   highlightedPointId,
   onPointClick,
+  suppressInfoWindow = false,
 }: RegionMapProps) {
   const apiKey = getGoogleMapsApiKey();
   const { locale } = useLocale();
   const t = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapsApiRef = useRef<typeof google.maps | null>(null);
+  const markersByIdRef = useRef<globalThis.Map<string, google.maps.Marker>>(
+    new globalThis.Map(),
+  );
+  const onPointClickRef = useRef(onPointClick);
+  onPointClickRef.current = onPointClick;
   const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Polyline>>(
     [],
   );
@@ -86,6 +95,7 @@ export function RegionMap({
         overlay.setMap(null);
       }
       overlaysRef.current = [];
+      markersByIdRef.current.clear();
     };
 
     loadGoogleMaps(apiKey, locale)
@@ -94,6 +104,7 @@ export function RegionMap({
 
         clearOverlays();
         mapRef.current = null;
+        mapsApiRef.current = maps;
 
         const center = points[0];
         const map = new maps.Map(containerRef.current, {
@@ -110,54 +121,41 @@ export function RegionMap({
           const position = { lat: point.lat, lng: point.lon };
           bounds.extend(position);
 
-          const isHighlighted = highlightedPointId === point.id;
-          const fillColor =
-            isHighlighted && point.type === "attraction"
-              ? "#ff5b00"
-              : POINT_COLORS[point.type];
-
           const marker = new maps.Marker({
             position,
             map,
             title: point.label,
-            icon: {
-              path: maps.SymbolPath.CIRCLE,
-              scale:
-                point.type === "airport"
-                  ? 13
-                  : isHighlighted
-                    ? 12
-                    : point.type === "centroid"
-                      ? 11
-                      : 8,
-              fillColor,
-              fillOpacity: 1,
-              strokeColor: isHighlighted ? "#ff5b00" : "#ffffff",
-              strokeWeight: point.type === "airport" || isHighlighted ? 3 : 2,
-            },
+            icon: markerIcon(maps, point, highlightedPointId === point.id),
           });
 
-          const mapsUrl = googleMapsPlaceUrl(
-            { lat: point.lat, lon: point.lon },
-            point.label,
-            locale,
-          );
+          if (!suppressInfoWindow) {
+            const mapsUrl = googleMapsPlaceUrl(
+              { lat: point.lat, lon: point.lon },
+              point.label,
+              locale,
+            );
 
-          const info = new maps.InfoWindow({
-            content: `<div style="min-width:160px;font-family:system-ui,sans-serif">
-              <strong>${escapeHtml(point.label)}</strong>
-              ${point.badge ? `<div style="font-size:12px;color:#5a6878;margin-top:4px">${escapeHtml(point.badge)}</div>` : ""}
-              <div style="margin-top:8px">
-                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("map.openInGoogleMaps"))}</a>
-              </div>
-            </div>`,
-          });
+            const info = new maps.InfoWindow({
+              content: `<div style="min-width:160px;font-family:system-ui,sans-serif">
+                <strong>${escapeHtml(point.label)}</strong>
+                ${point.badge ? `<div style="font-size:12px;color:#5a6878;margin-top:4px">${escapeHtml(point.badge)}</div>` : ""}
+                <div style="margin-top:8px">
+                  <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("map.openInGoogleMaps"))}</a>
+                </div>
+              </div>`,
+            });
 
-          marker.addListener("click", () => {
-            if (onPointClick) onPointClick(point);
-            info.open({ map, anchor: marker });
-          });
+            marker.addListener("click", () => {
+              onPointClickRef.current?.(point);
+              info.open({ map, anchor: marker });
+            });
+          } else {
+            marker.addListener("click", () => {
+              onPointClickRef.current?.(point);
+            });
+          }
 
+          markersByIdRef.current.set(point.id, marker);
           overlaysRef.current.push(marker);
         }
 
@@ -178,7 +176,18 @@ export function RegionMap({
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [apiKey, locale, pointsKey, points, highlightedPointId, onPointClick, t]);
+  }, [apiKey, locale, pointsKey, points, suppressInfoWindow, t]);
+
+  useEffect(() => {
+    const maps = mapsApiRef.current;
+    if (!maps || !mapReady) return;
+
+    for (const point of points) {
+      const marker = markersByIdRef.current.get(point.id);
+      if (!marker) continue;
+      marker.setIcon(markerIcon(maps, point, highlightedPointId === point.id));
+    }
+  }, [highlightedPointId, mapReady, points, pointsKey]);
 
   useEffect(() => {
     if (segments.length === 0) {
@@ -408,4 +417,31 @@ function escapeHtml(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function markerIcon(
+  maps: typeof google.maps,
+  point: MapPoint,
+  isHighlighted: boolean,
+): google.maps.SymbolIcon {
+  const fillColor =
+    isHighlighted && point.type === "attraction"
+      ? "#ff5b00"
+      : POINT_COLORS[point.type];
+
+  return {
+    path: maps.SymbolPath.CIRCLE,
+    scale:
+      point.type === "airport"
+        ? 13
+        : isHighlighted
+          ? 12
+          : point.type === "centroid"
+            ? 11
+            : 8,
+    fillColor,
+    fillOpacity: 1,
+    strokeColor: isHighlighted ? "#ff5b00" : "#ffffff",
+    strokeWeight: point.type === "airport" || isHighlighted ? 3 : 2,
+  };
 }

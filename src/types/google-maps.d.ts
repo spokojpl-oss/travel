@@ -68,6 +68,7 @@ declare namespace google.maps {
 
   interface Marker {
     setMap(map: Map | null): void;
+    setIcon(icon: SymbolIcon): void;
     addListener(event: string, handler: () => void): MapsEventListener;
   }
 

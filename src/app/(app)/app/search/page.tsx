@@ -1047,6 +1047,7 @@ function SearchPageContent() {
     buildId: string,
     cluster: GeoCluster,
     pool: AttractionWithActivities[],
+    selectedAttractionIds?: string[],
   ) {
     const searchRadii = getSearchParams();
     storeDestinationBuildPayload(buildId, {
@@ -1055,6 +1056,10 @@ function SearchPageContent() {
       destinationLabel: trip.destination_label ?? trip.destination ?? undefined,
       region: regionContextFromTrip(),
       attractionPool: pool,
+      selectedAttractionIds:
+        selectedAttractionIds && selectedAttractionIds.length > 0
+          ? selectedAttractionIds
+          : undefined,
       planComplete: false,
       poolEnriched: false,
       touristRegionId: trip.tourist_region_id,
@@ -1107,7 +1112,12 @@ function SearchPageContent() {
       cluster = reanchorClusterToTouristRegions(cluster, regions);
     }
     const fullPool = filterAttractionsToDestinationIsland(pool, label, cluster.center);
-    storeAndGoToPlan(cluster.id, cluster, fullPool);
+    storeAndGoToPlan(
+      cluster.id,
+      cluster,
+      fullPool,
+      selectedIds.length > 0 ? selectedIds : undefined,
+    );
   }
 
   const dbReady = dataStatus?.search_ready ?? false;
