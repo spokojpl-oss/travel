@@ -158,13 +158,6 @@ export function DestinationClimateBudgetPanel({
                 </tbody>
               </table>
             </div>
-
-            <p className="text-xs text-text-tertiary">
-              {t("search.climateSource")}:{" "}
-              {profile.climate_source === "seed"
-                ? `Open-Meteo (${climate.sample_years ?? "—"} ${t("search.climateYears")})`
-                : t("search.climateLiveSource")}
-            </p>
           </CardBody>
         </Card>
       )}
