@@ -92,14 +92,22 @@ export async function loadTouristRegionsCatalog(): Promise<TouristRegion[]> {
 export async function findTouristRegionsAsync({
   destinationLabel,
   rhythm,
-  limit = 8,
+  limit,
 }: {
   destinationLabel: string;
   rhythm: TripRhythm;
   limit?: number;
 }): Promise<ScoredTouristRegion[]> {
   const catalog = await loadTouristRegionsCatalog();
-  return findTouristRegionsInCatalog(catalog, { destinationLabel, rhythm, limit });
+  const norm = destinationLabel.toLowerCase();
+  const resolvedLimit =
+    limit ??
+    (norm.includes("cypr") || norm.includes("cyprus") ? 11 : 8);
+  return findTouristRegionsInCatalog(catalog, {
+    destinationLabel,
+    rhythm,
+    limit: resolvedLimit,
+  });
 }
 
 export async function listAllTouristRegionsAdmin(): Promise<TouristRegion[]> {

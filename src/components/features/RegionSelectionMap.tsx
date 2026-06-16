@@ -22,11 +22,15 @@ const REGION_COLORS = [
   "#0891b2",
   "#ca8a04",
   "#db2777",
+  "#ea580c",
+  "#059669",
+  "#6366f1",
 ];
 
 const CYPRUS_AIRPORTS = [
   { iata: "LCA", name: "Larnaca", lat: 34.875, lon: 33.625 },
   { iata: "PFO", name: "Pafos", lat: 34.718, lon: 32.486 },
+  { iata: "ECN", name: "Ercan", lat: 35.155, lon: 33.496 },
 ];
 
 function isCyprusRegions(regions: ScoredTouristRegion[]): boolean {
