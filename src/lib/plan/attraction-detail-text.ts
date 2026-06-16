@@ -10,6 +10,37 @@ const WEAK_PATTERNS = [
   /^kategoria:/i,
 ];
 
+const JUNK_OSM_PATTERNS = [
+  /yahoo/i,
+  /satellite image/i,
+  /mapped from/i,
+  /could be different/i,
+  /exact building dimensions/i,
+  /fixme/i,
+  /^source:/i,
+  /imported from/i,
+  /approximate location/i,
+  /needs survey/i,
+  /not verified/i,
+  /position approximate/i,
+  /building=yes/i,
+  /^yes$/i,
+  /^no$/i,
+];
+
+export function isWeakAttractionDescription(text: string | null | undefined): boolean {
+  const t = text?.trim();
+  if (!t || t.length < 20) return true;
+  if (WEAK_PATTERNS.some((p) => p.test(t))) return true;
+  return isJunkOsmText(t);
+}
+
+export function isJunkOsmText(text: string | null | undefined): boolean {
+  const t = text?.trim();
+  if (!t || t.length < 12) return true;
+  return JUNK_OSM_PATTERNS.some((p) => p.test(t));
+}
+
 function asOsmTags(raw: unknown): OsmTags {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: OsmTags = {};
@@ -21,43 +52,41 @@ function asOsmTags(raw: unknown): OsmTags {
   return out;
 }
 
-export function isWeakAttractionDescription(text: string | null | undefined): boolean {
-  const t = text?.trim();
-  if (!t || t.length < 20) return true;
-  return WEAK_PATTERNS.some((p) => p.test(t));
-}
-
 function pickOsmDescription(tags: OsmTags, locale: Locale): string | null {
   const keys =
     locale === "pl"
-      ? ["description:pl", "description", "note:pl", "note", "description:en"]
-      : ["description:en", "description", "note", "description:pl"];
+      ? ["description:pl", "description", "description:en"]
+      : ["description:en", "description", "description:pl"];
   for (const key of keys) {
     const v = tags[key]?.trim();
-    if (v && v.length >= 12) return v;
+    if (v && v.length >= 20 && !isJunkOsmText(v)) return v;
   }
   return null;
 }
 
-function labelHistoric(value: string, locale: Locale): string | null {
-  const v = value.toLowerCase();
-  const pl = locale !== "en";
-  if (v === "ruins" || v === "ruin") {
-    return pl ? "ruiny (resztki murów lub zabudowy)" : "ruins (remains of walls or structures)";
+export function attractionNameSearchVariants(name: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  function add(raw: string) {
+    const t = raw.trim().replace(/\s+/g, " ");
+    if (t.length < 3 || seen.has(t.toLowerCase())) return;
+    seen.add(t.toLowerCase());
+    out.push(t);
   }
-  if (v === "castle") return pl ? "zamek lub fortyfikacja" : "castle or fortification";
-  if (v === "archaeological_site") {
-    return pl ? "stanowisko archeologiczne" : "archaeological site";
+
+  add(name);
+  for (const part of name.split(/[;|/]/)) {
+    add(part);
   }
-  if (v === "fort") return pl ? "fort" : "fort";
-  if (v === "city_gate") return pl ? "brama miejska" : "city gate";
-  if (v === "citywalls") return pl ? "mury miejskie" : "city walls";
-  if (v === "monument") return pl ? "pomnik" : "monument";
-  if (v === "memorial") return pl ? "memoriał" : "memorial";
-  return null;
+
+  const withoutHotel = name.replace(/\b(hotel|motel|guesthouse|resort)\b/gi, "").trim();
+  if (withoutHotel.length >= 4) add(withoutHotel);
+
+  return out.slice(0, 6);
 }
 
-function buildHighlightsFromTags(
+function usefulHighlights(
   tags: OsmTags,
   attraction: AttractionWithActivities,
   locale: Locale,
@@ -65,67 +94,37 @@ function buildHighlightsFromTags(
   const pl = locale !== "en";
   const lines: string[] = [];
 
-  const historic = tags.historic?.trim();
-  if (historic) {
-    const label = labelHistoric(historic, locale);
-    if (label) lines.push(pl ? `Charakter: ${label}.` : `Type: ${label}.`);
-  }
-
-  if (tags.ruins === "yes") {
+  if (tags.heritage?.trim() && !/^yes$/i.test(tags.heritage)) {
     lines.push(
       pl
-        ? "To raczej ruiny niż pełnowymiarowa atrakcja z wystawą."
-        : "Mostly ruins rather than a full visitor attraction.",
+        ? `Wpisanie / dziedzictwo: ${tags.heritage}.`
+        : `Heritage: ${tags.heritage}.`,
     );
   }
 
-  const castleType = tags.castle_type?.trim();
-  if (castleType) {
-    lines.push(pl ? `Typ obiektu: ${castleType.replaceAll("_", " ")}.` : `Structure: ${castleType.replaceAll("_", " ")}.`);
-  }
-
-  if (tags.heritage?.trim()) {
-    lines.push(
-      pl
-        ? `Obiekt dziedzictwa (${tags.heritage}).`
-        : `Heritage site (${tags.heritage}).`,
-    );
-  }
-
-  if (tags.start_date?.trim()) {
+  if (tags.start_date?.trim() && tags.start_date.length >= 3) {
     lines.push(pl ? `Datowanie: od ${tags.start_date}.` : `Dating: from ${tags.start_date}.`);
-  }
-
-  if (tags.tourism?.trim() && tags.tourism !== "attraction") {
-    lines.push(pl ? `Turystyka: ${tags.tourism}.` : `Tourism: ${tags.tourism}.`);
-  }
-
-  if (tags.natural === "beach") {
-    const surface = tags.surface?.trim();
-    if (surface) {
-      lines.push(pl ? `Nawierzchnia: ${surface}.` : `Surface: ${surface}.`);
-    }
-  }
-
-  if (tags.access?.trim() && tags.access !== "yes") {
-    lines.push(pl ? `Dostęp: ${tags.access}.` : `Access: ${tags.access}.`);
   }
 
   if (tags.fee?.trim() && tags.fee !== "no") {
     lines.push(pl ? `Opłata: ${tags.fee}.` : `Fee: ${tags.fee}.`);
   }
 
+  if (tags.access?.trim() && !/^(yes|public)$/i.test(tags.access)) {
+    lines.push(pl ? `Dostęp: ${tags.access}.` : `Access: ${tags.access}.`);
+  }
+
   const rating = tags.rating?.trim();
   const ratingCount = tags.rating_count?.trim();
-  if (rating && Number(rating) >= 3.5) {
+  if (rating && Number(rating) >= 4 && ratingCount && Number(ratingCount) >= 20) {
     lines.push(
       pl
-        ? `Ocena Google: ${rating}${ratingCount ? ` (${ratingCount} opinii)` : ""}.`
-        : `Google rating: ${rating}${ratingCount ? ` (${ratingCount} reviews)` : ""}.`,
+        ? `Google ${rating}/5 (${ratingCount} opinii).`
+        : `Google ${rating}/5 (${ratingCount} reviews).`,
     );
   }
 
-  if (attraction.opening_hours?.trim()) {
+  if (attraction.opening_hours?.trim() && attraction.opening_hours.length < 120) {
     lines.push(
       pl
         ? `Godziny: ${attraction.opening_hours.trim()}`
@@ -133,34 +132,28 @@ function buildHighlightsFromTags(
     );
   }
 
-  return lines.slice(0, 4);
+  return lines.slice(0, 3);
 }
 
-/** Tekst z bazy + tagów OSM — bez Wikipedii. */
 export function buildInlineAttractionDetail(
   attraction: AttractionWithActivities,
   locale: Locale,
 ): { overview: string | null; highlights: string[] } {
   const tags = asOsmTags(attraction.tags);
-  const highlights = buildHighlightsFromTags(tags, attraction, locale);
 
   const dbDesc = attraction.description?.trim();
   if (dbDesc && !isWeakAttractionDescription(dbDesc)) {
-    return { overview: dbDesc, highlights };
+    return {
+      overview: dbDesc,
+      highlights: usefulHighlights(tags, attraction, locale),
+    };
   }
 
   const osmDesc = pickOsmDescription(tags, locale);
   if (osmDesc) {
-    return { overview: osmDesc, highlights };
-  }
-
-  if (highlights.length > 0) {
-    const pl = locale !== "en";
     return {
-      overview: pl
-        ? "Szczegółowy opis jeszcze nie jest w bazie — poniżej to, co wiemy z mapy."
-        : "No full write-up yet — here's what we know from the map data.",
-      highlights,
+      overview: osmDesc,
+      highlights: usefulHighlights(tags, attraction, locale),
     };
   }
 
@@ -172,21 +165,24 @@ export function wikipediaTargetFromOsmTags(
   locale: Locale,
 ): { page: string; wikiLocale: Locale } | null {
   const raw = tags.wikipedia?.trim();
-  if (raw) {
-    const colon = raw.indexOf(":");
-    if (colon > 0) {
-      const lang = raw.slice(0, colon).toLowerCase();
-      const page = raw.slice(colon + 1).trim();
-      if (page && (lang === "pl" || lang === "en")) {
-        return { page, wikiLocale: lang as Locale };
-      }
-    }
-    return { page: raw, wikiLocale: locale };
-  }
+  if (!raw) return null;
 
-  return null;
+  const colon = raw.indexOf(":");
+  if (colon > 0) {
+    const lang = raw.slice(0, colon).toLowerCase();
+    const page = raw.slice(colon + 1).trim();
+    if (page && (lang === "pl" || lang === "en")) {
+      return { page, wikiLocale: lang as Locale };
+    }
+  }
+  return { page: raw, wikiLocale: locale };
 }
 
 export function wikipediaSearchTitle(name: string): string {
   return name.trim().replace(/\s+/g, "_");
+}
+
+export function wikipediaSearchUrl(name: string, locale: Locale): string {
+  const host = locale === "pl" ? "pl.wikipedia.org" : "en.wikipedia.org";
+  return `https://${host}/w/index.php?search=${encodeURIComponent(name)}`;
 }

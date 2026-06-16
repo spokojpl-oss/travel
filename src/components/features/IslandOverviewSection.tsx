@@ -50,6 +50,8 @@ function AttractionDetailPanel({
 
   const [overview, setOverview] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<string[]>([]);
+  const [noDetailMessage, setNoDetailMessage] = useState<string | null>(null);
+  const [wikipediaSearchUrl, setWikipediaSearchUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,6 +59,8 @@ function AttractionDetailPanel({
     setLoading(true);
     setOverview(null);
     setHighlights([]);
+    setNoDetailMessage(null);
+    setWikipediaSearchUrl(null);
 
     fetch("/api/search/attraction-detail", {
       method: "POST",
@@ -66,21 +70,25 @@ function AttractionDetailPanel({
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<{
-          overview: string;
+          overview?: string | null;
           highlights?: string[];
+          message?: string;
+          wikipediaSearchUrl?: string;
         }>;
       })
       .then((data) => {
         if (cancelled) return;
-        setOverview(data.overview);
+        setOverview(data.overview?.trim() || null);
         setHighlights(data.highlights ?? []);
+        setNoDetailMessage(data.message ?? null);
+        setWikipediaSearchUrl(data.wikipediaSearchUrl ?? null);
       })
       .catch(() => {
         if (cancelled) return;
-        setOverview(
+        setNoDetailMessage(
           locale === "en"
-            ? "Could not load a description — check the map pin or website."
-            : "Nie udało się wczytać opisu — zerknij na pinezkę na mapie.",
+            ? "Could not load a description."
+            : "Nie udało się wczytać opisu.",
         );
       })
       .finally(() => {
@@ -98,7 +106,7 @@ function AttractionDetailPanel({
         <h3 className="font-display text-lg font-bold leading-tight text-text-primary">
           {name}
         </h3>
-        {tags.length > 0 && (
+        {tags.length > 0 && overview && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {tags.map((tag) => (
               <span
@@ -114,21 +122,48 @@ function AttractionDetailPanel({
 
       {loading ? (
         <p className="text-sm text-text-secondary">{t("island.detailLoading")}</p>
+      ) : overview ? (
+        <>
+          <p className="text-sm leading-snug text-text-primary">{overview}</p>
+          {highlights.length > 0 && (
+            <ul className="space-y-1.5">
+              {highlights.map((line) => (
+                <li
+                  key={line}
+                  className="rounded-md border border-border-default/80 px-2.5 py-1.5 text-xs text-text-secondary"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
-        <p className="text-sm leading-snug text-text-primary">{overview}</p>
-      )}
-
-      {!loading && highlights.length > 0 && (
-        <ul className="space-y-1.5">
-          {highlights.map((line) => (
-            <li
-              key={line}
-              className="rounded-md border border-border-default/80 px-2.5 py-1.5 text-xs text-text-secondary"
-            >
-              {line}
-            </li>
-          ))}
-        </ul>
+        <div className="rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2.5 text-sm text-text-secondary">
+          <p>{noDetailMessage ?? t("island.noDetail")}</p>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold">
+            {wikipediaSearchUrl && (
+              <a
+                href={wikipediaSearchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-700 hover:underline"
+              >
+                {t("island.searchWikipedia")} →
+              </a>
+            )}
+            {attraction.website?.trim() && (
+              <a
+                href={attraction.website.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-700 hover:underline"
+              >
+                {t("island.websiteLink")} →
+              </a>
+            )}
+          </div>
+        </div>
       )}
 
       {attraction.duration_minutes != null && attraction.duration_minutes > 0 && (
@@ -138,11 +173,11 @@ function AttractionDetailPanel({
         </p>
       )}
 
-      {attraction.address?.trim() && (
+      {overview && attraction.address?.trim() && (
         <p className="text-xs text-text-tertiary">{attraction.address.trim()}</p>
       )}
 
-      {attraction.website?.trim() && (
+      {overview && attraction.website?.trim() && (
         <a
           href={attraction.website.trim()}
           target="_blank"

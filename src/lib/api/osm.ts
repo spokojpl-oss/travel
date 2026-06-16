@@ -2,6 +2,10 @@ import { fetchWithCache } from "@/lib/cache/api-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BoundingBox } from "@/types/domain";
 import type { Json } from "@/types/database";
+import {
+  isJunkOsmText,
+  wikipediaTargetFromOsmTags,
+} from "@/lib/plan/attraction-detail-text";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -196,12 +200,19 @@ export async function persistOsmPlaces(
 
   if (places.length === 0) return { upserted: 0 };
 
-  const rows = places.map((p) => ({
-    external_id: p.external_id,
-    source: "osm",
-    destination_id: destinationId,
-    name: p.name,
-    category: p.category,
+  const rows = places.map((p) => {
+    const desc =
+      [p.tags["description:pl"], p.tags.description, p.tags["description:en"]]
+        .map((v) => v?.trim())
+        .find((v) => v && v.length >= 20 && !isJunkOsmText(v)) ?? null;
+
+    return {
+      external_id: p.external_id,
+      source: "osm",
+      destination_id: destinationId,
+      name: p.name,
+      description: desc,
+      category: p.category,
     subcategories: p.subcategories,
     lat: p.lat,
     lon: p.lon,

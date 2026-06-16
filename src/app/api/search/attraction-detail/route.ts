@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { fetchWikipediaPageSummary } from "@/lib/api/wikipedia-summary";
-import {
-  buildInlineAttractionDetail,
-  isWeakAttractionDescription,
-  wikipediaSearchTitle,
-  wikipediaTargetFromOsmTags,
-} from "@/lib/plan/attraction-detail-text";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveAttractionDetail } from "@/lib/api/attraction-detail-fetch";
+import { wikipediaSearchUrl } from "@/lib/plan/attraction-detail-text";
 import type { AttractionWithActivities } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
 
@@ -15,15 +11,6 @@ const bodySchema = z.object({
   id: z.string().uuid(),
   locale: z.enum(["pl", "en"]).optional(),
 });
-
-function asOsmTags(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (value != null && String(value).trim()) out[key] = String(value).trim();
-  }
-  return out;
-}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -50,6 +37,7 @@ export async function POST(request: Request) {
   }
 
   const locale: Locale = parsed.data.locale ?? "pl";
+  const pl = locale !== "en";
 
   const { data: row, error } = await supabase
     .from("attractions")
@@ -73,65 +61,33 @@ export async function POST(request: Request) {
     activity_tags: tagRows ?? [],
   } as AttractionWithActivities;
 
-  const inline = buildInlineAttractionDetail(attraction, locale);
-  if (inline.overview && !isWeakAttractionDescription(inline.overview)) {
-    return NextResponse.json({
-      overview: inline.overview,
-      highlights: inline.highlights,
-      source: row.source === "curated" ? "curated" : "inline",
-    });
-  }
+  const result = await resolveAttractionDetail(attraction, locale);
 
-  const tags = asOsmTags(row.tags);
-  const wikiFromTag = wikipediaTargetFromOsmTags(tags, locale);
-
-  const wikiCandidates: Array<{ page: string; wikiLocale: Locale }> = [];
-  if (wikiFromTag) wikiCandidates.push(wikiFromTag);
-  wikiCandidates.push({
-    page: wikipediaSearchTitle(row.name),
-    wikiLocale: locale,
-  });
-  if (locale === "pl") {
-    wikiCandidates.push({
-      page: wikipediaSearchTitle(row.name),
-      wikiLocale: "en",
-    });
-  }
-
-  const seen = new Set<string>();
-  for (const candidate of wikiCandidates) {
-    const key = `${candidate.wikiLocale}:${candidate.page}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const wiki = await fetchWikipediaPageSummary(
-      candidate.page,
-      candidate.wikiLocale,
-      4000,
-    );
-    if (wiki?.extract) {
-      return NextResponse.json({
-        overview: wiki.extract,
-        highlights: inline.highlights,
-        source: "wikipedia",
-      });
+  if (
+    result.overview &&
+    (result.source === "wikipedia" || result.source === "google") &&
+    !row.description?.trim()
+  ) {
+    try {
+      const admin = createAdminClient();
+      await admin
+        .from("attractions")
+        .update({ description: result.overview })
+        .eq("id", row.id);
+    } catch {
+      /* zapis opisu opcjonalny */
     }
   }
 
-  if (inline.overview) {
-    return NextResponse.json({
-      overview: inline.overview,
-      highlights: inline.highlights,
-      source: "inline",
-    });
+  if (result.overview) {
+    return NextResponse.json(result);
   }
 
-  const pl = locale !== "en";
   return NextResponse.json({
-    overview: pl
-      ? "Mało danych w OpenStreetMap — to może być niewielki obiekt lub ruina bez opisu. Sprawdź lokalizację na mapie albo stronę www, jeśli jest podana."
-      : "Little data in OpenStreetMap — this may be a minor site or ruin without a description. Check the map location or website if listed.",
-    highlights: inline.highlights,
-    source: "none",
+    ...result,
+    message: pl
+      ? "Nie mamy opisu tego miejsca — to punkt z mapy OpenStreetMap bez artykułu w bazie. Możesz sprawdzić Wikipedię lub stronę obiektu."
+      : "We don't have a description — this is an OpenStreetMap point without a write-up in our database. Try Wikipedia or the venue website.",
+    wikipediaSearchUrl: wikipediaSearchUrl(row.name, locale),
   });
 }

@@ -72,6 +72,7 @@ async function persistGooglePlace(
     .from("attractions")
     .upsert(
       {
+        description: place.editorial_summary?.trim() || null,
         external_id: externalId,
         source: "google",
         name: place.name,

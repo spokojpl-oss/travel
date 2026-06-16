@@ -300,6 +300,9 @@ export const en: Messages = {
     clickMapHint: "Click a green dot on the map — details appear on the right.",
     yourSelection: "Your plan",
     detailLoading: "Loading place description…",
+    noDetail:
+      "No description in our database — an OpenStreetMap point only. Try Wikipedia or judge by the map pin.",
+    searchWikipedia: "Search Wikipedia",
     websiteLink: "Website",
     addToPlan: "Add to plan",
     removeFromPlan: "Remove from plan",

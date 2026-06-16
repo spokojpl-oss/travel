@@ -301,6 +301,9 @@ export const pl = {
     clickMapHint: "Kliknij zielone kółko na mapie — po prawej zobaczysz opis miejsca.",
     yourSelection: "Twój plan",
     detailLoading: "Wczytuję opis miejsca…",
+    noDetail:
+      "Brak opisu w bazie — to punkt z OpenStreetMap. Szukaj na Wikipedii albo oceń po mapie, czy warto jechać.",
+    searchWikipedia: "Szukaj w Wikipedii",
     websiteLink: "Strona www",
     addToPlan: "Dodaj do planu",
     removeFromPlan: "Usuń z planu",
