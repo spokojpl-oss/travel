@@ -168,6 +168,11 @@ export const en: Messages = {
     discoverError: "Couldn't load the destination preview.",
     discoverRetry: "Try again",
     discoverErrorGeneric: "The request timed out or the connection failed.",
+    discoverWarnSlow:
+      "Full data is loading slowly — showing typical suggestions so you can continue.",
+    discoverWarnFallback:
+      "Couldn't load the full preview — you can still pick activities and search regions.",
+    overviewLoading: "Checking what's nearby…",
     discoverFoundTitle: "What we found",
     discoverFoundEmpty: "Still gathering data — you can refine on the next step.",
     discoverFoundHint: "Click to add or remove a suggestion.",

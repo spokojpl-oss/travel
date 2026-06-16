@@ -166,6 +166,11 @@ export const pl = {
     discoverError: "Nie udało się wczytać podglądu destynacji.",
     discoverRetry: "Spróbuj ponownie",
     discoverErrorGeneric: "Przekroczono czas oczekiwania lub wystąpił błąd połączenia.",
+    discoverWarnSlow:
+      "Pełne dane wczytują się wolno — pokazujemy typowe propozycje, możecie iść dalej.",
+    discoverWarnFallback:
+      "Nie udało się pobrać pełnego podglądu — możecie wybrać aktywności i szukać regionów.",
+    overviewLoading: "Sprawdzamy, co jest w okolicy…",
     discoverFoundTitle: "Co znaleźliśmy",
     discoverFoundEmpty: "Jeszcze zbieramy dane — możecie doprecyzować na kolejnym kroku.",
     discoverFoundHint: "Kliknij, żeby dodać lub usunąć propozycję.",

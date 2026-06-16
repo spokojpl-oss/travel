@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
+import {
+  fillDestinationAttractionsQuick,
+} from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
 import {
   ensureDestinationActivities,
@@ -438,7 +440,7 @@ async function supplementMissingActivities(
       let googleFilled = false;
 
       try {
-        const osm = await fillDestinationAttractionsFromOsm({
+        const osm = await fillDestinationAttractionsQuick({
           lat: center.lat,
           lon: center.lon,
           radiusKm: fillRadius,
@@ -517,6 +519,7 @@ export async function searchActivities(
               island?.maxRadiusKm ??
               120,
             destinationLabel: effectiveQuery.destination_label,
+            activitySlugs: effectiveQuery.activities,
           }),
           emptyFillBudget,
           { osmPersisted: 0, googlePersisted: 0 },

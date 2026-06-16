@@ -6,7 +6,10 @@ import {
   buildDiscoveryIntroWithFallback,
   inferDefaultDiscoveryActivities,
 } from "@/lib/search/discovery-defaults";
-import { buildDestinationOverview } from "@/lib/search/destination-overview";
+import {
+  buildDestinationOverview,
+  buildInstantOverview,
+} from "@/lib/search/destination-overview";
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
@@ -66,7 +69,52 @@ export function suggestActivities({
   return [...picked].slice(0, 8);
 }
 
-const DISCOVERY_FILL_TIMEOUT_MS = 45_000;
+/** Krótki budżet — discovery nie może blokować UI (klient ma timeout ~45s). */
+const DISCOVERY_FILL_BUDGET_MS = 10_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Gdy API discovery padnie — użytkownik i tak może iść dalej. */
+export function buildFallbackDiscovery({
+  destinationLabel,
+  explorationScope,
+  locale = "pl",
+  passengers,
+}: {
+  destinationLabel: string;
+  explorationScope: ExplorationScope;
+  locale?: Locale;
+  passengers?: string;
+}): DestinationDiscovery {
+  const overview = buildInstantOverview({
+    destinationLabel,
+    explorationScope,
+    locale,
+  });
+  const suggested_activities = inferDefaultDiscoveryActivities({
+    destinationLabel,
+    weather: null,
+    passengers,
+    explorationScope,
+  });
+
+  return {
+    ...overview,
+    activity_counts: {},
+    suggested_activities,
+    discovery_intro: buildDiscoveryIntroWithFallback({
+      placeName: overview.place_name,
+      counts: {},
+      weather: null,
+      suggested: suggested_activities,
+      usedFallback: true,
+      locale,
+    }),
+    enriching: false,
+  };
+}
 
 export async function discoverDestination({
   destinationLabel,
@@ -102,9 +150,26 @@ export async function discoverDestination({
     dateTo,
     explorationScope,
     locale,
-  });
+  }).catch(() =>
+    buildInstantOverview({
+      destinationLabel,
+      explorationScope,
+      locale,
+    }),
+  );
 
   const countsPromise = (async () => {
+    const initial = await countActivitiesNearPoint({
+      lat,
+      lon,
+      radiusKm: searchRadius,
+      destinationLabel,
+    });
+
+    if (Object.values(initial).some((n) => n > 0)) {
+      return initial;
+    }
+
     await Promise.race([
       fillForDestinationDiscovery({
         lat,
@@ -112,9 +177,7 @@ export async function discoverDestination({
         radiusKm: searchRadius,
         destinationLabel,
       }),
-      new Promise<void>((resolve) =>
-        setTimeout(resolve, DISCOVERY_FILL_TIMEOUT_MS),
-      ),
+      sleep(DISCOVERY_FILL_BUDGET_MS),
     ]);
 
     return countActivitiesNearPoint({
@@ -129,6 +192,16 @@ export async function discoverDestination({
     overviewPromise,
     countsPromise,
   ]);
+
+  // Dalsze uzupełnianie w tle — następny krok wyszukiwania skorzysta z danych.
+  if (!Object.values(activity_counts).some((n) => n > 0)) {
+    void fillForDestinationDiscovery({
+      lat,
+      lon,
+      radiusKm: searchRadius,
+      destinationLabel,
+    }).catch(() => {});
+  }
 
   let suggested_activities = suggestActivities({
     counts: activity_counts,

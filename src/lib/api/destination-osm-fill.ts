@@ -50,6 +50,16 @@ const DEFAULT_FILL_CATEGORIES: OsmCategory[] = [
   "archaeological_site",
 ];
 
+/** Szybki scrape przy wyszukiwaniu — max 6 zapytań Overpass zamiast 13+. */
+export const QUICK_OSM_FILL_CATEGORIES: OsmCategory[] = [
+  "beach",
+  "viewpoint",
+  "museum",
+  "tourism_attraction",
+  "archaeological_site",
+  "castle",
+];
+
 function bboxFromCenter(
   lat: number,
   lon: number,
@@ -85,6 +95,7 @@ export async function fillDestinationAttractionsFromOsm({
   activitySlugs,
   searchBbox,
   forceRefresh = false,
+  categoriesOverride,
 }: {
   lat: number;
   lon: number;
@@ -92,12 +103,14 @@ export async function fillDestinationAttractionsFromOsm({
   activitySlugs: string[];
   searchBbox?: BoundingBox;
   forceRefresh?: boolean;
+  categoriesOverride?: OsmCategory[];
 }): Promise<{ persisted: number; tagged: number }> {
   const bbox = searchBbox ?? bboxFromCenter(lat, lon, radiusKm);
-  const categories = categoriesForActivities(activitySlugs);
+  const categories = categoriesOverride ?? categoriesForActivities(activitySlugs);
   const bboxSpan =
     Math.abs(bbox.north - bbox.south) + Math.abs(bbox.east - bbox.west);
-  const categoryDelayMs = bboxSpan > 3 ? 900 : 450;
+  const categoryDelayMs =
+    categories.length <= 6 ? 350 : bboxSpan > 3 ? 700 : 400;
 
   const seen = new Set<string>();
   const allPlaces = [];
@@ -134,6 +147,48 @@ export async function fillDestinationAttractionsFromOsm({
   return { persisted: upserted, tagged: tags_created };
 }
 
+const ACTIVITY_QUICK_CATEGORIES: Partial<Record<string, OsmCategory[]>> = {
+  sandy_beaches: ["beach"],
+  rocky_beaches: ["beach"],
+  museums: ["museum"],
+  viewpoints: ["viewpoint"],
+  archaeology: ["archaeological_site"],
+  castles: ["castle"],
+  caves: ["cave"],
+  waterfalls: ["waterfall"],
+  hiking_trails: ["hiking"],
+  zoo: ["zoo"],
+  aquarium: ["aquarium"],
+  theme_parks: ["theme_park"],
+};
+
+/** Szybki scrape — 6–8 kategorii zamiast pełnej listy (timeout na wyspach). */
+export async function fillDestinationAttractionsQuick(
+  params: {
+    lat: number;
+    lon: number;
+    radiusKm: number;
+    activitySlugs: string[];
+    searchBbox?: BoundingBox;
+    forceRefresh?: boolean;
+  },
+): Promise<{ persisted: number; tagged: number }> {
+  const extra = new Set<OsmCategory>();
+  for (const slug of params.activitySlugs) {
+    for (const cat of ACTIVITY_QUICK_CATEGORIES[slug] ?? []) {
+      extra.add(cat);
+    }
+  }
+  const categories = [
+    ...new Set([...QUICK_OSM_FILL_CATEGORIES, ...extra]),
+  ].slice(0, 8);
+
+  return fillDestinationAttractionsFromOsm({
+    ...params,
+    categoriesOverride: categories,
+  });
+}
+
 export async function countActivitiesNearPoint({
   lat,
   lon,
@@ -145,7 +200,8 @@ export async function countActivitiesNearPoint({
   radiusKm: number;
   destinationLabel?: string;
 }): Promise<Record<string, number>> {
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
   const island = resolveIslandBoundary(destinationLabel);
   const center = { lat, lon };
   const effectiveRadius = island
@@ -188,6 +244,9 @@ export async function countActivitiesNearPoint({
   }
 
   return counts;
+  } catch {
+    return {};
+  }
 }
 
 function sleep(ms: number): Promise<void> {

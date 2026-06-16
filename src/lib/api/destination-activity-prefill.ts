@@ -1,5 +1,6 @@
+import { apiEnv } from "@/config/api-env";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
-import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
+import { fillDestinationAttractionsQuick } from "@/lib/api/destination-osm-fill";
 import { resolveIslandBoundaryForSearch } from "@/lib/destinations/island-boundary";
 
 /** Promień uzupełniania OSM/Google — mniejszy niż zasięg liczenia (Overpass timeout). */
@@ -42,36 +43,48 @@ export async function ensureDestinationActivities({
   lon,
   radiusKm,
   destinationLabel,
+  activitySlugs = [],
 }: {
   lat: number;
   lon: number;
   radiusKm: number;
   destinationLabel?: string;
+  activitySlugs?: string[];
 }): Promise<{ osmPersisted: number; googlePersisted: number }> {
   const island = resolveIslandBoundaryForSearch(destinationLabel, { lat, lon });
   const fillRadius = island
     ? Math.min(radiusKm, island.maxRadiusKm)
     : fillRadiusKm(radiusKm);
   const searchBbox = island?.bbox;
+  const slugs =
+    activitySlugs.length > 0 ? activitySlugs : [...GOOGLE_PREFILL_SLUGS];
 
-  const [osm, google] = await Promise.all([
-    fillDestinationAttractionsFromOsm({
+  const osmPromise = fillDestinationAttractionsQuick({
+    lat,
+    lon,
+    radiusKm: fillRadius,
+    activitySlugs: slugs,
+    searchBbox,
+  }).catch(() => ({ persisted: 0, tagged: 0 }));
+
+  let googlePromise: Promise<{ persisted: number; tagged: number }> =
+    Promise.resolve({ persisted: 0, tagged: 0 });
+
+  if (apiEnv.GOOGLE_PLACES_API_KEY) {
+    googlePromise = fillDestinationAttractionsFromGoogle({
       lat,
       lon,
       radiusKm: fillRadius,
-      activitySlugs: [...GOOGLE_PREFILL_SLUGS],
-      searchBbox,
-    }).catch(() => ({ persisted: 0, tagged: 0 })),
-    fillDestinationAttractionsFromGoogle({
-      lat,
-      lon,
-      radiusKm: fillRadius,
-      activitySlugs: [...GOOGLE_PREFILL_SLUGS],
+      activitySlugs: slugs,
       destinationLabel,
       searchBbox,
       islandBbox: island?.bbox,
-    }).catch(() => ({ persisted: 0, tagged: 0 })),
-  ]);
+      onlySlugs: slugs.slice(0, 6),
+      maxConcurrent: 4,
+    }).catch(() => ({ persisted: 0, tagged: 0 }));
+  }
+
+  const [osm, google] = await Promise.all([osmPromise, googlePromise]);
 
   return {
     osmPersisted: osm.persisted,

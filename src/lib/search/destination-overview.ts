@@ -45,7 +45,7 @@ export async function buildDestinationOverview({
   });
 
   const [wiki, weather] = await Promise.all([
-    withTimeout(fetchWikipediaSummary(destinationLabel, locale), 4000).catch(
+    withTimeout(fetchWikipediaSummary(destinationLabel, locale), 2500).catch(
       () => null,
     ),
     dateFrom && dateTo
@@ -55,7 +55,7 @@ export async function buildDestinationOverview({
             dateFrom,
             dateTo,
           }),
-          8000,
+          5000,
         ).catch(() => null)
       : Promise.resolve(null),
   ]);

@@ -1,67 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DestinationClimateBudgetPanel } from "@/components/features/DestinationClimateBudgetPanel";
-import { DestinationOverviewLoader } from "@/components/features/DestinationOverviewLoader";
+import { DestinationOverviewHero } from "@/components/features/DestinationOverviewLoader";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
 import type { Activity, ActivityGroup } from "@/types/domain";
-import { isAcceptableHeroImageUrl } from "@/lib/destinations/destination-hero-images";
 import { useLocale, useT } from "@/i18n/locale-provider";
-
-function OverviewHero({
-  imageUrl,
-  title,
-  subtitle,
-}: {
-  imageUrl: string | null;
-  title: string;
-  subtitle: string;
-}) {
-  const [sharp, setSharp] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    if (!imageUrl) return;
-    setSharp(false);
-    setFailed(false);
-    const img = new Image();
-    img.onload = () => setSharp(true);
-    img.onerror = () => setFailed(true);
-    img.src = imageUrl;
-    if (img.complete && img.naturalWidth > 0) setSharp(true);
-  }, [imageUrl]);
-
-  if (!imageUrl || failed || !isAcceptableHeroImageUrl(imageUrl)) {
-    return (
-      <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900 p-8 shadow-card">
-        <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h2>
-        <p className="mt-2 max-w-2xl text-sm text-white/90 sm:text-base">{subtitle}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overview-reveal relative mb-6 overflow-hidden rounded-2xl shadow-card">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt=""
-        className={`overview-reveal-photo h-56 w-full object-cover sm:h-72 ${
-          sharp ? "overview-reveal-photo-sharp" : "overview-reveal-photo-blur"
-        }`}
-        onLoad={() => setSharp(true)}
-        onError={() => setFailed(true)}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-brand-900/80 via-transparent to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-        <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h2>
-        <p className="mt-2 max-w-2xl text-sm text-white/90 sm:text-base">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
 
 export function DestinationOverviewPanel({
   destinationLabel,
@@ -94,28 +39,37 @@ export function DestinationOverviewPanel({
   const { locale } = useLocale();
 
   if (waitingForCoords || discovering || !discovery) {
-    if (discoveryError && !discovering && !waitingForCoords) {
-      return (
-        <div className="mb-8 rounded-2xl border border-danger/30 bg-orange-50/80 p-6 text-center">
-          <p className="font-medium text-text-primary">{t("search.discoverError")}</p>
-          <p className="mt-2 text-sm text-text-secondary">{discoveryError}</p>
-          {onRetry && (
-            <Button className="mt-4" onClick={onRetry}>
-              {t("search.discoverRetry")}
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    return <DestinationOverviewLoader destinationLabel={destinationLabel} />;
+    return (
+      <>
+        <DestinationOverviewHero
+          destinationLabel={destinationLabel}
+          loading={discovering || waitingForCoords}
+          subtitle={
+            discovering || waitingForCoords
+              ? t("search.overviewLoading")
+              : undefined
+          }
+        />
+        {discoveryError && !discovering && !waitingForCoords && (
+          <div className="mb-8 rounded-2xl border border-danger/30 bg-orange-50/80 p-6 text-center">
+            <p className="font-medium text-text-primary">{t("search.discoverError")}</p>
+            <p className="mt-2 text-sm text-text-secondary">{discoveryError}</p>
+            {onRetry && (
+              <Button className="mt-4" onClick={onRetry}>
+                {t("search.discoverRetry")}
+              </Button>
+            )}
+          </div>
+        )}
+      </>
+    );
   }
 
   const counts = discovery.activity_counts;
   const slugsToShow = new Set([
     ...discovery.suggested_activities,
     ...Object.entries(counts)
-      .filter(([, n]) => n > 0)
+      .filter((entry): entry is [string, number] => entry[1] > 0)
       .map(([slug]) => slug),
   ]);
 
@@ -139,9 +93,13 @@ export function DestinationOverviewPanel({
 
   return (
     <div className="overview-content-enter">
-      <OverviewHero
-        imageUrl={discovery.hero_image_url}
-        title={discovery.place_name}
+      {discoveryError && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-text-secondary">
+          {discoveryError}
+        </div>
+      )}
+      <DestinationOverviewHero
+        destinationLabel={destinationLabel}
         subtitle={discovery.scope_intro}
       />
 

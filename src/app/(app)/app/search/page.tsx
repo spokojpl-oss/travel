@@ -36,6 +36,7 @@ import {
   scopeSearchRadii,
 } from "@/lib/search/exploration-scope";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
+import { buildFallbackDiscovery } from "@/lib/search/destination-discover";
 import type { Activity, ActivityGroup, ActivitySearchResult, GeoCluster } from "@/types/domain";
 
 type TaxonomyResponse = {
@@ -312,7 +313,7 @@ function SearchPageContent() {
     setDiscoveryError(null);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 55000);
 
     fetch("/api/search/destination-discover", {
       method: "POST",
@@ -351,14 +352,19 @@ function SearchPageContent() {
       })
       .catch((e) => {
         if (!cancelled) {
-          discoveryFailedKey.current = cacheKey;
-          setDiscovery(null);
+          const fallback = buildFallbackDiscovery({
+            destinationLabel: label,
+            explorationScope: scope,
+            locale,
+            passengers: trip.passengers,
+          });
+          discoveryCacheKey.current = cacheKey;
+          setDiscovery(fallback);
+          setSelectedActivities(new Set(fallback.suggested_activities));
           setDiscoveryError(
             e instanceof Error && e.name === "AbortError"
-              ? t("search.discoverErrorGeneric")
-              : e instanceof Error
-                ? e.message
-                : t("search.discoverErrorGeneric"),
+              ? t("search.discoverWarnSlow")
+              : t("search.discoverWarnFallback"),
           );
         }
       })

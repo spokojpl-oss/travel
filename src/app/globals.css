@@ -152,65 +152,6 @@ select:focus-visible {
   animation: live-pulse 2s ease-in-out infinite;
 }
 
-@keyframes overview-blur-in {
-  0% {
-    filter: blur(28px);
-    transform: scale(1.08);
-    opacity: 0.6;
-  }
-  100% {
-    filter: blur(0);
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes overview-orbit {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes overview-status-fade {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  45% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-  95% {
-    opacity: 0.35;
-  }
-}
-
-@keyframes overview-line-grow {
-  0%,
-  100% {
-    transform: scaleX(0.35);
-    opacity: 0.35;
-  }
-  50% {
-    transform: scaleX(1);
-    opacity: 0.85;
-  }
-}
-
-@keyframes overview-shimmer-pan {
-  0% {
-    transform: translateX(-30%);
-  }
-  100% {
-    transform: translateX(30%);
-  }
-}
-
 @keyframes overview-content-in {
   0% {
     opacity: 0;
@@ -220,57 +161,6 @@ select:focus-visible {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.overview-loader-photo-blur {
-  filter: blur(28px);
-  transform: scale(1.08);
-  opacity: 0.65;
-  transition: none;
-}
-
-.overview-loader-photo-sharp {
-  animation: overview-blur-in 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.overview-loader-compass {
-  animation: overview-orbit 8s linear infinite;
-}
-
-.overview-loader-status {
-  animation: overview-status-fade 2.6s ease-in-out infinite;
-}
-
-.overview-loader-line {
-  transform-origin: left center;
-  animation: overview-line-grow 2.2s ease-in-out infinite;
-}
-
-.overview-loader-line-2 {
-  animation-delay: 0.35s;
-}
-
-.overview-loader-line-3 {
-  animation-delay: 0.7s;
-}
-
-.overview-loader-shimmer {
-  background: linear-gradient(
-    105deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.12) 50%,
-    transparent 65%
-  );
-  animation: overview-shimmer-pan 3.5s ease-in-out infinite;
-}
-
-.overview-reveal-photo-blur {
-  filter: blur(20px);
-  transform: scale(1.04);
-}
-
-.overview-reveal-photo-sharp {
-  animation: overview-blur-in 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .overview-content-enter {
