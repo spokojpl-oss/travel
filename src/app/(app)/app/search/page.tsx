@@ -959,12 +959,8 @@ function SearchPageContent() {
     setError(null);
     setResults(null);
 
-    const mayAutoOpen =
-      isDestinationFlow && trip.tourist_region_ids.length > 0;
-    if (!mayAutoOpen) {
-      setStep(isDestinationFlow ? 7 : 3);
-      syncUrl(trip, isDestinationFlow ? 7 : 3);
-    }
+    setStep(isDestinationFlow ? 7 : 3);
+    syncUrl(trip, isDestinationFlow ? 7 : 3);
 
     try {
       const controller = new AbortController();
@@ -987,20 +983,6 @@ function SearchPageContent() {
 
       const searchResult = data as ActivitySearchResult;
 
-      if (mayAutoOpen) {
-        const label = trip.destination_label ?? trip.destination ?? "";
-        const cluster = resolveClusterForSelectedRegions(
-          searchResult.clusters,
-          label,
-        );
-        if (cluster) {
-          openDestination(cluster);
-          return;
-        }
-      }
-
-      setStep(isDestinationFlow ? 7 : 3);
-      syncUrl(trip, isDestinationFlow ? 7 : 3);
       setResults(searchResult);
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
@@ -1236,9 +1218,6 @@ function SearchPageContent() {
     scoredRegions,
   ]);
 
-  const hasSelectedRegions =
-    trip.tourist_region_ids.length > 0 || Boolean(trip.tourist_region_id);
-
   const selectedRegionLabel = useMemo(() => {
     const ids =
       trip.tourist_region_ids.length > 0
@@ -1264,15 +1243,18 @@ function SearchPageContent() {
   const attractionMapOverview = useMemo(() => {
     if (!results) return null;
     if (results.island_overview) return results.island_overview;
-    if (!hasSelectedRegions || resultClusters.length === 0) return null;
-    return buildAttractionOverviewFromClusters(resultClusters, {
+
+    const clustersForMap =
+      resultClusters.length > 0 ? resultClusters : results.clusters;
+    if (clustersForMap.length === 0) return null;
+
+    return buildAttractionOverviewFromClusters(clustersForMap, {
       name: selectedRegionLabel,
       selectedActivities: Array.from(selectedActivities),
       airports: results.airports ?? [],
     });
   }, [
     results,
-    hasSelectedRegions,
     resultClusters,
     selectedRegionLabel,
     selectedActivities,

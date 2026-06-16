@@ -5,6 +5,7 @@ import { SEED_TOURIST_REGIONS_COASTAL_2 } from "./tourist-regions-seed-coastal-2
 import { SEED_TOURIST_REGIONS_EUROPE } from "./tourist-regions-seed-europe";
 import { SEED_TOURIST_REGIONS_CYPRUS } from "./tourist-regions-cyprus-seed";
 import { SEED_TOURIST_REGIONS_POPULAR } from "./tourist-regions-seed-popular";
+import { SEED_TOURIST_REGIONS_TOP_EUROPE } from "./tourist-regions-seed-top-europe";
 
 export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   {
@@ -847,4 +848,5 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   ...SEED_TOURIST_REGIONS_EUROPE,
   ...SEED_TOURIST_REGIONS_CYPRUS,
   ...SEED_TOURIST_REGIONS_POPULAR,
+  ...SEED_TOURIST_REGIONS_TOP_EUROPE,
 ] as TouristRegion[];
