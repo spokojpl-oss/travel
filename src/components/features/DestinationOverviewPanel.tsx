@@ -109,7 +109,7 @@ export function DestinationOverviewPanel({
         )}
 
       <Button size="lg" onClick={onChooseActivities}>
-        {t("search.chooseActivities")}
+        {t("search.continueToRhythm")}
       </Button>
     </div>
   );

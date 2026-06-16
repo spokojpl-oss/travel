@@ -4,6 +4,11 @@ import {
   explorationScopeFromString,
   type ExplorationScope,
 } from "@/lib/search/exploration-scope";
+import {
+  tripRhythmFromParams,
+  tripRhythmToParams,
+  type TripRhythm,
+} from "@/lib/search/trip-rhythm";
 
 export type { ExplorationScope };
 
@@ -30,6 +35,10 @@ export type TripContext = {
   passengers: string;
   /** Jak użytkownik chce zwiedzać destynację — wpływa na promień klastrów. */
   exploration_scope: ExplorationScope | null;
+  /** Rozkład dni (plaża, miasta, …) — krok przed wyborem regionu. */
+  trip_rhythm: TripRhythm | null;
+  /** Wybrany region turystyczny z poradnika (id). */
+  tourist_region_id: string | null;
 };
 
 export const TRAVEL_MODE_OPTIONS: Array<{
@@ -148,6 +157,8 @@ export function defaultTripContext(): TripContext {
     origin_lon: null,
     passengers: "2 dorosłych",
     exploration_scope: null,
+    trip_rhythm: null,
+    tourist_region_id: null,
   });
 }
 
@@ -244,6 +255,13 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   if (trip.origin_lat != null) p.set("origin_lat", String(trip.origin_lat));
   if (trip.origin_lon != null) p.set("origin_lon", String(trip.origin_lon));
   if (trip.passengers) p.set("passengers", trip.passengers);
+  if (trip.tourist_region_id) p.set("tourist_region", trip.tourist_region_id);
+  const rhythmParams = trip.trip_rhythm
+    ? tripRhythmToParams(trip.trip_rhythm)
+    : null;
+  if (rhythmParams) {
+    rhythmParams.forEach((value, key) => p.set(key, value));
+  }
   return p;
 }
 
@@ -296,6 +314,10 @@ export function tripContextFromParams(
     params.get("exploration_scope"),
   );
   if (explorationScope) partial.exploration_scope = explorationScope;
+  const rhythm = tripRhythmFromParams(params);
+  if (rhythm) partial.trip_rhythm = rhythm;
+  const touristRegion = params.get("tourist_region");
+  if (touristRegion) partial.tourist_region_id = touristRegion;
   return partial;
 }
 

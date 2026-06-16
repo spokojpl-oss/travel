@@ -1,11 +1,16 @@
 "use client";
 
 import { formatTripDateRange, travelModeIcon, type TripContext } from "@/lib/search/trip-context";
+import { formatRhythmSummary } from "@/lib/search/trip-rhythm";
 import { localeToIntl } from "@/i18n/config";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
+
+export type DestinationSearchStep = 2 | 3 | 4 | 5 | 6 | 7;
+export type ActivitiesSearchStep = 2 | 3;
+export type SearchStep = DestinationSearchStep | ActivitiesSearchStep;
 
 export function TripContextBar({
   trip,
@@ -63,6 +68,14 @@ export function TripContextBar({
     });
   }
 
+  if (trip.trip_rhythm && trip.mode === "destination") {
+    items.push({
+      icon: "route",
+      label: t("context.rhythm"),
+      value: formatRhythmSummary(trip.trip_rhythm, locale),
+    });
+  }
+
   if (trip.mode === "activities" && trip.interests) {
     items.unshift({
       icon: "target",
@@ -109,30 +122,34 @@ export function SearchStepIndicator({
   tripComplete = false,
   tripMode = "activities",
 }: {
-  step: 2 | 3 | 4 | 5;
-  onStep?: (s: 2 | 3 | 4 | 5) => void;
+  step: SearchStep;
+  onStep?: (s: SearchStep) => void;
   tripComplete?: boolean;
   tripMode?: "activities" | "destination";
 }) {
+  const t = useT();
+
   const steps =
     tripMode === "destination"
       ? [
-          { n: 1 as const, label: "Podróż", key: "trip" },
-          { n: 2 as const, label: "Zakres", key: "scope" },
-          { n: 3 as const, label: "O destynacji", key: "overview" },
-          { n: 4 as const, label: "Aktywności", key: "activities" },
-          { n: 5 as const, label: "Wyniki", key: "results" },
+          { n: 1 as const, label: t("steps.trip"), key: "trip", goto: 2 as const },
+          { n: 2 as const, label: t("steps.scope"), key: "scope", goto: 2 as const },
+          { n: 3 as const, label: t("steps.overview"), key: "overview", goto: 3 as const },
+          { n: 4 as const, label: t("steps.rhythm"), key: "rhythm", goto: 4 as const },
+          { n: 5 as const, label: t("steps.regions"), key: "regions", goto: 5 as const },
+          { n: 6 as const, label: t("steps.activities"), key: "activities", goto: 6 as const },
+          { n: 7 as const, label: t("steps.results"), key: "results", goto: 7 as const },
         ]
       : [
-          { n: 1 as const, label: "Podróż", key: "trip" },
-          { n: 2 as const, label: "Aktywności", key: "activities" },
-          { n: 3 as const, label: "Wyniki", key: "results" },
+          { n: 1 as const, label: t("steps.trip"), key: "trip", goto: 2 as const },
+          { n: 2 as const, label: t("steps.activities"), key: "activities", goto: 2 as const },
+          { n: 3 as const, label: t("steps.results"), key: "results", goto: 3 as const },
         ];
 
   const displayStep =
     tripMode === "destination"
       ? step
-      : step >= 4
+      : step >= 6
         ? 3
         : step;
 
@@ -141,51 +158,46 @@ export function SearchStepIndicator({
       {steps.map((s, i) => {
         const stepNum = s.n;
         const done =
-          displayStep > stepNum || (tripComplete && stepNum === 1 && displayStep >= 2);
+          displayStep > stepNum ||
+          (tripComplete && stepNum === 1 && displayStep >= 2);
         const active = displayStep === stepNum;
         const clickable =
           onStep &&
-          (stepNum === 1
-            ? tripComplete
-            : stepNum === 2
-              ? displayStep >= 2
-              : stepNum === 3
-                ? tripMode === "destination"
-                  ? displayStep >= 3
-                  : displayStep >= 2
-                : stepNum === 4
-                  ? tripMode === "destination" && displayStep >= 4
-                  : stepNum === 5
-                    ? tripMode === "destination" && displayStep >= 5
-                    : false);
+          displayStep >= s.goto &&
+          (tripMode === "destination"
+            ? stepNum === 1
+              ? tripComplete
+              : displayStep >= stepNum
+            : stepNum === 1
+              ? tripComplete
+              : displayStep >= stepNum);
 
         return (
-        <div key={s.key} className="flex items-center gap-2">
-          {i > 0 && (
-            <span className="text-text-tertiary" aria-hidden>
-              ›
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              if (!clickable || !onStep) return;
-              if (stepNum === 1) onStep(2);
-              else if (tripMode === "destination") onStep(stepNum as 2 | 3 | 4 | 5);
-              else onStep(stepNum === 2 ? 2 : 3);
-            }}
-            disabled={!clickable}
-            className={
-              active
-                ? "rounded-full bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white"
-                : done
-                  ? "rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
-                  : "rounded-full bg-bg-soft px-4 py-1.5 text-sm font-medium text-text-tertiary"
-            }
-          >
-            {stepNum}. {s.label}
-          </button>
-        </div>
+          <div key={s.key} className="flex items-center gap-2">
+            {i > 0 && (
+              <span className="text-text-tertiary" aria-hidden>
+                ›
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (!clickable || !onStep) return;
+                if (stepNum === 1) onStep(2);
+                else onStep(s.goto);
+              }}
+              disabled={!clickable}
+              className={
+                active
+                  ? "rounded-full bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white"
+                  : done
+                    ? "rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+                    : "rounded-full bg-bg-soft px-4 py-1.5 text-sm font-medium text-text-tertiary"
+              }
+            >
+              {stepNum}. {s.label}
+            </button>
+          </div>
         );
       })}
     </nav>

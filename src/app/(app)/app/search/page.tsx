@@ -10,7 +10,19 @@ import { RegionResultCard } from "@/components/features/RegionResultCard";
 import {
   SearchStepIndicator,
   TripContextBar,
+  type SearchStep,
 } from "@/components/features/TripContextBar";
+import { TripRhythmStep } from "@/components/features/TripRhythmStep";
+import { TouristRegionCards } from "@/components/features/TouristRegionCards";
+import { findTouristRegions, type ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
+import {
+  defaultRhythmForTrip,
+  formatRhythmSummary,
+  hasChildrenInPassengers,
+  isGroupInRhythm,
+  suggestActivitiesFromRhythm,
+  type TripRhythm,
+} from "@/lib/search/trip-rhythm";
 import { buildIslandMapData } from "@/lib/maps/build-island-map";
 import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -144,7 +156,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState<2 | 3 | 4 | 5>(2);
+  const [step, setStep] = useState<SearchStep>(2);
   const [trip, setTrip] = useState<TripContext>(defaultTripContext);
   const [taxonomy, setTaxonomy] = useState<TaxonomyResponse["groups"]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -219,7 +231,7 @@ function SearchPageContent() {
         const params = JSON.parse(restored) as { activities?: string[] };
         if (params.activities?.length) {
           setSelectedActivities(new Set(params.activities));
-          setStep(merged.mode === "destination" ? 4 : 2);
+          setStep(merged.mode === "destination" ? 6 : 2);
         }
         sessionStorage.removeItem("restore_search_activities");
       } catch {
@@ -244,19 +256,30 @@ function SearchPageContent() {
       }
 
       const stepParam = searchParams.get("step");
-      const resolvedStep: 2 | 3 | 4 | 5 =
+      const parsedStep = stepParam ? Number(stepParam) : 2;
+      const resolvedStep: SearchStep =
         merged.mode === "destination"
-          ? stepParam === "5"
-            ? 5
-            : stepParam === "4"
-              ? 4
-              : stepParam === "3"
-                ? 3
-                : 2
-          : stepParam === "3" || stepParam === "4" || stepParam === "5"
+          ? parsedStep >= 2 && parsedStep <= 7
+            ? (parsedStep as SearchStep)
+            : 2
+          : parsedStep >= 3
             ? 3
             : 2;
       setStep(resolvedStep);
+
+      if (
+        merged.mode === "destination" &&
+        !merged.trip_rhythm &&
+        merged.departure_date
+      ) {
+        merged = mergeTripContext(merged, {
+          trip_rhythm: defaultRhythmForTrip(
+            merged.departure_date,
+            merged.return_date,
+            { includeKids: hasChildrenInPassengers(merged.passengers) },
+          ),
+        });
+      }
     }
 
     setTrip(merged);
@@ -367,9 +390,6 @@ function SearchPageContent() {
           discoveryFailedKey.current = null;
           setDiscovery(data);
           setActivityCounts(data.activity_counts);
-          if (data.suggested_activities.length > 0) {
-            setSelectedActivities(new Set(data.suggested_activities));
-          }
         }
       })
       .catch((e) => {
@@ -382,7 +402,6 @@ function SearchPageContent() {
           });
           discoveryCacheKey.current = cacheKey;
           setDiscovery(fallback);
-          setSelectedActivities(new Set(fallback.suggested_activities));
           setDiscoveryError(
             e instanceof Error && e.name === "AbortError"
               ? t("search.discoverWarnSlow")
@@ -420,7 +439,7 @@ function SearchPageContent() {
   ]);
 
   useEffect(() => {
-    if (!initialized || trip.mode !== "destination" || step !== 4) return;
+    if (!initialized || trip.mode !== "destination" || step !== 6) return;
     if (Object.keys(activityCounts).length > 0) return;
     if (trip.destination_lat == null || trip.destination_lon == null) return;
 
@@ -471,11 +490,40 @@ function SearchPageContent() {
   const isDestinationFlow = trip.mode === "destination";
   const showScopeStep = isDestinationFlow && step === 2;
   const showOverviewStep = isDestinationFlow && step === 3;
-  const showActivitiesStep = isDestinationFlow ? step === 4 : step === 2;
-  const showResultsStep = isDestinationFlow ? step === 5 : step === 3;
+  const showRhythmStep = isDestinationFlow && step === 4;
+  const showRegionsStep = isDestinationFlow && step === 5;
+  const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
+  const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
+
+  const scoredRegions = useMemo(() => {
+    if (!isDestinationFlow || !trip.trip_rhythm) return [];
+    const label = trip.destination_label ?? trip.destination ?? "";
+    if (!label) return [];
+    return findTouristRegions({
+      destinationLabel: label,
+      rhythm: trip.trip_rhythm,
+    });
+  }, [
+    isDestinationFlow,
+    trip.trip_rhythm,
+    trip.destination_label,
+    trip.destination,
+  ]);
+
+  const { primaryGroups, optionalGroups } = useMemo(() => {
+    if (!trip.trip_rhythm) {
+      return { primaryGroups: taxonomy, optionalGroups: [] as typeof taxonomy };
+    }
+    const primary = taxonomy.filter((g) => isGroupInRhythm(g.slug, trip.trip_rhythm));
+    const optional = taxonomy.filter((g) => !isGroupInRhythm(g.slug, trip.trip_rhythm));
+    if (primary.length === 0) {
+      return { primaryGroups: taxonomy, optionalGroups: [] as typeof taxonomy };
+    }
+    return { primaryGroups: primary, optionalGroups: optional };
+  }, [taxonomy, trip.trip_rhythm]);
 
   useEffect(() => {
-    if (step !== 4 || !scrollToActivitiesPending.current) return;
+    if (step !== 6 || !scrollToActivitiesPending.current) return;
     scrollToActivitiesPending.current = false;
     document.getElementById("search-activities")?.scrollIntoView({
       behavior: "smooth",
@@ -483,16 +531,83 @@ function SearchPageContent() {
     });
   }, [step]);
 
-  function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4 | 5) {
+  function syncUrl(nextTrip: TripContext, nextStep?: SearchStep) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
     router.replace(`/app/search?${p.toString()}`, { scroll: false });
   }
 
-  function goToActivitiesStep() {
-    scrollToActivitiesPending.current = true;
+  function updateRhythm(rhythm: TripRhythm) {
+    setTrip((prev) => {
+      const next = { ...prev, trip_rhythm: rhythm, tourist_region_id: null };
+      syncUrl(next, step);
+      return next;
+    });
+    setSelectedActivities(new Set());
+  }
+
+  function goToRhythmStep() {
     setStep(4);
-    syncUrl(trip, 4);
+    setTrip((prev) => {
+      const next = {
+        ...prev,
+        trip_rhythm:
+          prev.trip_rhythm ??
+          defaultRhythmForTrip(prev.departure_date, prev.return_date, {
+            includeKids: hasChildrenInPassengers(prev.passengers),
+          }),
+      };
+      syncUrl(next, 4);
+      return next;
+    });
+  }
+
+  function goToRegionsStep() {
+    setStep(5);
+    syncUrl(trip, 5);
+  }
+
+  function handleSelectRegion(region: ScoredTouristRegion) {
+    const rhythm = trip.trip_rhythm;
+    if (!rhythm) return;
+
+    const slugs = suggestActivitiesFromRhythm({
+      rhythm,
+      counts: activityCounts,
+      weather: discovery?.weather ?? null,
+      passengers: trip.passengers,
+      extraSlugs: region.activity_slugs,
+    });
+    setSelectedActivities(new Set(slugs));
+
+    setTrip((prev) => {
+      const next = {
+        ...prev,
+        tourist_region_id: region.id,
+        destination_lat: region.center_lat,
+        destination_lon: region.center_lon,
+      };
+      syncUrl(next, step);
+      return next;
+    });
+  }
+
+  function goToActivitiesStep() {
+    if (trip.trip_rhythm && selectedActivities.size === 0) {
+      setSelectedActivities(
+        new Set(
+          suggestActivitiesFromRhythm({
+            rhythm: trip.trip_rhythm,
+            counts: activityCounts,
+            weather: discovery?.weather ?? null,
+            passengers: trip.passengers,
+          }),
+        ),
+      );
+    }
+    scrollToActivitiesPending.current = true;
+    setStep(6);
+    syncUrl(trip, 6);
   }
 
   function goToScopeStep() {
@@ -582,8 +697,8 @@ function SearchPageContent() {
     setError(null);
     setResults(null);
     setShowIslandRegions(false);
-    setStep(isDestinationFlow ? 5 : 3);
-    syncUrl(trip, isDestinationFlow ? 5 : 3);
+    setStep(isDestinationFlow ? 7 : 3);
+    syncUrl(trip, isDestinationFlow ? 7 : 3);
 
     const clientStart = Date.now();
 
@@ -639,7 +754,7 @@ function SearchPageContent() {
     dataStatus &&
     !dataStatus.search_ready &&
     !pageLoading &&
-    (isDestinationFlow ? step >= 4 : step >= 2);
+    (isDestinationFlow ? step >= 6 : step >= 2);
 
   return (
     <PageContainer>
@@ -657,7 +772,11 @@ function SearchPageContent() {
             ? t("search.titleScope")
             : showOverviewStep
               ? t("search.titleOverview")
-              : t("search.titleActivities")}
+              : showRhythmStep
+                ? t("search.titleRhythm")
+                : showRegionsStep
+                  ? t("search.titleRegions")
+                  : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
         {showResultsStep
@@ -666,7 +785,11 @@ function SearchPageContent() {
             ? t("search.subtitleScope")
             : showOverviewStep
               ? t("search.subtitleOverview")
-              : t("search.subtitleActivities")}
+              : showRhythmStep
+                ? t("search.subtitleRhythm")
+                : showRegionsStep
+                  ? t("search.subtitleRegions")
+                  : t("search.subtitleActivities")}
       </p>
 
       <SearchStepIndicator
@@ -760,7 +883,32 @@ function SearchPageContent() {
             setDiscoveryRetry((n) => n + 1);
           }}
           waitingForCoords={missingDestinationCoords}
-          onChooseActivities={goToActivitiesStep}
+          onChooseActivities={goToRhythmStep}
+        />
+      )}
+
+      {showRhythmStep && trip.trip_rhythm && (
+        <TripRhythmStep
+          departureDate={trip.departure_date}
+          returnDate={trip.return_date}
+          passengers={trip.passengers}
+          rhythm={trip.trip_rhythm}
+          onChange={updateRhythm}
+          onContinue={goToRegionsStep}
+        />
+      )}
+
+      {showRegionsStep && trip.trip_rhythm && (
+        <TouristRegionCards
+          regions={scoredRegions}
+          rhythm={trip.trip_rhythm}
+          selectedId={trip.tourist_region_id}
+          onSelect={handleSelectRegion}
+          onContinue={goToActivitiesStep}
+          onBack={() => {
+            setStep(4);
+            syncUrl(trip, 4);
+          }}
         />
       )}
 
@@ -803,6 +951,15 @@ function SearchPageContent() {
           <Card id="search-activities" className="mb-8 scroll-mt-6">
             <CardHeader title={t("search.activities")} />
             <CardBody>
+              {trip.trip_rhythm && isDestinationFlow && (
+                <p className="mb-4 rounded-lg border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm text-text-secondary">
+                  <span className="font-medium text-text-primary">
+                    {t("search.rhythmPlanHint")}:{" "}
+                  </span>
+                  {formatRhythmSummary(trip.trip_rhythm, locale)}.{" "}
+                  {t("search.activitiesFromRhythm")}
+                </p>
+              )}
               {pageLoading && <SkeletonList count={3} />}
               {!pageLoading && taxonomy.length === 0 && (
                 <p className="text-sm text-danger">
@@ -818,10 +975,15 @@ function SearchPageContent() {
                 </p>
               )}
               {!pageLoading &&
-                taxonomy.map((group) => (
+                primaryGroups.map((group) => (
                   <div key={group.slug} className="mb-6 last:mb-0">
                     <h3 className="mb-3 font-semibold text-text-primary">
                       {locale === "en" ? group.name_en : group.name_pl}
+                      {trip.trip_rhythm && (
+                        <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-800">
+                          {locale === "en" ? "Suggested" : "Sugerowane"}
+                        </span>
+                      )}
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {group.activities.map((activity) => {
@@ -855,6 +1017,45 @@ function SearchPageContent() {
                     </div>
                   </div>
                 ))}
+              {!pageLoading && optionalGroups.length > 0 && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm font-medium text-text-secondary hover:text-brand-700">
+                    {locale === "en"
+                      ? "Other activities (optional)"
+                      : "Inne aktywności (opcjonalnie)"}
+                  </summary>
+                  <div className="mt-4 space-y-6">
+                    {optionalGroups.map((group) => (
+                      <div key={group.slug}>
+                        <h3 className="mb-3 font-semibold text-text-primary">
+                          {locale === "en" ? group.name_en : group.name_pl}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {group.activities.map((activity) => {
+                            const selected = selectedActivities.has(activity.slug);
+                            return (
+                              <button
+                                key={activity.slug}
+                                type="button"
+                                onClick={() => toggleActivity(activity.slug)}
+                                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                                  selected
+                                    ? "bg-brand-700 text-white"
+                                    : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
+                                }`}
+                              >
+                                {locale === "en"
+                                  ? activity.name_en
+                                  : activity.name_pl}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </CardBody>
           </Card>
 
