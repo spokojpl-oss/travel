@@ -386,6 +386,21 @@ export const en: Messages = {
   common: {
     home: "Home",
   },
+  map: {
+    title: "Map (Polish UI)",
+    legendBase: "Lodging base",
+    legendAttraction: "Attraction",
+    legendAirport: "Airport",
+    legendHotel: "Hotel",
+    calculatingRoutes: "Calculating driving routes…",
+    drivingDistances: "Driving distances",
+    estimate: "estimate",
+    navigate: "Navigate in Google Maps",
+    openInGoogleMaps: "Open in Google Maps",
+    noLocationData: "No location data",
+    languageHint:
+      "Map labels and navigation follow your language. Local place names (e.g. Agia Napa) may stay in their local form.",
+  },
   localServices: {
     title: "Rentals & services ({n})",
     intro:

@@ -387,6 +387,21 @@ export const pl = {
   common: {
     home: "Start",
   },
+  map: {
+    title: "Mapa (polski interfejs)",
+    legendBase: "Baza noclegowa",
+    legendAttraction: "Atrakcja",
+    legendAirport: "Lotnisko",
+    legendHotel: "Hotel",
+    calculatingRoutes: "Liczenie tras drogowych…",
+    drivingDistances: "Odległości samochodem",
+    estimate: "szacunek",
+    navigate: "Nawiguj w Google Maps",
+    openInGoogleMaps: "Otwórz w Google Maps",
+    noLocationData: "Brak danych lokalizacji",
+    languageHint:
+      "Etykiety mapy i nawigacja po polsku. Nazwy miejscowości na Cyprze często zostają w brzmieniu lokalnym (np. Agia Napa).",
+  },
   localServices: {
     title: "Wypożyczalnie i usługi ({n})",
     intro:

@@ -3,7 +3,8 @@
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import type { GooglePlace } from "@/lib/api/google-places";
 import { groupLocalServices } from "@/lib/places/google-place-display";
-import { useT } from "@/i18n/locale-provider";
+import { localizeGoogleMapsUrl } from "@/lib/maps/google-maps-config";
+import { useLocale, useT } from "@/i18n/locale-provider";
 
 const RATING_DOT: Record<string, string> = {
   great: "bg-emerald-500",
@@ -22,6 +23,7 @@ export function LocalServicesSection({
   maxTotal?: number;
 }) {
   const t = useT();
+  const { locale } = useLocale();
   const groups = groupLocalServices(places, {
     selectedActivities,
     limitPerGroup: 4,
@@ -105,7 +107,7 @@ export function LocalServicesSection({
                     <div className="mt-3 flex flex-wrap gap-2">
                       {p.google_maps_url && (
                         <a
-                          href={p.google_maps_url}
+                          href={localizeGoogleMapsUrl(p.google_maps_url, locale)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs font-medium text-brand-600 hover:underline"

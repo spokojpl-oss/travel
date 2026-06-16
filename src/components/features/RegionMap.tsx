@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import {
   getGoogleMapsApiKey,
@@ -40,6 +41,8 @@ export function RegionMap({
   onPointClick,
 }: RegionMapProps) {
   const apiKey = getGoogleMapsApiKey();
+  const { locale } = useLocale();
+  const t = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Polyline>>(
@@ -85,7 +88,7 @@ export function RegionMap({
       overlaysRef.current = [];
     };
 
-    loadGoogleMaps(apiKey)
+    loadGoogleMaps(apiKey, locale)
       .then((maps) => {
         if (cancelled || !containerRef.current) return;
 
@@ -137,6 +140,7 @@ export function RegionMap({
           const mapsUrl = googleMapsPlaceUrl(
             { lat: point.lat, lon: point.lon },
             point.label,
+            locale,
           );
 
           const info = new maps.InfoWindow({
@@ -144,7 +148,7 @@ export function RegionMap({
               <strong>${escapeHtml(point.label)}</strong>
               ${point.badge ? `<div style="font-size:12px;color:#5a6878;margin-top:4px">${escapeHtml(point.badge)}</div>` : ""}
               <div style="margin-top:8px">
-                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Otwórz w Google Maps</a>
+                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("map.openInGoogleMaps"))}</a>
               </div>
             </div>`,
           });
@@ -174,7 +178,7 @@ export function RegionMap({
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [apiKey, pointsKey, points, highlightedPointId, onPointClick]);
+  }, [apiKey, locale, pointsKey, points, highlightedPointId, onPointClick, t]);
 
   useEffect(() => {
     if (segments.length === 0) {
@@ -255,7 +259,7 @@ export function RegionMap({
         )}
         style={{ height }}
       >
-        Brak danych lokalizacji
+        {t("map.noLocationData")}
       </div>
     );
   }
@@ -272,14 +276,14 @@ export function RegionMap({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-text-primary">
           <Icon name="map-pin" size={16} className="text-brand-700" />
-          Google Maps
+          {t("map.title")}
         </div>
         {showLegend && (
           <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-            <LegendDot color={POINT_COLORS.centroid} label="Centrum" />
-            <LegendDot color={POINT_COLORS.attraction} label="Atrakcja" />
-            <LegendDot color={POINT_COLORS.airport} label="Lotnisko" />
-            <LegendDot color={POINT_COLORS.hotel} label="Hotel" />
+            <LegendDot color={POINT_COLORS.centroid} label={t("map.legendBase")} />
+            <LegendDot color={POINT_COLORS.attraction} label={t("map.legendAttraction")} />
+            <LegendDot color={POINT_COLORS.airport} label={t("map.legendAirport")} />
+            <LegendDot color={POINT_COLORS.hotel} label={t("map.legendHotel")} />
           </div>
         )}
       </div>
@@ -297,15 +301,19 @@ export function RegionMap({
         )}
         {loadingRoutes && !mapError && (
           <div className="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm">
-            Liczę trasy drogowe…
+            {t("map.calculatingRoutes")}
           </div>
         )}
       </div>
 
+      <p className="border-t border-border-default px-4 py-2 text-xs text-text-tertiary">
+        {t("map.languageHint")}
+      </p>
+
       {showRouteList && routes.length > 0 && (
         <div className="border-t border-border-default px-4 py-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-            Odległości samochodem
+            {t("map.drivingDistances")}
           </p>
           <ul className="space-y-2 text-sm">
             {routes.map((route) => {
@@ -318,6 +326,7 @@ export function RegionMap({
               const directionsUrl = googleMapsDirectionsUrl(
                 { lat: from.lat, lon: from.lon },
                 { lat: to.lat, lon: to.lon },
+                locale,
               );
 
               return (
@@ -336,7 +345,7 @@ export function RegionMap({
                       ~{route.duration_min} min
                     </span>
                     {route.source === "straight" && (
-                      <span className="text-text-tertiary"> (szacunek)</span>
+                      <span className="text-text-tertiary"> ({t("map.estimate")})</span>
                     )}
                     {route.source === "google" && (
                       <span className="text-text-tertiary"> (Google)</span>
@@ -348,7 +357,7 @@ export function RegionMap({
                     rel="noopener noreferrer"
                     className="text-xs font-semibold text-brand-700 hover:underline"
                   >
-                    Nawiguj w Google Maps →
+                    {t("map.navigate")} →
                   </a>
                 </li>
               );
