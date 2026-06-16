@@ -11,6 +11,11 @@ import {
   computeLodgingBaseOptions,
   type LodgingBaseChoice,
 } from "@/lib/plan/lodging-base-options";
+import {
+  isDayTripAttraction,
+  readPlanMeta,
+} from "@/lib/plan/plan-attraction-meta";
+import { selectDiverseAttractionIds } from "@/lib/plan/diverse-selection";
 import type {
   DestinationBuildPayload,
   PlanRegionContext,
@@ -20,6 +25,27 @@ import type { GeoCluster } from "@/types/domain";
 
 type WizardStep = "base" | "pick" | "summary";
 
+function attractionBadge(
+  id: string,
+  pool: DestinationBuildPayload["attractionPool"],
+  pl: boolean,
+): string | undefined {
+  const a = pool.find((x) => x.id === id);
+  if (!a) return undefined;
+  const meta = readPlanMeta(a);
+  if (meta?.kind === "day_trip" && meta.drive_minutes) {
+    return pl
+      ? `Wycieczka ~${meta.drive_minutes} min`
+      : `Day trip ~${meta.drive_minutes} min`;
+  }
+  if (meta?.group_size && meta.group_size > 1) {
+    return pl
+      ? `${meta.group_size} plaż w okolicy`
+      : `${meta.group_size} beaches grouped`;
+  }
+  return undefined;
+}
+
 export function DestinationPlanWizard({
   payload,
   withKids,
@@ -28,6 +54,7 @@ export function DestinationPlanWizard({
 }: {
   payload: DestinationBuildPayload;
   withKids?: boolean;
+  locale?: "pl" | "en";
   onComplete: (updated: DestinationBuildPayload) => void;
   onCancel?: () => void;
 }) {
@@ -38,19 +65,40 @@ export function DestinationPlanWizard({
   const [baseChoice, setBaseChoice] = useState<LodgingBaseChoice | null>(
     payload.lodgingBase?.choice ?? null,
   );
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () =>
-      new Set(
-        payload.selectedAttractionIds ??
-          payload.attractionPool.slice(0, 6).map((a) => a.id),
-      ),
-  );
 
   const pool = payload.attractionPool;
+
   const baseOptions = useMemo(
-    () => computeLodgingBaseOptions(pool, { withKids, locale }),
-    [pool, withKids, locale],
+    () =>
+      computeLodgingBaseOptions(pool, {
+        withKids,
+        locale,
+        cluster: payload.cluster,
+      }),
+    [pool, withKids, locale, payload.cluster],
   );
+
+  const defaultBase =
+    baseOptions.find((o) => o.choice === "quiet_area") ?? baseOptions[0];
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
+    if (payload.selectedAttractionIds?.length) {
+      return new Set(payload.selectedAttractionIds);
+    }
+    if (payload.suggestedAttractionIds?.length) {
+      return new Set(payload.suggestedAttractionIds);
+    }
+    if (defaultBase) {
+      return new Set(
+        selectDiverseAttractionIds(
+          pool,
+          { lat: defaultBase.lat, lon: defaultBase.lon },
+          8,
+        ),
+      );
+    }
+    return new Set(pool.slice(0, 6).map((a) => a.id));
+  });
 
   const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
 
@@ -74,18 +122,22 @@ export function DestinationPlanWizard({
         selectedIds: step === "pick" ? undefined : selectedIds,
         locale,
         maxAttractions: step === "pick" ? 400 : undefined,
+        attractionPool: pool,
       }),
-    [draftCluster, selectedIds, step, locale],
+    [draftCluster, selectedIds, step, locale, pool],
   );
 
   const pickMapData = useMemo(() => {
     const allPoints = buildClusterMapData(
       { ...draftCluster, attractions: pool },
       [],
-      { locale, maxAttractions: 400 },
+      { locale, maxAttractions: 400, attractionPool: pool },
     );
     return allPoints;
   }, [draftCluster, pool, locale]);
+
+  const dayTrips = pool.filter(isDayTripAttraction);
+  const nearby = pool.filter((a) => !isDayTripAttraction(a));
 
   function toggleAttraction(id: string) {
     setSelectedIds((prev) => {
@@ -109,6 +161,7 @@ export function DestinationPlanWizard({
       selectedAttractionIds: [...selectedIds],
       cluster: draftCluster,
       planComplete: true,
+      poolEnriched: true,
     });
   }
 
@@ -122,12 +175,14 @@ export function DestinationPlanWizard({
         <Card className="border-brand-100 bg-brand-50/30">
           <CardBody>
             <p className="font-semibold text-text-primary">
-              {payload.destinationLabel ?? payload.cluster.settlement?.name ?? "Wybrany rejon"}
+              {payload.destinationLabel ??
+                payload.cluster.settlement?.name ??
+                "Wybrany rejon"}
             </p>
             <p className="mt-2 text-sm text-text-secondary">
               {pl
-                ? "Najpierw wybierz bazę noclegową, potem miejsca na mapie — dopiero wtedy liczymy trasy."
-                : "Pick your lodging base, then places on the map — routes are calculated after that."}
+                ? "Najpierw wybierz bazę noclegową (centrum vs nabrzeże), potem miejsca — w tym wycieczki dojazdowe."
+                : "Pick lodging base (centre vs waterfront), then places including day trips."}
             </p>
           </CardBody>
         </Card>
@@ -168,10 +223,8 @@ export function DestinationPlanWizard({
           <CardBody className="space-y-3">
             <p className="text-sm text-text-secondary">
               {pl
-                ? withKids
-                  ? "Z dziećmi często lepiej spać z dala od hałasu — ale blisko plaży też ma sens, jeśli wolicie wychodzić pieszo."
-                  : "Centrum = bliżej życia nocnego i restauracji. Spokojniej = mniej tłumów, dojazdy autem."
-                : "Pick what fits your trip — center vs quieter area."}
+                ? "Punkty na mapie to centrum miejscowości lub nabrzeże — tak szukasz na Booking (np. „Vlorë centrum” vs „przy plaży”)."
+                : "Map pins are town centre or waterfront — how you'd search on Booking."}
             </p>
             {baseOptions.map((option) => (
               <button
@@ -218,33 +271,51 @@ export function DestinationPlanWizard({
             />
             <CardBody className="text-sm text-text-secondary">
               {pl
-                ? `Wybrane: ${selectedIds.size} z ${pool.length}. Zielone punkty to wszystkie miejsca w rejonie.`
+                ? `Wybrane: ${selectedIds.size} z ${pool.length} (w tym ${dayTrips.length} propozycji wycieczek dojazdowych).`
                 : `Selected: ${selectedIds.size} of ${pool.length}.`}
             </CardBody>
           </Card>
 
           <Card>
-            <CardBody className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {pool.map((a) => {
-                  const on = selectedIds.has(a.id);
-                  return (
-                    <button
+            <CardBody className="space-y-4">
+              {dayTrips.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                    {pl ? "Wycieczki dojazdowe" : "Day trips"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dayTrips.map((a) => (
+                      <AttractionChip
+                        key={a.id}
+                        id={a.id}
+                        name={toPolishAttractionName(a.name, locale)}
+                        selected={selectedIds.has(a.id)}
+                        badge={attractionBadge(a.id, pool, pl)}
+                        onToggle={() => toggleAttraction(a.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                  {pl ? "W okolicy bazy" : "Near your base"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {nearby.map((a) => (
+                    <AttractionChip
                       key={a.id}
-                      type="button"
-                      onClick={() => toggleAttraction(a.id)}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-sm",
-                        on
-                          ? "bg-brand-700 text-white"
-                          : "bg-bg-soft text-text-tertiary line-through",
-                      )}
-                    >
-                      {toPolishAttractionName(a.name, locale)}
-                    </button>
-                  );
-                })}
+                      id={a.id}
+                      name={toPolishAttractionName(a.name, locale)}
+                      selected={selectedIds.has(a.id)}
+                      badge={attractionBadge(a.id, pool, pl)}
+                      onToggle={() => toggleAttraction(a.id)}
+                    />
+                  ))}
+                </div>
               </div>
+
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button variant="ghost" onClick={() => setStep("base")}>
                   {pl ? "← Zmień bazę" : "← Change base"}
@@ -293,6 +364,39 @@ export function DestinationPlanWizard({
         </>
       )}
     </div>
+  );
+}
+
+function AttractionChip({
+  id,
+  name,
+  selected,
+  badge,
+  onToggle,
+}: {
+  id: string;
+  name: string;
+  selected: boolean;
+  badge?: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      key={id}
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "rounded-xl border px-3 py-2 text-left text-sm",
+        selected
+          ? "border-brand-700 bg-brand-50 text-text-primary"
+          : "border-border-default bg-bg-soft text-text-tertiary line-through",
+      )}
+    >
+      <span className="font-medium">{name}</span>
+      {badge && (
+        <span className="mt-0.5 block text-xs text-brand-700">{badge}</span>
+      )}
+    </button>
   );
 }
 

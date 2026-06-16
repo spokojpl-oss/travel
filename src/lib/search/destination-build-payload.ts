@@ -29,6 +29,12 @@ export type DestinationBuildPayload = {
     choice: LodgingBaseChoice;
   };
   planComplete?: boolean;
+  /** Po enrich z /api/search/plan-pool */
+  poolEnriched?: boolean;
+  suggestedAttractionIds?: string[];
+  touristRegionId?: string | null;
+  explorationScope?: string | null;
+  tripDays?: number;
 };
 
 export function storeDestinationBuildPayload(

@@ -84,6 +84,7 @@ export default function DestinationPage() {
   const [planPayload, setPlanPayload] = useState<DestinationBuildPayload | null>(
     null,
   );
+  const [planEnriching, setPlanEnriching] = useState(false);
   const [planComplete, setPlanComplete] = useState(false);
   const startedRef = useRef(false);
 
@@ -179,6 +180,68 @@ export default function DestinationPage() {
     );
     setCluster(parsedCluster);
   }, [buildId, clusterData, activitiesParam]);
+
+  useEffect(() => {
+    if (!planPayload || planPayload.planComplete || planPayload.poolEnriched) {
+      return;
+    }
+
+    let cancelled = false;
+    setPlanEnriching(true);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/search/plan-pool", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cluster: planPayload.cluster,
+            activities: planPayload.activities,
+            destination_label: planPayload.destinationLabel,
+            tourist_region_id: planPayload.touristRegionId ?? trip.tourist_region_id,
+            exploration_scope:
+              planPayload.explorationScope ?? trip.exploration_scope,
+            departure_date: trip.departure_date,
+            return_date: trip.return_date,
+            with_kids: hasChildrenInPassengers(trip.passengers),
+            locale: "pl",
+          }),
+        });
+
+        if (!response.ok || cancelled) return;
+
+        const data = (await response.json()) as {
+          cluster: GeoCluster;
+          attractionPool: DestinationBuildPayload["attractionPool"];
+          suggestedAttractionIds: string[];
+        };
+
+        if (cancelled) return;
+
+        const enriched: DestinationBuildPayload = {
+          ...planPayload,
+          cluster: data.cluster,
+          attractionPool: data.attractionPool,
+          suggestedAttractionIds: data.suggestedAttractionIds,
+          poolEnriched: true,
+        };
+
+        setPlanPayload(enriched);
+        setCluster(data.cluster);
+        if (buildId) {
+          storeDestinationBuildPayload(buildId, enriched);
+        }
+      } catch {
+        /* wizard działa na surowym poolu */
+      } finally {
+        if (!cancelled) setPlanEnriching(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planPayload, trip, buildId]);
 
   function handlePlanComplete(updated: DestinationBuildPayload) {
     const finalCluster = applyPlanToCluster(updated);
@@ -348,13 +411,24 @@ export default function DestinationPage() {
         )}
       </header>
 
-      {!planComplete && planPayload && (
+      {!planComplete && planPayload && !planEnriching && (
         <DestinationPlanWizard
           payload={planPayload}
           withKids={hasChildrenInPassengers(trip.passengers)}
           onComplete={handlePlanComplete}
           onCancel={() => router.push("/app/search")}
         />
+      )}
+
+      {!planComplete && planEnriching && (
+        <Card>
+          <CardBody>
+            <SkeletonList count={4} />
+            <p className="mt-4 text-sm text-text-secondary">
+              Dopasowujemy bazę noclegową, wycieczki dojazdowe i miejsca na mapie…
+            </p>
+          </CardBody>
+        </Card>
       )}
 
       {planComplete && mapData && (

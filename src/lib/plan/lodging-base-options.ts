@@ -1,6 +1,10 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
-import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
-import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
+import { clusterDisplayName } from "@/lib/search/settlement-resolver";
+import type {
+  AttractionWithActivities,
+  GeoCluster,
+  GeoPoint,
+} from "@/types/domain";
 
 export type LodgingBaseChoice = "tourist_center" | "quiet_area";
 
@@ -13,102 +17,145 @@ export type LodgingBaseOption = {
   hint_en: string;
 };
 
-function computeCentroid(points: GeoPoint[]): GeoPoint {
-  const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
-  const lon = points.reduce((s, p) => s + p.lon, 0) / points.length;
-  return { lat, lon };
-}
-
 function attractionPoint(a: AttractionWithActivities): GeoPoint {
   return { lat: Number(a.lat), lon: Number(a.lon) };
 }
 
-function findDensityPeak(attractions: AttractionWithActivities[]): GeoPoint {
-  if (attractions.length === 1) return attractionPoint(attractions[0]);
+const BEACH_SLUGS = new Set(["sandy_beaches", "rocky_beaches"]);
 
-  const cellDeg = 0.04;
-  const cells = new Map<string, { point: GeoPoint; count: number }>();
-
-  for (const a of attractions) {
-    const p = attractionPoint(a);
-    const key = `${Math.floor(p.lat / cellDeg)}:${Math.floor(p.lon / cellDeg)}`;
-    const existing = cells.get(key);
-    if (existing) {
-      existing.count += 1;
-      existing.point = {
-        lat: (existing.point.lat * (existing.count - 1) + p.lat) / existing.count,
-        lon: (existing.point.lon * (existing.count - 1) + p.lon) / existing.count,
-      };
-    } else {
-      cells.set(key, { point: p, count: 1 });
-    }
-  }
-
-  const best = [...cells.values()].sort((a, b) => b.count - a.count)[0];
-  return best?.point ?? computeCentroid(attractions.map(attractionPoint));
+function isCoastalAttraction(a: AttractionWithActivities): boolean {
+  const slugs = a.activity_tags.map((t) => t.activity_slug);
+  if (slugs.some((s) => BEACH_SLUGS.has(s))) return true;
+  return /plaż|beach|port|marina|nabrze/i.test(a.name);
 }
 
-function nearestLocalityLabel(
-  point: GeoPoint,
+/** Nabrzeże: centroid najbliższych punktów nad morzem względem centrum miasta. */
+function computeWaterfrontPoint(
+  cityCenter: GeoPoint,
   attractions: AttractionWithActivities[],
-): string {
-  const sorted = [...attractions].sort(
-    (a, b) =>
-      distanceKm(point, attractionPoint(a)) -
-      distanceKm(point, attractionPoint(b)),
-  );
-  const nearest = sorted[0];
-  if (!nearest) return "Wybrany rejon";
-  return toPolishAttractionName(nearest.name).split("—")[0]?.trim() ?? nearest.name;
+  maxKm = 18,
+): GeoPoint | null {
+  const coastal = attractions
+    .filter(isCoastalAttraction)
+    .map((a) => ({ p: attractionPoint(a), a }))
+    .filter(({ p }) => distanceKm(cityCenter, p) <= maxKm)
+    .sort(
+      (x, y) =>
+        distanceKm(cityCenter, x.p) - distanceKm(cityCenter, y.p),
+    );
+
+  if (coastal.length === 0) return null;
+
+  const nearest = coastal.slice(0, Math.min(5, coastal.length));
+  const lat =
+    nearest.reduce((s, x) => s + x.p.lat, 0) / nearest.length;
+  const lon =
+    nearest.reduce((s, x) => s + x.p.lon, 0) / nearest.length;
+  return { lat, lon };
+}
+
+function resolveCityCenter(
+  cluster: GeoCluster,
+  attractions: AttractionWithActivities[],
+): { point: GeoPoint; name: string } {
+  if (cluster.settlement?.name) {
+    return {
+      point: {
+        lat: cluster.settlement.lat,
+        lon: cluster.settlement.lon,
+      },
+      name: cluster.settlement.name,
+    };
+  }
+
+  const displayName = clusterDisplayName({ ...cluster, attractions });
+  if (displayName !== "Region do wyboru") {
+    return { point: cluster.center, name: displayName };
+  }
+
+  return { point: cluster.center, name: "Centrum" };
 }
 
 export function computeLodgingBaseOptions(
   attractions: AttractionWithActivities[],
-  options?: { withKids?: boolean; locale?: "pl" | "en" },
+  options?: {
+    withKids?: boolean;
+    locale?: "pl" | "en";
+    cluster?: GeoCluster;
+  },
 ): LodgingBaseOption[] {
-  if (attractions.length === 0) return [];
+  if (attractions.length === 0 && !options?.cluster) return [];
 
+  const cluster = options?.cluster ?? {
+    id: "tmp",
+    center: attractions[0]
+      ? attractionPoint(attractions[0])
+      : { lat: 0, lon: 0 },
+    bbox: { north: 0, south: 0, east: 0, west: 0 },
+    radius_km: 10,
+    attractions,
+    covered_activities: [],
+    score: 1,
+    activity_counts: {},
+  };
+
+  const pool = attractions.length > 0 ? attractions : cluster.attractions;
   const withKids = options?.withKids ?? false;
-  const touristPoint = findDensityPeak(attractions);
+  const pl = options?.locale !== "en";
 
-  const quietCandidate = [...attractions]
-    .map((a) => ({ a, d: distanceKm(touristPoint, attractionPoint(a)) }))
-    .sort((x, y) => y.d - x.d)[0];
+  const { point: cityCenter, name: cityName } = resolveCityCenter(
+    cluster,
+    pool,
+  );
+  const waterfront =
+    computeWaterfrontPoint(cityCenter, pool) ??
+    (pool.find(isCoastalAttraction)
+      ? attractionPoint(pool.find(isCoastalAttraction)!)
+      : null);
 
-  const quietPoint = quietCandidate
-    ? attractionPoint(quietCandidate.a)
-    : touristPoint;
+  const waterfrontPoint = waterfront ?? cityCenter;
+  const waterfrontDist = distanceKm(cityCenter, waterfrontPoint);
+  const sameSpot = waterfrontDist < 0.8;
 
-  const touristLabel = `Centrum — okolica ${nearestLocalityLabel(touristPoint, attractions)}`;
-  const quietLabel = `Spokojniej — okolica ${nearestLocalityLabel(quietPoint, attractions)}`;
+  const touristLabel = sameSpot
+    ? pl
+      ? `${cityName} — centrum i nabrzeże`
+      : `${cityName} — centre & waterfront`
+    : pl
+      ? `${cityName} — przy nabrzeżu`
+      : `${cityName} — waterfront`;
+
+  const quietLabel = pl
+    ? `${cityName} — centrum miasta`
+    : `${cityName} — city centre`;
 
   const touristHintPl = withKids
-    ? "Blisko plaż i restauracji, ale więcej ruchu i hałasu — krótsze dojazdy do atrakcji."
-    : "Blisko plaż, barów i życia nocnego — krótkie dojazdy do atrakcji.";
+    ? "Blisko plaży i promenady — wygodne wyjścia nad morze z dziećmi."
+    : "Przy plaży / porcie — krótki dojście nad wodę, więcej ruchu wieczorem.";
   const quietHintPl = withKids
-    ? "Ciszej i mniej tłumów — lepsze na sen dzieci; do plaż i atrakcji dojedziesz autem."
-    : "Spokojniejsza okolica, mniej tłumów — do atrakcji dojedziesz autem.";
+    ? "Centrum miejscowości — ciszej w nocy, do plaży dojedziesz autem (kilka–kilkanaście minut)."
+    : "Centrum — sklepy, restauracje, mniej hałasu niż przy samej plaży.";
 
   return [
     {
       choice: "tourist_center",
-      lat: touristPoint.lat,
-      lon: touristPoint.lon,
+      lat: waterfrontPoint.lat,
+      lon: waterfrontPoint.lon,
       label: touristLabel,
       hint_pl: touristHintPl,
       hint_en: withKids
-        ? "Near beaches and restaurants but busier — shorter drives to sights."
-        : "Near beaches, bars and nightlife — shorter drives to sights.",
+        ? "Near beach and promenade — easy sea access with kids."
+        : "Waterfront — short walk to the sea, busier evenings.",
     },
     {
       choice: "quiet_area",
-      lat: quietPoint.lat,
-      lon: quietPoint.lon,
+      lat: cityCenter.lat,
+      lon: cityCenter.lon,
       label: quietLabel,
       hint_pl: quietHintPl,
       hint_en: withKids
-        ? "Quieter and less crowded — better for kids' sleep; drive to sights."
-        : "Quieter area, fewer crowds — drive to sights.",
+        ? "Town centre — quieter nights, short drive to beaches."
+        : "Town centre — shops and restaurants, calmer than the beach strip.",
     },
   ];
 }

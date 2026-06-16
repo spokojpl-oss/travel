@@ -214,7 +214,7 @@ function isCountryLevelDestinationLabel(label: string): boolean {
   return parts.every((part) => GENERIC_DESTINATION_KEYS.has(part));
 }
 
-function regionMatchesDestination(region: TouristRegion, label: string): boolean {
+export function regionMatchesDestination(region: TouristRegion, label: string): boolean {
   const norm = normalizeDestinationKey(label);
   const head = norm.split(/\s+/)[0]?.trim() ?? norm;
 

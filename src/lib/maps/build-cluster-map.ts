@@ -1,5 +1,9 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
 import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
+import {
+  isDayTripAttraction,
+  readPlanMeta,
+} from "@/lib/plan/plan-attraction-meta";
 import type { GeoCluster } from "@/types/domain";
 import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
 import type { IslandMapAirport } from "@/lib/maps/build-island-map";
@@ -11,6 +15,7 @@ export function buildClusterMapData(
     selectedIds?: Set<string>;
     locale?: "pl" | "en";
     maxAttractions?: number;
+    attractionPool?: GeoCluster["attractions"];
   },
 ): {
   points: MapPoint[];
@@ -56,14 +61,28 @@ export function buildClusterMapData(
             : `Rozpiętość: ${maxDistKm.toFixed(1)} km (linia prosta)`
           : undefined,
     },
-    ...plotted.map((a) => ({
-      id: a.id,
-      type: "attraction" as const,
-      label: toPolishAttractionName(a.name, locale),
-      lat: Number(a.lat),
-      lon: Number(a.lon),
-      badge: `${distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }).toFixed(1)} km`,
-    })),
+    ...plotted.map((a) => {
+      const dist = distanceKm(center, {
+        lat: Number(a.lat),
+        lon: Number(a.lon),
+      });
+      const meta = readPlanMeta(a);
+      const driveMin = meta?.drive_minutes;
+      const badge =
+        isDayTripAttraction(a) && driveMin
+          ? locale === "en"
+            ? `~${driveMin} min drive`
+            : `~${driveMin} min jazdy`
+          : `${dist.toFixed(1)} km`;
+      return {
+        id: a.id,
+        type: "attraction" as const,
+        label: toPolishAttractionName(a.name, locale),
+        lat: Number(a.lat),
+        lon: Number(a.lon),
+        badge,
+      };
+    }),
   ];
 
   const segments: MapRouteSegment[] = plotted.map((a) => ({

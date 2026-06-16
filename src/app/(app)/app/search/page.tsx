@@ -25,7 +25,10 @@ import {
 } from "@/lib/search/trip-rhythm";
 import { adviseExplorationScope } from "@/lib/search/scope-advisor";
 import { assessIslandFeasibility } from "@/lib/search/island-feasibility";
-import { storeDestinationBuildPayload, type PlanRegionContext } from "@/lib/search/destination-build-payload";
+import {
+  storeDestinationBuildPayload,
+  type PlanRegionContext,
+} from "@/lib/search/destination-build-payload";
 import {
   buildClusterFromAttractions,
   sanitizeClusterForDestination,
@@ -885,6 +888,13 @@ function SearchPageContent() {
       region: regionContextFromTrip(),
       attractionPool: pool,
       planComplete: false,
+      poolEnriched: false,
+      touristRegionId: trip.tourist_region_id,
+      explorationScope: trip.exploration_scope,
+      tripDays: daysBetweenIso(
+        trip.departure_date,
+        trip.return_date ?? trip.departure_date,
+      ),
     });
     const tripParams = tripContextToParams(trip);
     tripParams.set("build_id", buildId);
