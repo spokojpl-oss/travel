@@ -290,7 +290,7 @@ export const en: Messages = {
     adjustRhythm: "← Change day plan",
     emptyTitle: "No curated guide for this place yet",
     emptyBody:
-      "We have guides for Albania, Lanzarote and Crete so far. Adjust your plan or continue manually.",
+      "We don't have region cards for this destination yet. Adjust your day plan, pick another place, or continue manually — OSM activity search still works.",
     skipToActivities: "Skip — pick activities manually →",
   },
   flights: {

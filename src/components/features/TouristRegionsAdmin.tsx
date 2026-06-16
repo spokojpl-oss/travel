@@ -193,7 +193,7 @@ export function TouristRegionsAdmin() {
             Odśwież listę
           </Button>
           <Button size="sm" disabled={seeding} onClick={seedDefaults}>
-            {seeding ? "Seeduję…" : "Seed z domyślnych (9 regionów)"}
+            {seeding ? "Seeduję…" : "Seed z domyślnych (13 regionów)"}
           </Button>
         </div>
 

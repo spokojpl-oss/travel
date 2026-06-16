@@ -291,7 +291,7 @@ export const pl = {
     adjustRhythm: "← Zmień rozkład dni",
     emptyTitle: "Brak gotowych propozycji dla tego miejsca",
     emptyBody:
-      "Na razie mamy poradnik dla Albanii, Lanzarote i Krety. Możesz wrócić i zmienić plan albo przejść dalej ręcznie.",
+      "Nie mamy jeszcze kart regionu dla tej destynacji. Zmień plan dni, wybierz inne miejsce albo przejdź dalej ręcznie — aktywności i wyszukiwanie OSM nadal działają.",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",
   },
   flights: {

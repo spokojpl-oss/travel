@@ -12,15 +12,31 @@ import type { TripRhythm } from "@/lib/search/trip-rhythm";
 const CACHE_TTL_MS = 60_000;
 
 let catalogCache: { regions: TouristRegion[]; expiresAt: number } | null = null;
+let autoSeedAttempted = false;
 
 export function invalidateTouristRegionsCache(): void {
   catalogCache = null;
+  autoSeedAttempted = false;
+}
+
+function mergeRegionCatalog(
+  dbRegions: TouristRegion[],
+  seedRegions: TouristRegion[],
+): TouristRegion[] {
+  const byId = new Map<string, TouristRegion>();
+  for (const region of seedRegions) byId.set(region.id, region);
+  for (const region of dbRegions) byId.set(region.id, region);
+  return [...byId.values()];
 }
 
 export async function loadTouristRegionsCatalog(): Promise<TouristRegion[]> {
   if (catalogCache && Date.now() < catalogCache.expiresAt) {
     return catalogCache.regions;
   }
+
+  let dbRegions: TouristRegion[] = [];
+  let dbQueryOk = false;
+  let dbEmpty = false;
 
   try {
     const admin = createAdminClient();
@@ -31,20 +47,46 @@ export async function loadTouristRegionsCatalog(): Promise<TouristRegion[]> {
       .order("sort_order", { ascending: true })
       .order("name_pl", { ascending: true });
 
-    if (!error && data && data.length > 0) {
-      const regions = (data as DbTouristRegionRow[]).map(mapDbRowToTouristRegion);
-      catalogCache = { regions, expiresAt: Date.now() + CACHE_TTL_MS };
-      return regions;
+    if (!error) {
+      dbQueryOk = true;
+      if (data && data.length > 0) {
+        dbRegions = (data as DbTouristRegionRow[]).map(mapDbRowToTouristRegion);
+      } else {
+        dbEmpty = true;
+      }
     }
   } catch {
     /* fallback to seed */
   }
 
-  catalogCache = {
-    regions: SEED_TOURIST_REGIONS,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  };
-  return SEED_TOURIST_REGIONS;
+  if (dbEmpty && !autoSeedAttempted) {
+    autoSeedAttempted = true;
+    try {
+      await seedTouristRegionsFromDefaults();
+      const admin = createAdminClient();
+      const { data } = await admin
+        .from("tourist_regions")
+        .select("*, region_picks(*)")
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .order("name_pl", { ascending: true });
+      if (data && data.length > 0) {
+        dbRegions = (data as DbTouristRegionRow[]).map(mapDbRowToTouristRegion);
+      }
+    } catch {
+      /* seed optional — seed file still works */
+    }
+  }
+
+  const regions =
+    dbQueryOk && dbRegions.length > 0
+      ? mergeRegionCatalog(dbRegions, SEED_TOURIST_REGIONS)
+      : dbQueryOk
+        ? mergeRegionCatalog([], SEED_TOURIST_REGIONS)
+        : SEED_TOURIST_REGIONS;
+
+  catalogCache = { regions, expiresAt: Date.now() + CACHE_TTL_MS };
+  return regions;
 }
 
 export async function findTouristRegionsAsync({

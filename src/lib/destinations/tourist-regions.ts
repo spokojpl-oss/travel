@@ -72,9 +72,50 @@ export type DbRegionPickRow = {
   rank: number;
 };
 
+function transliterateGreek(text: string): string {
+  const map: Record<string, string> = {
+    α: "a",
+    ά: "a",
+    β: "v",
+    γ: "g",
+    δ: "d",
+    ε: "e",
+    έ: "e",
+    ζ: "z",
+    η: "i",
+    ή: "i",
+    θ: "th",
+    ι: "i",
+    ί: "i",
+    ϊ: "i",
+    ΐ: "i",
+    κ: "k",
+    λ: "l",
+    μ: "m",
+    ν: "n",
+    ξ: "x",
+    ο: "o",
+    ό: "o",
+    π: "p",
+    ρ: "r",
+    σ: "s",
+    ς: "s",
+    τ: "t",
+    υ: "y",
+    ύ: "y",
+    ϋ: "y",
+    ΰ: "y",
+    φ: "f",
+    χ: "ch",
+    ψ: "ps",
+    ω: "o",
+    ώ: "o",
+  };
+  return [...text].map((char) => map[char] ?? char).join("");
+}
+
 function normalizeDestinationKey(label: string): string {
-  return label
-    .toLowerCase()
+  return transliterateGreek(label.toLowerCase())
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[,]/g, " ")
@@ -128,10 +169,36 @@ export function destinationKeysFromLabel(
   return [...keys];
 }
 
+/** Klucze zbyt ogólne — same nie wiążą regionu z destynacją. */
+const GENERIC_DESTINATION_KEYS = new Set([
+  "grecja",
+  "greece",
+  "albania",
+  "hiszpania",
+  "spain",
+  "cypr",
+  "cyprus",
+  "chorwacja",
+  "croatia",
+  "hrvatska",
+  "ionian",
+  "wyspy jonskie",
+  "baleares",
+  "kyklady",
+  "cyclades",
+]);
+
 function regionMatchesDestination(region: TouristRegion, label: string): boolean {
   const norm = normalizeDestinationKey(label);
-  return region.destination_keys.some(
-    (key) => norm.includes(key) || key.includes(norm.split(",")[0]?.trim() ?? norm),
+  const head = norm.split(/\s+/)[0]?.trim() ?? norm;
+
+  const specificKeys = region.destination_keys.filter(
+    (key) => !GENERIC_DESTINATION_KEYS.has(key),
+  );
+  const keysToMatch = specificKeys.length > 0 ? specificKeys : region.destination_keys;
+
+  return keysToMatch.some(
+    (key) => norm.includes(key) || key.includes(head),
   );
 }
 
