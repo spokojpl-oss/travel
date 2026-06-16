@@ -48,3 +48,29 @@ export function driveMinutesFromKm(km: number): number {
 export function allowsDayTrips(scope: ExplorationScope): boolean {
   return scope !== "local";
 }
+
+/** Promienie wyszukiwania planu — respektują suwak użytkownika (stay) z wyszukiwania. */
+export function resolvePlanSearchRadii({
+  scope,
+  tripDays,
+  stayRadiusKm: stayOverride,
+  exploreRadiusKm: exploreOverride,
+}: {
+  scope: ExplorationScope;
+  tripDays: number;
+  stayRadiusKm?: number | null;
+  exploreRadiusKm?: number | null;
+}): { stay_radius_km: number; explore_radius_km: number } {
+  const stay = stayOverride ?? stayRadiusKm(scope);
+  let explore = exploreOverride ?? exploreRadiusKm(scope, tripDays);
+
+  if (stayOverride != null) {
+    if (scope === "local" || stay <= 20) {
+      explore = stay;
+    } else {
+      explore = Math.min(explore, stay + Math.max(15, Math.round(stay * 0.6)));
+    }
+  }
+
+  return { stay_radius_km: stay, explore_radius_km: explore };
+}

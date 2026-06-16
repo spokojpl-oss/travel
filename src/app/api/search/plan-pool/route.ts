@@ -7,7 +7,7 @@ import {
   tripDaysFromDates,
 } from "@/lib/plan/build-plan-pool";
 import { buildDiscoverPlaces } from "@/lib/plan/build-discover-places";
-import { exploreRadiusKm, stayRadiusKm } from "@/lib/plan/day-trip-radius";
+import { resolvePlanSearchRadii } from "@/lib/plan/day-trip-radius";
 import {
   defaultExplorationScope,
   explorationScopeFromString,
@@ -22,6 +22,8 @@ const bodySchema = z.object({
   destination_label: z.string().optional(),
   tourist_region_id: z.string().nullable().optional(),
   exploration_scope: z.string().nullable().optional(),
+  stay_radius_km: z.number().min(3).max(80).optional(),
+  explore_radius_km: z.number().min(3).max(500).optional(),
   departure_date: z.string(),
   return_date: z.string().nullable().optional(),
   with_kids: z.boolean().optional(),
@@ -95,18 +97,22 @@ export async function POST(request: Request) {
     label,
   );
 
-  const exploreKm = exploreRadiusKm(scope, tripDays);
-  const stayKm = stayRadiusKm(scope);
+  const radii = resolvePlanSearchRadii({
+    scope,
+    tripDays,
+    stayRadiusKm: parsed.data.stay_radius_km,
+    exploreRadiusKm: parsed.data.explore_radius_km,
+  });
 
   const searchResult = await searchActivities({
     activities: parsed.data.activities,
     destination_label: label,
     near_lat: enrichedCluster.center.lat,
     near_lon: enrichedCluster.center.lon,
-    stay_radius_km: stayKm,
-    explore_radius_km: exploreKm,
-    max_radius_km: stayKm,
-    near_radius_km: exploreKm,
+    stay_radius_km: radii.stay_radius_km,
+    explore_radius_km: radii.explore_radius_km,
+    max_radius_km: radii.stay_radius_km,
+    near_radius_km: radii.explore_radius_km,
     match_mode: "any",
     min_per_activity: 1,
     exploration_scope: scope,
@@ -115,12 +121,12 @@ export async function POST(request: Request) {
   const expanded = flattenSearchAttractions(
     searchResult.clusters,
     enrichedCluster.center,
-    exploreKm,
+    radii.explore_radius_km,
   );
 
   const catalog = await loadTouristRegionsCatalog();
 
-  const attractionPool = buildRawPlanAttractionPool({
+  let attractionPool = buildRawPlanAttractionPool({
     clusterAttractions: enrichedCluster.attractions,
     expandedAttractions: expanded,
     destinationLabel: label,
@@ -132,6 +138,14 @@ export async function POST(request: Request) {
     catalog,
     preferredActivities: parsed.data.activities,
   });
+
+  attractionPool = attractionPool.filter(
+    (a) =>
+      distanceKm(enrichedCluster.center, {
+        lat: Number(a.lat),
+        lon: Number(a.lon),
+      }) <= radii.explore_radius_km,
+  );
 
   const discover = buildDiscoverPlaces({
     pool: attractionPool,
@@ -145,6 +159,7 @@ export async function POST(request: Request) {
     explorationScope: scope,
     referencePoint: enrichedCluster.center,
     withKids: parsed.data.with_kids,
+    stayRadiusKm: radii.stay_radius_km,
   });
 
   return Response.json({
@@ -153,7 +168,7 @@ export async function POST(request: Request) {
     discover,
     tripDays,
     explorationScope: scope,
-    exploreRadiusKm: exploreKm,
-    stayRadiusKm: stayKm,
+    exploreRadiusKm: radii.explore_radius_km,
+    stayRadiusKm: radii.stay_radius_km,
   });
 }

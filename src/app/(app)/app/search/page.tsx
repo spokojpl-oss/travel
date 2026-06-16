@@ -892,6 +892,7 @@ function SearchPageContent() {
     cluster: GeoCluster,
     pool: AttractionWithActivities[],
   ) {
+    const searchRadii = getSearchParams();
     storeDestinationBuildPayload(buildId, {
       cluster,
       activities: Array.from(selectedActivities),
@@ -902,6 +903,8 @@ function SearchPageContent() {
       poolEnriched: false,
       touristRegionId: trip.tourist_region_id,
       explorationScope: trip.exploration_scope,
+      stayRadiusKm: searchRadii.stay_radius_km ?? searchRadii.max_radius_km,
+      exploreRadiusKm: searchRadii.explore_radius_km,
       tripDays: daysBetweenIso(
         trip.departure_date,
         trip.return_date ?? trip.departure_date,

@@ -85,6 +85,14 @@ export function buildCuratedDayTrips({
 }): AttractionWithActivities[] {
   if (!allowsDayTrips(explorationScope)) return [];
 
+  /** Wybrany rejon = baza noclegowa; bez sztucznych „wycieczek” z innych części wyspy. */
+  if (
+    currentRegionId &&
+    (explorationScope === "local" || explorationScope === "region")
+  ) {
+    return [];
+  }
+
   const matchingRegions = catalog.filter((r) =>
     regionMatchesDestination(r, destinationLabel),
   );

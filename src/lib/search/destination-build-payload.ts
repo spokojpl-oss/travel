@@ -36,6 +36,9 @@ export type DestinationBuildPayload = {
   suggestedAttractionIds?: string[];
   touristRegionId?: string | null;
   explorationScope?: string | null;
+  /** Promień rejonu z kroku wyszukiwania (suwak „Promień jednego rejonu”). */
+  stayRadiusKm?: number;
+  exploreRadiusKm?: number;
   tripDays?: number;
   /** Hero + karty miejsc z /api/search/plan-pool */
   discover?: DiscoverPlacesResult;

@@ -189,9 +189,7 @@ export function matchingRegionsForDestination(
   );
   if (touristRegionId) {
     const selected = matched.find((r) => r.id === touristRegionId);
-    if (selected) {
-      return [selected, ...matched.filter((r) => r.id !== touristRegionId)];
-    }
+    if (selected) return [selected];
   }
   return matched;
 }

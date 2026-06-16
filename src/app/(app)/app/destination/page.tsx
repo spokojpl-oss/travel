@@ -202,6 +202,8 @@ export default function DestinationPage() {
             tourist_region_id: planPayload.touristRegionId ?? trip.tourist_region_id,
             exploration_scope:
               planPayload.explorationScope ?? trip.exploration_scope,
+            stay_radius_km: planPayload.stayRadiusKm,
+            explore_radius_km: planPayload.exploreRadiusKm,
             departure_date: trip.departure_date,
             return_date: trip.return_date,
             with_kids: hasChildrenInPassengers(trip.passengers),
@@ -218,6 +220,8 @@ export default function DestinationPage() {
           discover?: DestinationBuildPayload["discover"];
           tripDays?: number;
           explorationScope?: string;
+          stayRadiusKm?: number;
+          exploreRadiusKm?: number;
         };
 
         if (cancelled) return;
@@ -232,6 +236,8 @@ export default function DestinationPage() {
             data.explorationScope ??
             planPayload.explorationScope ??
             trip.exploration_scope,
+          stayRadiusKm: data.stayRadiusKm ?? planPayload.stayRadiusKm,
+          exploreRadiusKm: data.exploreRadiusKm ?? planPayload.exploreRadiusKm,
           poolEnriched: true,
         };
 

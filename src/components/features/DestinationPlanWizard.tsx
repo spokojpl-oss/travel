@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { RegionMap } from "@/components/features/RegionMap";
@@ -64,6 +64,7 @@ export function DestinationPlanWizard({
         defaultExplorationScope(),
       referencePoint: payload.cluster.center,
       withKids,
+      stayRadiusKm: payload.stayRadiusKm,
     });
   }, [payload, rawPool, locale, withKids]);
 
@@ -91,6 +92,14 @@ export function DestinationPlanWizard({
       placeCards.filter((c) => c.recommended).slice(0, 6).map((c) => c.id),
     );
   });
+
+  /** Po enrich z API — przełącz sugestie na pool ograniczony do rejonu (nie trzymaj starych ID z całej wyspy). */
+  useEffect(() => {
+    if (!payload.poolEnriched || payload.selectedAttractionIds?.length) return;
+    const ids = payload.discover?.suggestedIds;
+    if (!ids?.length) return;
+    setSelectedIds(new Set(ids));
+  }, [payload.poolEnriched, payload.discover?.suggestedIds, payload.selectedAttractionIds]);
 
   const selectedPoolIds = useMemo(
     () => resolvePlaceSelectionToPoolIds([...selectedIds], rawPool, placeCards),
@@ -247,14 +256,9 @@ export function DestinationPlanWizard({
           <CardBody className="space-y-4">
             <p className="text-sm leading-relaxed text-text-secondary">
               {pl
-                ? `Wybrałeś ${selectedIds.size} miejsc. Baza jest dopasowana pod nie — centrum vs nabrzeże to sposób szukania na Booking.`
-                : `You picked ${selectedIds.size} places. The base fits them — centre vs waterfront is how you'd search on Booking.`}
+                ? "Centrum miasta czy nabrzeże — wybierz bazę noclegową. To wpływa na sposób szukania hoteli (np. na Booking)."
+                : "City centre or waterfront — pick your lodging base. This affects how we search for hotels (e.g. on Booking)."}
             </p>
-
-            <SelectedPlacesSummary
-              cards={placeCards.filter((c) => selectedIds.has(c.id))}
-              pl={pl}
-            />
 
             {baseOptions.map((option) => (
               <button

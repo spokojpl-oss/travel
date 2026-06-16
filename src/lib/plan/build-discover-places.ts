@@ -172,6 +172,7 @@ export function buildDiscoverPlaces({
   explorationScope = "region",
   referencePoint,
   withKids = false,
+  stayRadiusKm: stayRadiusKmParam,
 }: {
   pool: AttractionWithActivities[];
   catalog: TouristRegion[];
@@ -184,6 +185,8 @@ export function buildDiscoverPlaces({
   explorationScope?: ExplorationScope;
   referencePoint: GeoPoint;
   withKids?: boolean;
+  /** Promień rejonu z wyszukiwania — ogranicza karty i sugestie do okolicy bazy. */
+  stayRadiusKm?: number;
 }): DiscoverPlacesResult {
   const regions = matchingRegionsForDestination(
     catalog,
@@ -203,6 +206,17 @@ export function buildDiscoverPlaces({
 
   const primaryRegion = regions[0];
 
+  const maxCardKm =
+    stayRadiusKmParam ??
+    (touristRegionId && primaryRegion?.radius_km
+      ? primaryRegion.radius_km
+      : undefined);
+
+  const poolInRange =
+    maxCardKm != null
+      ? pool.filter((a) => distanceKm(referencePoint, point(a)) <= maxCardKm)
+      : pool;
+
   for (const region of regions) {
     const sortedPicks = [...region.picks].sort((a, b) => a.rank - b.rank);
     const isPrimary = region.id === primaryRegion?.id;
@@ -216,7 +230,7 @@ export function buildDiscoverPlaces({
       );
       const recommended = isPrimary && (pick.rank === 1 || activityMatch);
 
-      const card = cardFromPick(region, pick, pool, locale, recommended);
+      const card = cardFromPick(region, pick, poolInRange, locale, recommended);
       if (!card) continue;
 
       seenNames.add(key);
@@ -229,7 +243,7 @@ export function buildDiscoverPlaces({
 
   const maxExtra = 8;
   let extras = 0;
-  for (const a of pool) {
+  for (const a of poolInRange) {
     if (extras >= maxExtra) break;
     if (seenIds.has(a.id)) continue;
 
@@ -251,7 +265,7 @@ export function buildDiscoverPlaces({
   });
 
   const poolForSuggestions = cards
-    .map((c) => pool.find((p) => p.id === c.id))
+    .map((c) => poolInRange.find((p) => p.id === c.id))
     .filter((p): p is AttractionWithActivities => p != null);
 
   const suggestedIds =
