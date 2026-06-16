@@ -612,6 +612,8 @@ function SearchPageContent() {
       {showOverviewStep && (
         <DestinationOverviewPanel
           destinationLabel={trip.destination_label ?? trip.destination ?? ""}
+          destinationLat={trip.destination_lat}
+          destinationLon={trip.destination_lon}
           discovering={discovering}
           discovery={discovery}
           discoveryError={discoveryError}

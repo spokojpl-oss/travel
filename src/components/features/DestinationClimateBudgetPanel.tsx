@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import type { SeededDestinationProfile } from "@/lib/destinations/fetch-seeded-profile";
+import type { DestinationProfileResponse } from "@/lib/destinations/destination-profile";
 import { useT } from "@/i18n/locale-provider";
 
 const RATING_COLORS: Record<string, string> = {
@@ -20,38 +20,45 @@ function formatPln(value: number | null | undefined): string {
 
 export function DestinationClimateBudgetPanel({
   destinationLabel,
+  lat,
+  lon,
 }: {
   destinationLabel: string;
+  lat?: number | null;
+  lon?: number | null;
 }) {
   const t = useT();
-  const [profile, setProfile] = useState<SeededDestinationProfile | null>(null);
+  const [profile, setProfile] = useState<DestinationProfileResponse | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
-  const [missing, setMissing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setMissing(false);
+    setError(null);
 
-    fetch(
-      `/api/search/destination-profile?label=${encodeURIComponent(destinationLabel)}`,
-    )
+    const params = new URLSearchParams({ label: destinationLabel });
+    if (lat != null && lon != null) {
+      params.set("lat", String(lat));
+      params.set("lon", String(lon));
+    }
+
+    fetch(`/api/search/destination-profile?${params}`)
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
-        return data as { profile: SeededDestinationProfile | null; seeded: boolean };
+        return data as { profile: DestinationProfileResponse };
       })
       .then((data) => {
         if (cancelled) return;
-        if (!data.profile?.climate && !data.profile?.budget) {
-          setMissing(true);
-          setProfile(null);
-        } else {
-          setProfile(data.profile);
-        }
+        setProfile(data.profile);
       })
-      .catch(() => {
-        if (!cancelled) setMissing(true);
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -60,10 +67,30 @@ export function DestinationClimateBudgetPanel({
     return () => {
       cancelled = true;
     };
-  }, [destinationLabel]);
+  }, [destinationLabel, lat, lon]);
 
-  if (loading) return null;
-  if (missing || !profile) return null;
+  if (loading) {
+    return (
+      <Card className="mb-6 border-brand-100">
+        <CardHeader title={t("search.climateYearTitle")} />
+        <CardBody className="text-sm text-text-secondary">
+          {t("search.climateLoading")}
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="mb-6 border-danger/30 bg-orange-50/50">
+        <CardBody className="text-sm text-text-secondary">{error}</CardBody>
+      </Card>
+    );
+  }
+
+  if (!profile?.climate && !profile?.budget) {
+    return null;
+  }
 
   const { climate, budget } = profile;
 
@@ -86,10 +113,18 @@ export function DestinationClimateBudgetPanel({
               <table className="w-full min-w-[520px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-border-default text-text-tertiary">
-                    <th className="py-2 pr-2 font-medium">{t("search.climateMonth")}</th>
-                    <th className="py-2 px-2 font-medium">{t("search.climateTemp")}</th>
-                    <th className="py-2 px-2 font-medium">{t("search.climateRain")}</th>
-                    <th className="py-2 pl-2 font-medium">{t("search.climateRating")}</th>
+                    <th className="py-2 pr-2 font-medium">
+                      {t("search.climateMonth")}
+                    </th>
+                    <th className="py-2 px-2 font-medium">
+                      {t("search.climateTemp")}
+                    </th>
+                    <th className="py-2 px-2 font-medium">
+                      {t("search.climateRain")}
+                    </th>
+                    <th className="py-2 pl-2 font-medium">
+                      {t("search.climateRating")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,7 +140,8 @@ export function DestinationClimateBudgetPanel({
                         {row.temp_min_avg}–{row.temp_max_avg}°C
                       </td>
                       <td className="py-2 px-2 text-text-secondary">
-                        ~{row.rainy_days_avg} {t("search.climateRainyDaysShort")}
+                        ~{row.rainy_days_avg}{" "}
+                        {t("search.climateRainyDaysShort")}
                       </td>
                       <td className="py-2 pl-2">
                         <span className="inline-flex items-center gap-1.5">
@@ -123,12 +159,12 @@ export function DestinationClimateBudgetPanel({
               </table>
             </div>
 
-            {climate.sample_years && (
-              <p className="text-xs text-text-tertiary">
-                {t("search.climateSource")}: Open-Meteo ({climate.sample_years}{" "}
-                {t("search.climateYears")})
-              </p>
-            )}
+            <p className="text-xs text-text-tertiary">
+              {t("search.climateSource")}:{" "}
+              {profile.climate_source === "seed"
+                ? `Open-Meteo (${climate.sample_years ?? "—"} ${t("search.climateYears")})`
+                : t("search.climateLiveSource")}
+            </p>
           </CardBody>
         </Card>
       )}
@@ -165,6 +201,7 @@ export function DestinationClimateBudgetPanel({
 
             <p className="text-xs text-text-tertiary">
               {t("search.budgetHint")} · {budget.source}
+              {profile.budget_source === "live" ? ` (${t("search.budgetLive")})` : ""}
             </p>
           </CardBody>
         </Card>
@@ -193,7 +230,10 @@ function BudgetTier({
       <p className="text-xs text-text-tertiary">{label}</p>
       <p className="font-display text-lg font-bold text-text-primary">
         {formatPln(value)}
-        <span className="text-xs font-normal text-text-secondary"> / os. / dzień</span>
+        <span className="text-xs font-normal text-text-secondary">
+          {" "}
+          / os. / dzień
+        </span>
       </p>
     </div>
   );

@@ -64,6 +64,8 @@ function OverviewHero({
 
 export function DestinationOverviewPanel({
   destinationLabel,
+  destinationLat,
+  destinationLon,
   discovering,
   discovery,
   discoveryError = null,
@@ -75,6 +77,8 @@ export function DestinationOverviewPanel({
   onContinue,
 }: {
   destinationLabel: string;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
   discovering: boolean;
   discovery: DestinationDiscovery | null;
   discoveryError?: string | null;
@@ -161,7 +165,11 @@ export function DestinationOverviewPanel({
         </Card>
       )}
 
-      <DestinationClimateBudgetPanel destinationLabel={destinationLabel} />
+      <DestinationClimateBudgetPanel
+        destinationLabel={destinationLabel}
+        lat={destinationLat}
+        lon={destinationLon}
+      />
 
       {!discovery.summary.includes("krótki przegląd przed wyborem") &&
         !discovery.summary.includes("quick snapshot before") && (
