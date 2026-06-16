@@ -36,7 +36,7 @@ const ID_CHUNK_PARALLEL = 8;
 /** Budżet czasu na uzupełnianie OSM/Google w trakcie wyszukiwania (ms). */
 const SUPPLEMENT_BUDGET_MS = 12_000;
 /** Gdy baza pusta — pełniejsze uzupełnienie z OSM (cała wyspa / region). */
-const EMPTY_DB_FILL_BUDGET_MS = 38_000;
+const EMPTY_DB_FILL_BUDGET_MS = 12_000;
 const SEARCH_TIME_BUDGET_MS = 48_000;
 
 const ATTRACTION_FIELDS = `
@@ -106,6 +106,16 @@ async function fetchAttractionIdsInBbox(
   center?: { lat: number; lon: number },
   maxIds = 2500,
 ): Promise<string[]> {
+  const { count } = await supabase
+    .from("attractions")
+    .select("*", { count: "exact", head: true })
+    .gte("lat", bbox.south)
+    .lte("lat", bbox.north)
+    .gte("lon", bbox.west)
+    .lte("lon", bbox.east);
+
+  if (!count || count === 0) return [];
+
   const { data } = await supabase
     .from("attractions")
     .select("id, lat, lon")
@@ -142,6 +152,17 @@ async function fetchAttractionIdsNear(
   radiusKm: number,
 ): Promise<string[]> {
   const bbox = latLonBBox(center.lat, center.lon, radiusKm);
+
+  const { count } = await supabase
+    .from("attractions")
+    .select("*", { count: "exact", head: true })
+    .gte("lat", bbox.minLat)
+    .lte("lat", bbox.maxLat)
+    .gte("lon", bbox.minLon)
+    .lte("lon", bbox.maxLon);
+
+  if (!count || count === 0) return [];
+
   const { data } = await supabase
     .from("attractions")
     .select("id, lat, lon")
@@ -498,6 +519,7 @@ export async function searchActivities(
   let attractionsInBbox = 0;
   let osmFilled = false;
   let googleFilled = false;
+  let attemptedEmptyFill = false;
 
   if (hasNearPoint(effectiveQuery)) {
     const fetchT0 = Date.now();
@@ -516,6 +538,7 @@ export async function searchActivities(
         destination: effectiveQuery.destination_label,
       },
       "H3",
+      "post-fix",
     );
 
     if (tagRows.length === 0 || attractionsInBbox === 0) {
@@ -524,6 +547,7 @@ export async function searchActivities(
         remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
       );
       if (emptyFillBudget > 4_000) {
+        attemptedEmptyFill = true;
         const fillT0 = Date.now();
         const filled = await withTimeout(
           ensureDestinationActivities({
@@ -552,19 +576,22 @@ export async function searchActivities(
             googlePersisted: filled.googlePersisted,
           },
           "H3",
+          "post-fix",
         );
 
-        fetched = await fetchTagRowsForRadii(
-          supabase,
-          effectiveQuery,
-          island,
-        );
-        tagRows = fetched.tagRows;
-        geoRadiusUsed = fetched.geoRadiusUsed ?? geoRadiusUsed;
-        attractionsInBbox = Math.max(
-          attractionsInBbox,
-          fetched.attractionsInBbox,
-        );
+        if (filled.osmPersisted > 0 || filled.googlePersisted > 0) {
+          fetched = await fetchTagRowsForRadii(
+            supabase,
+            effectiveQuery,
+            island,
+          );
+          tagRows = fetched.tagRows;
+          geoRadiusUsed = fetched.geoRadiusUsed ?? geoRadiusUsed;
+          attractionsInBbox = Math.max(
+            attractionsInBbox,
+            fetched.attractionsInBbox,
+          );
+        }
       }
     }
 
@@ -574,6 +601,7 @@ export async function searchActivities(
       remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
     );
     if (
+      !attemptedEmptyFill &&
       missing.length > 0 &&
       supplementBudget > 2_000 &&
       (tagRows.length === 0 || missing.length === effectiveQuery.activities.length)
@@ -762,6 +790,7 @@ export async function searchActivities(
       googleFilled,
     },
     "H4",
+    "post-fix",
   );
 
   return {

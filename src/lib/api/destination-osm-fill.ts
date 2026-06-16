@@ -211,6 +211,27 @@ export async function countActivitiesNearPoint({
     : radiusKm;
   const bbox = island?.bbox ?? bboxFromCenter(lat, lon, effectiveRadius);
 
+  const { count: headCount } = await supabase
+    .from("attractions")
+    .select("*", { count: "exact", head: true })
+    .gte("lat", bbox.south)
+    .lte("lat", bbox.north)
+    .gte("lon", bbox.west)
+    .lte("lon", bbox.east);
+
+  if (!headCount || headCount === 0) {
+    agentLog(
+      "destination-osm-fill.ts:countActivitiesNearPoint",
+      "zero attractions in bbox (head)",
+      {
+        ms: Date.now() - countT0,
+        destinationLabel,
+      },
+      "H4",
+    );
+    return {};
+  }
+
   const { data: attractions } = await supabase
     .from("attractions")
     .select("id, lat, lon")
@@ -222,11 +243,11 @@ export async function countActivitiesNearPoint({
   if (!attractions?.length) {
     agentLog(
       "destination-osm-fill.ts:countActivitiesNearPoint",
-      "zero attractions in bbox",
+      "zero attractions after fetch",
       {
         ms: Date.now() - countT0,
+        headCount,
         destinationLabel,
-        bbox,
       },
       "H4",
     );

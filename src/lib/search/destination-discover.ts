@@ -1,5 +1,6 @@
 import { fillForDestinationDiscovery } from "@/lib/api/destination-discovery-fill";
 import { countActivitiesNearPoint } from "@/lib/api/destination-osm-fill";
+import { fetchWeatherPreview } from "@/lib/api/weather";
 import type { Locale } from "@/i18n/config";
 import { resolveIslandBoundary } from "@/lib/destinations/island-boundary";
 import {
@@ -7,7 +8,6 @@ import {
   inferDefaultDiscoveryActivities,
 } from "@/lib/search/discovery-defaults";
 import {
-  buildDestinationOverview,
   buildInstantOverview,
 } from "@/lib/search/destination-overview";
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
@@ -70,8 +70,16 @@ export function suggestActivities({
   return [...picked].slice(0, 8);
 }
 
-/** Krótki budżet — discovery nie może blokować UI (klient ma timeout ~45s). */
-const DISCOVERY_FILL_BUDGET_MS = 10_000;
+/** Krótki limit — discovery musi odpowiedzieć od razu, OSM fill idzie w tle. */
+const DISCOVERY_COUNT_TIMEOUT_MS = 3_000;
+const DISCOVERY_WEATHER_TIMEOUT_MS = 2_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -151,77 +159,59 @@ export async function discoverDestination({
     ? Math.min(near_radius_km, island.maxRadiusKm)
     : near_radius_km;
 
-  const overviewPromise = buildDestinationOverview({
+  const overviewBase = buildInstantOverview({
     destinationLabel,
-    lat,
-    lon,
-    dateFrom,
-    dateTo,
     explorationScope,
     locale,
-  }).catch(() =>
-    buildInstantOverview({
+  });
+
+  void fillForDestinationDiscovery({
+    lat,
+    lon,
+    radiusKm: searchRadius,
+    destinationLabel,
+  }).catch(() => {});
+
+  const weatherPromise: Promise<WeatherSummary | null> =
+    dateFrom && dateTo
+      ? withTimeout(
+          fetchWeatherPreview({
+            location: { lat, lon },
+            dateFrom,
+            dateTo,
+          }),
+          DISCOVERY_WEATHER_TIMEOUT_MS,
+        )
+      : Promise.resolve(null);
+
+  const countsPromise = Promise.race([
+    countActivitiesNearPoint({
+      lat,
+      lon,
+      radiusKm: searchRadius,
       destinationLabel,
-      explorationScope,
-      locale,
-    }),
+    }).catch(() => ({})),
+    sleep(DISCOVERY_COUNT_TIMEOUT_MS).then(() => ({}) as Record<string, number>),
+  ]);
+
+  agentLog(
+    "destination-discover.ts:countsPromise",
+    "initial count (non-blocking)",
+    { timeoutMs: DISCOVERY_COUNT_TIMEOUT_MS },
+    "H2",
+    "post-fix",
   );
 
-  const countsPromise = (async () => {
-    const countT0 = Date.now();
-    const initial = await countActivitiesNearPoint({
-      lat,
-      lon,
-      radiusKm: searchRadius,
-      destinationLabel,
-    });
-    const initialTotal = Object.values(initial).reduce((a, b) => a + b, 0);
-
-    agentLog(
-      "destination-discover.ts:countsPromise",
-      "initial count",
-      {
-        ms: Date.now() - countT0,
-        initialTotal,
-        slugCount: Object.keys(initial).length,
-      },
-      "H2",
-    );
-
-    if (Object.values(initial).some((n) => n > 0)) {
-      return initial;
-    }
-
-    const fillT0 = Date.now();
-    await Promise.race([
-      fillForDestinationDiscovery({
-        lat,
-        lon,
-        radiusKm: searchRadius,
-        destinationLabel,
-      }),
-      sleep(DISCOVERY_FILL_BUDGET_MS),
-    ]);
-
-    agentLog(
-      "destination-discover.ts:countsPromise",
-      "osm fill race finished",
-      { ms: Date.now() - fillT0, budgetMs: DISCOVERY_FILL_BUDGET_MS },
-      "H2",
-    );
-
-    return countActivitiesNearPoint({
-      lat,
-      lon,
-      radiusKm: searchRadius,
-      destinationLabel,
-    });
-  })();
-
-  const [overview, activity_counts] = await Promise.all([
-    overviewPromise,
+  const [activity_counts, weather] = await Promise.all([
     countsPromise,
+    weatherPromise,
   ]);
+
+  const overview: DestinationOverview = {
+    ...overviewBase,
+    weather,
+    enriching: false,
+  };
 
   agentLog(
     "destination-discover.ts:discoverDestination",
@@ -237,17 +227,8 @@ export async function discoverDestination({
       hasWeather: !!overview.weather,
     },
     "H5",
+    "post-fix",
   );
-
-  // Dalsze uzupełnianie w tle
-  if (!Object.values(activity_counts).some((n) => n > 0)) {
-    void fillForDestinationDiscovery({
-      lat,
-      lon,
-      radiusKm: searchRadius,
-      destinationLabel,
-    }).catch(() => {});
-  }
 
   let suggested_activities = suggestActivities({
     counts: activity_counts,
