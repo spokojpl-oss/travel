@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
-import { ensureDestinationActivities, fillRadiusKm } from "@/lib/api/destination-activity-prefill";
+import { fillRadiusKm } from "@/lib/api/destination-activity-prefill";
 import {
   pointInIslandBbox,
   resolveIslandBoundaryForSearch,
@@ -25,6 +25,10 @@ import type {
 const MAX_TAG_ROWS_GLOBAL = 8000;
 const MAX_ATTRACTIONS_TO_CLUSTER = 1200;
 const ID_CHUNK_SIZE = 200;
+const ID_CHUNK_PARALLEL = 8;
+/** Budżet czasu na uzupełnianie OSM/Google w trakcie wyszukiwania (ms). */
+const SUPPLEMENT_BUDGET_MS = 12_000;
+const SEARCH_TIME_BUDGET_MS = 48_000;
 
 const ATTRACTION_FIELDS = `
   id,
@@ -90,6 +94,8 @@ function latLonBBox(lat: number, lon: number, radiusKm: number) {
 async function fetchAttractionIdsInBbox(
   supabase: ReturnType<typeof createAdminClient>,
   bbox: { south: number; north: number; west: number; east: number },
+  center?: { lat: number; lon: number },
+  maxIds = 2500,
 ): Promise<string[]> {
   const { data } = await supabase
     .from("attractions")
@@ -100,7 +106,25 @@ async function fetchAttractionIdsInBbox(
     .lte("lon", bbox.east)
     .limit(8000);
 
-  return data?.map((a) => a.id) ?? [];
+  if (!data?.length) return [];
+
+  const rows = data.map((a) => ({
+    id: a.id,
+    lat: Number(a.lat),
+    lon: Number(a.lon),
+  }));
+
+  if (!center || rows.length <= maxIds) {
+    return rows.map((a) => a.id);
+  }
+
+  return rows
+    .sort(
+      (a, b) =>
+        distanceKm(center, a) - distanceKm(center, b),
+    )
+    .slice(0, maxIds)
+    .map((a) => a.id);
 }
 
 async function fetchAttractionIdsNear(
@@ -154,25 +178,52 @@ async function fetchTagRows(
     return (data as TagRow[]) ?? [];
   }
 
+  const chunks: string[][] = [];
   for (let i = 0; i < attractionIds.length; i += ID_CHUNK_SIZE) {
-    const chunk = attractionIds.slice(i, i + ID_CHUNK_SIZE);
-    const { data } = await supabase
-      .from("attraction_activity_tags")
-      .select(
-        `
-        attraction_id,
-        activity_slug,
-        confidence,
-        attraction:attractions (${ATTRACTION_FIELDS})
-      `,
-      )
-      .in("activity_slug", activities)
-      .in("attraction_id", chunk);
+    chunks.push(attractionIds.slice(i, i + ID_CHUNK_SIZE));
+  }
 
-    if (data?.length) rows.push(...(data as TagRow[]));
+  for (let i = 0; i < chunks.length; i += ID_CHUNK_PARALLEL) {
+    const batch = chunks.slice(i, i + ID_CHUNK_PARALLEL);
+    const batchRows = await Promise.all(
+      batch.map(async (chunk) => {
+        const { data } = await supabase
+          .from("attraction_activity_tags")
+          .select(
+            `
+            attraction_id,
+            activity_slug,
+            confidence,
+            attraction:attractions (${ATTRACTION_FIELDS})
+          `,
+          )
+          .in("activity_slug", activities)
+          .in("attraction_id", chunk);
+        return (data as TagRow[]) ?? [];
+      }),
+    );
+    for (const part of batchRows) {
+      if (part.length) rows.push(...part);
+    }
   }
 
   return rows;
+}
+
+function remainingMs(startTime: number, budgetMs: number): number {
+  return budgetMs - (Date.now() - startTime);
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+): Promise<T> {
+  if (timeoutMs <= 0) return fallback;
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+  ]);
 }
 
 function buildAttractionMap(tagRows: TagRow[]): AttractionWithActivities[] {
@@ -236,7 +287,13 @@ function searchRadiiForQuery(
   const base = query.near_radius_km ?? 150;
 
   if (island) {
-    return [Math.max(base, island.maxRadiusKm)];
+    if (query.exploration_scope === "island") {
+      return [island.maxRadiusKm];
+    }
+    if (query.exploration_scope === "roadtrip") {
+      return [Math.max(base, island.maxRadiusKm), base * 1.5];
+    }
+    return [base, base * 1.25];
   }
 
   if (query.destination_label && query.exploration_scope !== "roadtrip") {
@@ -244,6 +301,17 @@ function searchRadiiForQuery(
   }
 
   return [base, 250, 400];
+}
+
+function scopeUsesWholeIsland(
+  query: ActivitySearchQuery,
+  island: IslandBoundary | null,
+): boolean {
+  return (
+    island != null &&
+    (query.exploration_scope === "island" ||
+      query.exploration_scope === "roadtrip")
+  );
 }
 
 function filterAttractionsToIsland<T extends { lat: number; lon: number }>(
@@ -267,32 +335,38 @@ async function fetchTagRowsForRadii(
 }> {
   const center = { lat: query.near_lat, lon: query.near_lon };
   const radii = searchRadiiForQuery(query, island);
+  const wholeIsland = scopeUsesWholeIsland(query, island);
 
   let tagRows: TagRow[] = [];
   let geoRadiusUsed: number | null = null;
   let attractionsInBbox = 0;
 
-  if (island) {
-    const ids = await fetchAttractionIdsInBbox(supabase, island.bbox);
-    attractionsInBbox = ids.length;
-    if (ids.length > 0) {
-      const rows = await fetchTagRows(supabase, query.activities, ids);
-      tagRows = rows.filter(
-        (row) =>
-          row.attraction &&
-          pointInIslandBbox(
-            {
-              lat: Number(row.attraction.lat),
-              lon: Number(row.attraction.lon),
-            },
-            island.bbox,
-          ),
-      );
-      geoRadiusUsed = island.maxRadiusKm;
-    }
+  async function fetchByIslandBbox() {
+    if (!island) return;
+    const ids = await fetchAttractionIdsInBbox(
+      supabase,
+      island.bbox,
+      center,
+    );
+    attractionsInBbox = Math.max(attractionsInBbox, ids.length);
+    if (ids.length === 0) return;
+
+    const rows = await fetchTagRows(supabase, query.activities, ids);
+    tagRows = rows.filter(
+      (row) =>
+        row.attraction &&
+        pointInIslandBbox(
+          {
+            lat: Number(row.attraction.lat),
+            lon: Number(row.attraction.lon),
+          },
+          island.bbox,
+        ),
+    );
+    geoRadiusUsed = island.maxRadiusKm;
   }
 
-  if (tagRows.length === 0) {
+  async function fetchByRadius() {
     for (const radiusKm of radii) {
       const ids = await fetchAttractionIdsNear(supabase, center, radiusKm);
       attractionsInBbox = Math.max(attractionsInBbox, ids.length);
@@ -321,12 +395,21 @@ async function fetchTagRowsForRadii(
     }
   }
 
+  if (wholeIsland) {
+    await fetchByIslandBbox();
+    if (tagRows.length === 0) await fetchByRadius();
+  } else {
+    await fetchByRadius();
+    if (tagRows.length === 0 && island) await fetchByIslandBbox();
+  }
+
   return { tagRows, geoRadiusUsed, attractionsInBbox };
 }
 
 async function supplementMissingActivities(
   query: ActivitySearchQuery & { near_lat: number; near_lon: number },
   missing: string[],
+  timeoutMs: number,
 ): Promise<{ osmFilled: boolean; googleFilled: boolean }> {
   const center = { lat: query.near_lat, lon: query.near_lon };
   const island = resolveIslandBoundaryForSearch(
@@ -334,39 +417,52 @@ async function supplementMissingActivities(
     center,
   );
   const radiusKm = fillRadiusKm(query.near_radius_km ?? 120);
-  let osmFilled = false;
-  let googleFilled = false;
+  const fillRadius = island
+    ? Math.min(radiusKm, island.maxRadiusKm)
+    : radiusKm;
 
-  if (missing.length === 0) return { osmFilled, googleFilled };
-
-  try {
-    await fillDestinationAttractionsFromOsm({
-      lat: center.lat,
-      lon: center.lon,
-      radiusKm: island ? island.maxRadiusKm : radiusKm,
-      activitySlugs: missing,
-      searchBbox: island?.bbox,
-    });
-    osmFilled = true;
-  } catch {
-    /* optional */
+  if (missing.length === 0 || timeoutMs <= 0) {
+    return { osmFilled: false, googleFilled: false };
   }
 
-  try {
-    const result = await fillDestinationAttractionsFromGoogle({
-      lat: center.lat,
-      lon: center.lon,
-      radiusKm,
-      activitySlugs: query.activities,
-      destinationLabel: query.destination_label,
-      onlySlugs: missing,
-    });
-    if (result.persisted > 0) googleFilled = true;
-  } catch {
-    /* optional */
-  }
+  return withTimeout(
+    (async () => {
+      let osmFilled = false;
+      let googleFilled = false;
 
-  return { osmFilled, googleFilled };
+      try {
+        const osm = await fillDestinationAttractionsFromOsm({
+          lat: center.lat,
+          lon: center.lon,
+          radiusKm: fillRadius,
+          activitySlugs: missing,
+          // Lokalny promień — nie cała wyspa (Overpass timeout).
+        });
+        osmFilled = osm.persisted > 0;
+      } catch {
+        /* optional */
+      }
+
+      try {
+        const result = await fillDestinationAttractionsFromGoogle({
+          lat: center.lat,
+          lon: center.lon,
+          radiusKm: fillRadius,
+          activitySlugs: query.activities,
+          destinationLabel: query.destination_label,
+          onlySlugs: missing,
+          islandBbox: island?.bbox,
+        });
+        if (result.persisted > 0) googleFilled = true;
+      } catch {
+        /* optional */
+      }
+
+      return { osmFilled, googleFilled };
+    })(),
+    timeoutMs,
+    { osmFilled: false, googleFilled: false },
+  );
 }
 
 export async function searchActivities(
@@ -393,23 +489,25 @@ export async function searchActivities(
   let googleFilled = false;
 
   if (hasNearPoint(effectiveQuery)) {
-    await ensureDestinationActivities({
-      lat: effectiveQuery.near_lat,
-      lon: effectiveQuery.near_lon,
-      radiusKm: effectiveQuery.near_radius_km ?? 120,
-      destinationLabel: effectiveQuery.destination_label,
-    }).catch(() => {});
-
     const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery, island);
     tagRows = fetched.tagRows;
     geoRadiusUsed = fetched.geoRadiusUsed;
     attractionsInBbox = fetched.attractionsInBbox;
 
-    let missing = missingActivities(tagRows, effectiveQuery.activities);
-    if (missing.length > 0) {
+    const missing = missingActivities(tagRows, effectiveQuery.activities);
+    const supplementBudget = Math.min(
+      SUPPLEMENT_BUDGET_MS,
+      remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
+    );
+    if (
+      missing.length > 0 &&
+      supplementBudget > 2_000 &&
+      (tagRows.length === 0 || missing.length === effectiveQuery.activities.length)
+    ) {
       const supplemented = await supplementMissingActivities(
         effectiveQuery,
         missing,
+        supplementBudget,
       );
       osmFilled = supplemented.osmFilled;
       googleFilled = supplemented.googleFilled;
@@ -446,8 +544,22 @@ export async function searchActivities(
   let attractions = buildAttractionMap(tagRows);
   attractions = filterAttractionsToIsland(attractions, island);
 
-  if (!hasNearPoint(effectiveQuery) && attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
-    attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
+  if (attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
+    if (hasNearPoint(effectiveQuery)) {
+      const center = {
+        lat: effectiveQuery.near_lat,
+        lon: effectiveQuery.near_lon,
+      };
+      attractions = [...attractions]
+        .sort(
+          (a, b) =>
+            distanceKm(center, { lat: a.lat, lon: a.lon }) -
+            distanceKm(center, { lat: b.lat, lon: b.lon }),
+        )
+        .slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
+    } else {
+      attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
+    }
   }
 
   if (attractions.length === 0) {
@@ -479,20 +591,24 @@ export async function searchActivities(
     attractions: cluster.attractions.slice(0, 12),
   }));
 
-  const enrichedClusters: GeoCluster[] = [];
-  for (const cluster of topClusters) {
-    enrichedClusters.push(await enrichClusterWithSettlement(cluster));
-  }
+  const enrichBudget = remainingMs(startTime, SEARCH_TIME_BUDGET_MS);
+  const enrichedClusters = await withTimeout(
+    Promise.all(
+      topClusters.map((cluster) =>
+        enrichClusterWithSettlement(cluster, { fastMode: true }),
+      ),
+    ),
+    Math.max(enrichBudget, 3_000),
+    topClusters,
+  );
 
-  const withSettlement = enrichedClusters.filter((c) => c.settlement?.name);
-
-  let filtered = withSettlement;
+  let filtered = enrichedClusters;
   if (hasNearPoint(effectiveQuery)) {
     const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
     const radius = island
       ? island.maxRadiusKm
       : (effectiveQuery.near_radius_km ?? geoRadiusUsed ?? 90);
-    filtered = withSettlement
+    filtered = enrichedClusters
       .map((cluster) => ({
         cluster,
         dist: distanceKm(cluster.center, center),

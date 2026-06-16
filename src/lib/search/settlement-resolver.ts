@@ -246,6 +246,7 @@ async function reverseGeocodeSettlement(
 
 export async function resolveClusterSettlement(
   cluster: GeoCluster,
+  options?: { fastMode?: boolean },
 ): Promise<ClusterSettlement | null> {
   const centroid = cluster.center;
   const sorted = [...cluster.attractions].sort(
@@ -263,6 +264,8 @@ export async function resolveClusterSettlement(
   const fromTags = pickSettlementFromVotes(votes);
   if (fromTags) return fromTags;
 
+  if (options?.fastMode) return null;
+
   for (const attraction of sorted.slice(0, 3)) {
     const point = { lat: Number(attraction.lat), lon: Number(attraction.lon) };
     const reversed = await reverseGeocodeSettlement(point);
@@ -276,12 +279,13 @@ export async function resolveClusterSettlement(
 
 export async function enrichClusterWithSettlement(
   cluster: GeoCluster,
+  options?: { fastMode?: boolean },
 ): Promise<GeoCluster> {
   if (cluster.settlement?.name) {
     return applySettlementToCluster(cluster, cluster.settlement);
   }
 
-  const settlement = await resolveClusterSettlement(cluster);
+  const settlement = await resolveClusterSettlement(cluster, options);
   if (!settlement) return cluster;
 
   return applySettlementToCluster(cluster, settlement);
@@ -313,8 +317,27 @@ function applySettlementToCluster(
 }
 
 export function clusterDisplayName(cluster: GeoCluster): string {
+  if (cluster.settlement?.name) return cluster.settlement.name;
+
+  const fromAttraction = cluster.attractions
+    .map((a) => {
+      const tags =
+        a.tags && typeof a.tags === "object" && !Array.isArray(a.tags)
+          ? (a.tags as Record<string, string>)
+          : {};
+      return (
+        tags["addr:city"] ??
+        tags["addr:place"] ??
+        tags["is_in:city"] ??
+        tags["is_in:town"] ??
+        null
+      );
+    })
+    .find(Boolean);
+
+  if (fromAttraction) return toPolishPlaceName(fromAttraction);
+
   return (
-    cluster.settlement?.name ??
     cluster.center.lat.toFixed(2) + ", " + cluster.center.lon.toFixed(2)
   );
 }
