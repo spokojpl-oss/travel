@@ -216,7 +216,7 @@ export function LodgingBaseMap({
           {attractions.length > 0 && (
             <span className="inline-flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-600" />
-              {t("lodgingBase.legendAttractions")}
+              {t("lodgingBase.legendAttractions")} ({attractions.length})
             </span>
           )}
         </div>

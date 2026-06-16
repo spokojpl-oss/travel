@@ -12,8 +12,12 @@ import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 
-function syntheticId(regionId: string, pickIndex: number): string {
+export function curatedPickId(regionId: string, pickIndex: number): string {
   return `curated:${regionId}:${pickIndex}`;
+}
+
+function syntheticId(regionId: string, pickIndex: number): string {
+  return curatedPickId(regionId, pickIndex);
 }
 
 function pickName(

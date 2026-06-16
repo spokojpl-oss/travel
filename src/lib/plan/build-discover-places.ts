@@ -22,6 +22,7 @@ import {
 import type { TripDayTheme } from "@/lib/search/trip-rhythm";
 import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
+import { curatedPickId } from "@/lib/plan/curated-day-trips";
 
 export type PlaceCard = {
   id: string;
@@ -95,6 +96,7 @@ function findPoolMatchForPick(
 function cardFromPick(
   region: TouristRegion,
   pick: TouristRegion["picks"][number],
+  pickIndex: number,
   pool: AttractionWithActivities[],
   locale: Locale,
   recommended: boolean,
@@ -106,9 +108,10 @@ function cardFromPick(
     lon: region.center_lon,
   };
   const match = findPoolMatchForPick(name, pickPoint, pool);
+  const fallbackId = curatedPickId(region.id, pickIndex);
 
   return {
-    id: match?.id ?? `pick:${region.id}:${pick.rank}:${normalizeName(pick.name_pl)}`,
+    id: match?.id ?? fallbackId,
     name: match
       ? toPolishAttractionName(match.name, locale)
       : toPolishAttractionName(name, locale),
@@ -241,7 +244,14 @@ export function buildDiscoverPlaces({
       );
       const recommended = isPrimary && (pick.rank === 1 || activityMatch);
 
-      const card = cardFromPick(region, pick, poolInRange, locale, recommended);
+      const card = cardFromPick(
+        region,
+        pick,
+        region.picks.indexOf(pick),
+        poolInRange,
+        locale,
+        recommended,
+      );
       if (!card) continue;
 
       seenNames.add(key);
@@ -296,81 +306,153 @@ export function buildDiscoverPlaces({
   return { story, placeCards: cards, suggestedIds };
 }
 
+function curatedPickIdForCard(
+  card: PlaceCard,
+  regions: TouristRegion[],
+): string | null {
+  const region = regions.find((r) => r.id === card.regionId);
+  if (!region) return null;
+  const pickIndex = region.picks.findIndex((p) => p.rank === card.rank);
+  if (pickIndex < 0) return null;
+  return curatedPickId(region.id, pickIndex);
+}
+
+export function placeCardToAttractionStub(
+  card: PlaceCard,
+): AttractionWithActivities {
+  const now = new Date().toISOString();
+  return {
+    id: card.id,
+    name: card.name,
+    description: card.why,
+    category: card.theme,
+    subcategories: [],
+    lat: card.lat,
+    lon: card.lon,
+    address: null,
+    phone: null,
+    website: null,
+    opening_hours: null,
+    tags: card.source === "pick" ? { place_card: true } : null,
+    min_age: null,
+    duration_minutes: null,
+    destination_id: null,
+    source: card.source === "pool" ? "osm" : "curated",
+    external_id: card.regionId,
+    created_at: now,
+    updated_at: now,
+    activity_tags: [],
+  };
+}
+
+export function selectedPlaceMapPoints(
+  selectedIds: Set<string>,
+  cards: PlaceCard[],
+): Array<{ id: string; name: string; lat: number; lon: number }> {
+  return cards
+    .filter((c) => selectedIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      lat: c.lat,
+      lon: c.lon,
+    }));
+}
+
+function findMatchForCard(
+  card: PlaceCard,
+  pool: AttractionWithActivities[],
+  regions: TouristRegion[],
+): AttractionWithActivities | null {
+  const cardPoint = { lat: card.lat, lon: card.lon };
+  const region = regions.find((r) => r.id === card.regionId);
+  const searchPool =
+    region != null
+      ? pool.filter((p) =>
+          pointInTouristRegion(
+            { lat: Number(p.lat), lon: Number(p.lon) },
+            region,
+            6,
+          ),
+        )
+      : pool;
+
+  const normalized = normalizeName(card.name);
+  let best: AttractionWithActivities | null = null;
+  let bestScore = 0;
+
+  for (const p of searchPool) {
+    if (!isDisplayableAttractionName(p.name)) continue;
+    const nameNorm = normalizeName(p.name);
+    let score = 0;
+    if (nameNorm.includes(normalized) || normalized.includes(nameNorm)) {
+      score += 12;
+    }
+    const km = distanceKm(cardPoint, point(p));
+    if (km <= 25) score += 4;
+    if (km <= 8) score += 4;
+    if (p.source === "curated") score += 2;
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+
+  return bestScore >= 8 ? best : null;
+}
+
+export function resolveSelectedCardsToAttractions(
+  selectedIds: Iterable<string>,
+  pool: AttractionWithActivities[],
+  cards: PlaceCard[],
+  regions: TouristRegion[] = [],
+): AttractionWithActivities[] {
+  const poolById = new Map(pool.map((p) => [p.id, p]));
+  const out: AttractionWithActivities[] = [];
+
+  for (const id of selectedIds) {
+    const card = cards.find((c) => c.id === id);
+    if (!card) {
+      const direct = poolById.get(id);
+      if (direct) out.push(direct);
+      continue;
+    }
+
+    if (poolById.has(card.id)) {
+      out.push(poolById.get(card.id)!);
+      continue;
+    }
+
+    const curatedId = curatedPickIdForCard(card, regions);
+    if (curatedId && poolById.has(curatedId)) {
+      out.push(poolById.get(curatedId)!);
+      continue;
+    }
+
+    const match = findMatchForCard(card, pool, regions);
+    if (match) {
+      out.push(match);
+      continue;
+    }
+
+    out.push(placeCardToAttractionStub(card));
+  }
+
+  return out;
+}
+
 export function resolvePlaceSelectionToPoolIds(
   selectedIds: string[],
   pool: AttractionWithActivities[],
   cards: PlaceCard[],
   regions: TouristRegion[] = [],
 ): string[] {
-  const poolIds = new Set(pool.map((p) => p.id));
-  const out = new Set<string>();
-
-  function findMatchForCard(card: PlaceCard): AttractionWithActivities | null {
-    const cardPoint = { lat: card.lat, lon: card.lon };
-    const region = regions.find((r) => r.id === card.regionId);
-    const searchPool =
-      region != null
-        ? pool.filter((p) =>
-            pointInTouristRegion(
-              { lat: Number(p.lat), lon: Number(p.lon) },
-              region,
-              6,
-            ),
-          )
-        : pool;
-
-    const normalized = normalizeName(card.name);
-    let best: AttractionWithActivities | null = null;
-    let bestScore = 0;
-
-    for (const p of searchPool) {
-      if (!isDisplayableAttractionName(p.name)) continue;
-      const nameNorm = normalizeName(p.name);
-      let score = 0;
-      if (nameNorm.includes(normalized) || normalized.includes(nameNorm)) {
-        score += 12;
-      }
-      const km = distanceKm(cardPoint, point(p));
-      if (km <= 25) score += 4;
-      if (km <= 8) score += 4;
-      if (p.source === "curated") score += 2;
-      if (score > bestScore) {
-        bestScore = score;
-        best = p;
-      }
-    }
-
-    return bestScore >= 8 ? best : null;
-  }
-
-  for (const id of selectedIds) {
-    if (poolIds.has(id)) {
-      out.add(id);
-      continue;
-    }
-    const card = cards.find((c) => c.id === id);
-    if (!card) continue;
-
-    const match = findMatchForCard(card);
-    if (match) {
-      out.add(match.id);
-      continue;
-    }
-
-    if (id.startsWith("pick:")) {
-      const byRegion = pool.find(
-        (p) =>
-          p.source === "curated" &&
-          p.tags &&
-          typeof p.tags === "object" &&
-          "curated_region" in p.tags &&
-          normalizeName(p.name).includes(normalizeName(card.name).slice(0, 6)),
-      );
-      if (byRegion) out.add(byRegion.id);
-    }
-  }
-
-  return [...out];
+  return resolveSelectedCardsToAttractions(
+    selectedIds,
+    pool,
+    cards,
+    regions,
+  ).map((a) => a.id);
 }
 
 export type { DestinationStory };

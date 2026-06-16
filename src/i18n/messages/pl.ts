@@ -450,8 +450,8 @@ export const pl = {
   lodgingBase: {
     mapTitle: "Gdzie na mapie?",
     mapHint:
-      "Kliknij numer — wybierz rejon noclegowy. Zielone punkty to Twoje atrakcje, niebieski to lotnisko.",
-    legendAttractions: "Twoje atrakcje",
+      "Numery to bazy noclegowe — kliknij, żeby wybrać bazę. Zielone kropki to wszystkie wybrane miejsca z planu. Niebieski to lotnisko.",
+    legendAttractions: "Twoje miejsca",
   },
   localServices: {
     title: "Usługi pod Twoje aktywności ({n})",

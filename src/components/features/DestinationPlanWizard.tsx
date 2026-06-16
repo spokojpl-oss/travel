@@ -12,9 +12,12 @@ import {
 } from "@/lib/plan/build-plan-pool";
 import {
   resolvePlaceSelectionToPoolIds,
+  resolveSelectedCardsToAttractions,
+  selectedPlaceMapPoints,
   buildDiscoverPlaces,
   type PlaceCard,
 } from "@/lib/plan/build-discover-places";
+import { injectCuratedPicksForRegions } from "@/lib/plan/curated-day-trips";
 import { centroidOfTouristRegions } from "@/lib/plan/tourist-region-anchor";
 import { matchingRegionsForDestination } from "@/lib/plan/destination-story";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
@@ -73,6 +76,16 @@ export function DestinationPlanWizard({
     ],
   );
 
+  const enrichedPool = useMemo(() => {
+    if (matchedRegions.length === 0) return rawPool;
+    return injectCuratedPicksForRegions({
+      catalog: SEED_TOURIST_REGIONS,
+      regionIds: matchedRegions.map((r) => r.id),
+      existingPool: rawPool,
+      locale,
+    });
+  }, [rawPool, matchedRegions, locale]);
+
   const planAnchor = useMemo(() => {
     if (matchedRegions.length > 0) {
       return centroidOfTouristRegions(matchedRegions) ?? payload.cluster.center;
@@ -83,7 +96,7 @@ export function DestinationPlanWizard({
   const discover = useMemo(() => {
     if (payload.discover) return payload.discover;
     return buildDiscoverPlaces({
-      pool: rawPool,
+      pool: enrichedPool,
       catalog: SEED_TOURIST_REGIONS,
       destinationLabel: payload.destinationLabel ?? "",
       touristRegionId: payload.touristRegionId,
@@ -99,7 +112,7 @@ export function DestinationPlanWizard({
       withKids,
       stayRadiusKm: payload.stayRadiusKm,
     });
-  }, [payload, rawPool, locale, withKids, planAnchor, matchedRegions.length]);
+  }, [payload, enrichedPool, locale, withKids, planAnchor, matchedRegions.length]);
 
   const placeCards = discover.placeCards;
   const story = discover.story;
@@ -138,17 +151,25 @@ export function DestinationPlanWizard({
     () =>
       resolvePlaceSelectionToPoolIds(
         [...selectedIds],
-        rawPool,
+        enrichedPool,
         placeCards,
         matchedRegions,
       ),
-    [selectedIds, rawPool, placeCards, matchedRegions],
+    [selectedIds, enrichedPool, placeCards, matchedRegions],
   );
 
-  const selectedAttractions = useMemo(
-    () => rawPool.filter((a) => selectedPoolIds.includes(a.id)),
-    [rawPool, selectedPoolIds],
+  const selectedPlaces = useMemo(
+    () =>
+      resolveSelectedCardsToAttractions(
+        selectedIds,
+        enrichedPool,
+        placeCards,
+        matchedRegions,
+      ),
+    [selectedIds, enrichedPool, placeCards, matchedRegions],
   );
+
+  const selectedAttractions = selectedPlaces;
 
   const baseOptions = useMemo(() => {
     const fromRegions = computeLodgingAreaOptions(matchedRegions, {
@@ -217,31 +238,29 @@ export function DestinationPlanWizard({
   }, [selectedBase, selectedAttractions, payload.airports]);
 
   const mapAttractions = useMemo(
-    () =>
-      selectedAttractions.map((a) => ({
-        id: a.id,
-        name: a.name,
-        lat: Number(a.lat),
-        lon: Number(a.lon),
-      })),
-    [selectedAttractions],
+    () => selectedPlaceMapPoints(selectedIds, placeCards),
+    [selectedIds, placeCards],
   );
 
   const poolWithMeta = useMemo(() => {
-    if (!selectedBase) return rawPool;
+    if (!selectedBase) return enrichedPool;
     return applyPlanMetaToPool(
-      rawPool,
+      enrichedPool,
       { lat: selectedBase.lat, lon: selectedBase.lon },
       explorationScope,
       tripDays,
     );
-  }, [rawPool, selectedBase, explorationScope, tripDays]);
+  }, [enrichedPool, selectedBase, explorationScope, tripDays]);
 
   const draftCluster: GeoCluster = useMemo(() => {
     const base = selectedBase;
     const selectedFromPool = poolWithMeta.filter((a) =>
       selectedPoolIds.includes(a.id),
     );
+    const mergedById = new Map(selectedFromPool.map((a) => [a.id, a]));
+    for (const place of selectedPlaces) {
+      if (!mergedById.has(place.id)) mergedById.set(place.id, place);
+    }
     return {
       ...payload.cluster,
       center: base
@@ -250,9 +269,9 @@ export function DestinationPlanWizard({
       settlement: base
         ? { name: base.name, lat: base.lat, lon: base.lon }
         : payload.cluster.settlement,
-      attractions: selectedFromPool,
+      attractions: [...mergedById.values()],
     };
-  }, [payload.cluster, poolWithMeta, selectedBase, selectedPoolIds]);
+  }, [payload.cluster, poolWithMeta, selectedBase, selectedPoolIds, selectedPlaces]);
 
   const mapData = useMemo(
     () =>
@@ -282,7 +301,7 @@ export function DestinationPlanWizard({
   }
 
   function confirmPlan() {
-    if (!selectedBase || selectedPoolIds.length === 0) return;
+    if (!selectedBase || selectedIds.size === 0) return;
     onComplete({
       ...payload,
       lodgingBase: {
