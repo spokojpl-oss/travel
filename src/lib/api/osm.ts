@@ -2,10 +2,7 @@ import { fetchWithCache } from "@/lib/cache/api-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BoundingBox } from "@/types/domain";
 import type { Json } from "@/types/database";
-import {
-  isJunkOsmText,
-  wikipediaTargetFromOsmTags,
-} from "@/lib/plan/attraction-detail-text";
+import { isJunkOsmText } from "@/lib/plan/attraction-detail-text";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -213,15 +210,16 @@ export async function persistOsmPlaces(
       name: p.name,
       description: desc,
       category: p.category,
-    subcategories: p.subcategories,
-    lat: p.lat,
-    lon: p.lon,
-    address: p.address,
-    phone: p.phone,
-    website: p.website,
-    opening_hours: p.opening_hours,
-    tags: p.tags as Json,
-  }));
+      subcategories: p.subcategories,
+      lat: p.lat,
+      lon: p.lon,
+      address: p.address,
+      phone: p.phone,
+      website: p.website,
+      opening_hours: p.opening_hours,
+      tags: p.tags as Json,
+    };
+  });
 
   const batchSize = 200;
   let upserted = 0;

@@ -10,7 +10,16 @@ import {
   googleMapsDirectionsUrl,
   googleMapsPlaceUrl,
 } from "@/lib/maps/google-maps-config";
-import type { MapPoint, MapRouteSegment, ResolvedMapRoute } from "@/lib/maps/types";
+import type { MapPoint, MapPointType, MapRouteSegment, ResolvedMapRoute } from "@/lib/maps/types";
+
+const LEGEND_ORDER: MapPointType[] = ["centroid", "attraction", "airport", "hotel"];
+
+const LEGEND_LABEL_KEYS: Record<MapPointType, "map.legendBase" | "map.legendAttraction" | "map.legendAirport" | "map.legendHotel"> = {
+  centroid: "map.legendBase",
+  attraction: "map.legendAttraction",
+  airport: "map.legendAirport",
+  hotel: "map.legendHotel",
+};
 
 const POINT_COLORS: Record<MapPoint["type"], string> = {
   airport: "#003faa",
@@ -275,6 +284,10 @@ export function RegionMap({
 
   const pointById = new Map(points.map((p) => [p.id, p]));
 
+  const legendTypes = LEGEND_ORDER.filter((type) =>
+    points.some((p) => p.type === type),
+  );
+
   return (
     <div
       className={cn(
@@ -287,12 +300,15 @@ export function RegionMap({
           <Icon name="map-pin" size={16} className="text-brand-700" />
           {t("map.title")}
         </div>
-        {showLegend && (
+        {showLegend && legendTypes.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-            <LegendDot color={POINT_COLORS.centroid} label={t("map.legendBase")} />
-            <LegendDot color={POINT_COLORS.attraction} label={t("map.legendAttraction")} />
-            <LegendDot color={POINT_COLORS.airport} label={t("map.legendAirport")} />
-            <LegendDot color={POINT_COLORS.hotel} label={t("map.legendHotel")} />
+            {legendTypes.map((type) => (
+              <LegendDot
+                key={type}
+                color={POINT_COLORS[type]}
+                label={t(LEGEND_LABEL_KEYS[type])}
+              />
+            ))}
           </div>
         )}
       </div>

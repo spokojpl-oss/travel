@@ -1265,7 +1265,7 @@ function SearchPageContent() {
 
       <TripContextBar trip={trip} onEdit={editTripOnHome} searchStep={step} />
 
-      {showActivitiesStep && (
+      {showActivitiesStep && trip.exploration_scope !== "island" && (
         <SearchScopeParamsPanel
           matchMode={matchMode}
           onMatchModeChange={setMatchMode}
@@ -1340,6 +1340,7 @@ function SearchPageContent() {
           discovering={discovering}
           discovery={discovery}
           discoveryError={discoveryError}
+          tripDays={tripDays}
           onRetry={() => {
             discoveryCacheKey.current = null;
             discoveryFailedKey.current = null;

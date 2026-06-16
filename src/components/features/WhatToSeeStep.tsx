@@ -7,6 +7,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
 import type { PlaceCard } from "@/lib/plan/build-discover-places";
 import type { DestinationStory } from "@/lib/plan/destination-story";
+import { DestinationStoryHero } from "@/components/features/DestinationStoryHero";
 import type { TripDayTheme } from "@/lib/search/trip-rhythm";
 import { THEME_META } from "@/lib/search/trip-rhythm";
 import { useT } from "@/i18n/locale-provider";
@@ -65,75 +66,18 @@ export function WhatToSeeStep({
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-brand-100 shadow-lg">
-        {story.heroImageUrl ? (
-          <div className="relative min-h-[280px] sm:min-h-[320px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={story.heroImageUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
-            <div className="relative flex min-h-[280px] flex-col justify-end p-6 sm:min-h-[320px] sm:p-10">
-              <p className="text-xs font-semibold uppercase tracking-widest text-brand-200">
-                {pl ? "Co możesz zobaczyć" : "What you can see"}
-              </p>
-              <h1 className="font-display mt-2 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-4xl">
-                {story.headline}
-              </h1>
-              {story.country && (
-                <p className="mt-2 text-sm font-medium text-white/80">
-                  {story.placeName}
-                  {story.country ? ` · ${story.country}` : ""}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-gradient-to-br from-brand-800 to-brand-600 p-8 sm:p-10">
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand-200">
-              {pl ? "Co możesz zobaczyć" : "What you can see"}
-            </p>
-            <h1 className="font-display mt-2 text-3xl font-bold text-white sm:text-4xl">
-              {story.headline}
-            </h1>
-          </div>
-        )}
-
-        <div className="space-y-4 bg-white p-6 sm:p-8">
-          <p className="text-lg leading-relaxed text-text-primary">{story.phenomenon}</p>
-          <p className="text-sm leading-relaxed text-text-secondary">{story.intro}</p>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
-              {tripDays} {pl ? "dni wyjazdu" : "trip days"}
-            </span>
-            <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
-              {placeCards.length} {pl ? "miejsc w katalogu" : "places curated"}
-            </span>
-            <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
-              {selectedIds.size} {pl ? "wybrane" : "selected"}
-            </span>
-          </div>
-
-          {story.regionHighlights.length > 1 && (
-            <div className="grid gap-3 pt-4 sm:grid-cols-2">
-              {story.regionHighlights.slice(0, 4).map((r) => (
-                <div
-                  key={r.name}
-                  className="rounded-xl border border-border-default bg-bg-soft/50 px-4 py-3"
-                >
-                  <p className="font-semibold text-text-primary">{r.name}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-secondary">
-                    {r.teaser}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+      <DestinationStoryHero
+        story={story}
+        tripDays={tripDays}
+        badges={[
+          {
+            label: `${placeCards.length} ${pl ? "miejsc w katalogu" : "places curated"}`,
+          },
+          {
+            label: `${selectedIds.size} ${pl ? "wybrane" : "selected"}`,
+          },
+        ]}
+      />
 
       {recommended.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,11 +1,17 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DestinationClimateBudgetPanel } from "@/components/features/DestinationClimateBudgetPanel";
-import { DestinationOverviewHero } from "@/components/features/DestinationOverviewLoader";
+import { DestinationStoryHero } from "@/components/features/DestinationStoryHero";
+import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
+import {
+  matchingRegionsForDestination,
+  resolveDestinationStory,
+} from "@/lib/plan/destination-story";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
-import { useT } from "@/i18n/locale-provider";
+import { useLocale, useT } from "@/i18n/locale-provider";
 
 export function DestinationOverviewPanel({
   destinationLabel,
@@ -16,6 +22,7 @@ export function DestinationOverviewPanel({
   discoveryError = null,
   onRetry,
   waitingForCoords = false,
+  tripDays,
   onChooseActivities,
 }: {
   destinationLabel: string;
@@ -26,21 +33,34 @@ export function DestinationOverviewPanel({
   discoveryError?: string | null;
   onRetry?: () => void;
   waitingForCoords?: boolean;
+  tripDays?: number;
   onChooseActivities: () => void;
 }) {
   const t = useT();
+  const { locale } = useLocale();
 
-  if (waitingForCoords || discovering || !discovery) {
+  const story = useMemo(() => {
+    const regions = matchingRegionsForDestination(
+      SEED_TOURIST_REGIONS,
+      destinationLabel,
+    );
+    return resolveDestinationStory({
+      destinationLabel,
+      regions,
+      locale,
+    });
+  }, [destinationLabel, locale]);
+
+  const loading = waitingForCoords || discovering || !discovery;
+
+  if (loading) {
     return (
       <>
-        <DestinationOverviewHero
-          destinationLabel={destinationLabel}
-          loading={discovering || waitingForCoords}
-          subtitle={
-            discovering || waitingForCoords
-              ? t("search.overviewLoading")
-              : undefined
-          }
+        <DestinationStoryHero
+          story={story}
+          tripDays={tripDays}
+          loading
+          subtitle={discovering || waitingForCoords ? t("search.overviewLoading") : undefined}
         />
         {discoveryError && !discovering && !waitingForCoords && (
           <div className="mb-8 rounded-2xl border border-danger/30 bg-orange-50/80 p-6 text-center">
@@ -64,10 +84,8 @@ export function DestinationOverviewPanel({
           {discoveryError}
         </div>
       )}
-      <DestinationOverviewHero
-        destinationLabel={destinationLabel}
-        subtitle={discovery.scope_intro}
-      />
+
+      <DestinationStoryHero story={story} tripDays={tripDays} />
 
       {discovery.weather && (
         <Card className="mb-6 border-brand-100 bg-brand-50/40">
