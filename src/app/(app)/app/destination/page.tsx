@@ -205,6 +205,7 @@ export default function DestinationPage() {
             return_date: trip.return_date,
             with_kids: hasChildrenInPassengers(trip.passengers),
             locale: "pl",
+            region_context: planPayload.region ?? null,
           }),
         });
 
@@ -213,6 +214,7 @@ export default function DestinationPage() {
         const data = (await response.json()) as {
           cluster: GeoCluster;
           attractionPool: DestinationBuildPayload["attractionPool"];
+          discover?: DestinationBuildPayload["discover"];
           tripDays?: number;
           explorationScope?: string;
         };
@@ -223,6 +225,7 @@ export default function DestinationPage() {
           ...planPayload,
           cluster: data.cluster,
           attractionPool: data.attractionPool,
+          discover: data.discover,
           tripDays: data.tripDays,
           explorationScope:
             data.explorationScope ??
@@ -430,7 +433,7 @@ export default function DestinationPage() {
           <CardBody>
             <SkeletonList count={4} />
             <p className="mt-4 text-sm text-text-secondary">
-              Dopasowujemy bazę noclegową, wycieczki dojazdowe i miejsca na mapie…
+              Ładujemy miejsca z opisami — plaże, wycieczki i to, co warto zobaczyć…
             </p>
           </CardBody>
         </Card>

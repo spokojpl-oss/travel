@@ -6,6 +6,7 @@ import {
   buildRawPlanAttractionPool,
   tripDaysFromDates,
 } from "@/lib/plan/build-plan-pool";
+import { buildDiscoverPlaces } from "@/lib/plan/build-discover-places";
 import { exploreRadiusKm, stayRadiusKm } from "@/lib/plan/day-trip-radius";
 import {
   defaultExplorationScope,
@@ -25,6 +26,18 @@ const bodySchema = z.object({
   return_date: z.string().nullable().optional(),
   with_kids: z.boolean().optional(),
   locale: z.enum(["pl", "en"]).optional(),
+  region_context: z
+    .object({
+      id: z.string().optional(),
+      name_pl: z.string(),
+      name_en: z.string(),
+      overview_pl: z.string(),
+      overview_en: z.string(),
+      stay_hint_pl: z.string(),
+      stay_hint_en: z.string(),
+    })
+    .nullable()
+    .optional(),
 });
 
 function flattenSearchAttractions(
@@ -120,9 +133,24 @@ export async function POST(request: Request) {
     preferredActivities: parsed.data.activities,
   });
 
+  const discover = buildDiscoverPlaces({
+    pool: attractionPool,
+    catalog,
+    destinationLabel: label,
+    touristRegionId: parsed.data.tourist_region_id,
+    regionContext: parsed.data.region_context ?? undefined,
+    preferredActivities: parsed.data.activities,
+    locale: parsed.data.locale ?? "pl",
+    tripDays,
+    explorationScope: scope,
+    referencePoint: enrichedCluster.center,
+    withKids: parsed.data.with_kids,
+  });
+
   return Response.json({
     cluster: enrichedCluster,
     attractionPool,
+    discover,
     tripDays,
     explorationScope: scope,
     exploreRadiusKm: exploreKm,

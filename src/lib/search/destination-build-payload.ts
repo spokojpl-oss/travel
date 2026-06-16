@@ -1,6 +1,7 @@
 import type { GeoCluster } from "@/types/domain";
 import type { AttractionWithActivities } from "@/types/domain";
 import type { LodgingBaseChoice } from "@/lib/plan/lodging-base-options";
+import type { DiscoverPlacesResult } from "@/lib/plan/build-discover-places";
 
 export type PlanRegionContext = {
   id?: string;
@@ -36,6 +37,8 @@ export type DestinationBuildPayload = {
   touristRegionId?: string | null;
   explorationScope?: string | null;
   tripDays?: number;
+  /** Hero + karty miejsc z /api/search/plan-pool */
+  discover?: DiscoverPlacesResult;
 };
 
 export function storeDestinationBuildPayload(

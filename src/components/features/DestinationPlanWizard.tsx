@@ -1,58 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { RegionMap } from "@/components/features/RegionMap";
+import { WhatToSeeStep } from "@/components/features/WhatToSeeStep";
 import { cn } from "@/lib/utils/cn";
 import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
-import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import {
   applyPlanMetaToPool,
-  computePlanSuggestions,
 } from "@/lib/plan/build-plan-pool";
+import {
+  resolvePlaceSelectionToPoolIds,
+  buildDiscoverPlaces,
+  type PlaceCard,
+} from "@/lib/plan/build-discover-places";
+import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 import {
   computeLodgingBaseOptions,
   type LodgingBaseChoice,
 } from "@/lib/plan/lodging-base-options";
 import {
-  isDayTripAttraction,
-  readPlanMeta,
-} from "@/lib/plan/plan-attraction-meta";
-import {
   defaultExplorationScope,
   explorationScopeFromString,
   type ExplorationScope,
 } from "@/lib/search/exploration-scope";
-import type {
-  DestinationBuildPayload,
-  PlanRegionContext,
-} from "@/lib/search/destination-build-payload";
+import type { DestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { useLocale } from "@/i18n/locale-provider";
 import type { GeoCluster } from "@/types/domain";
 
-type WizardStep = "base" | "pick" | "summary";
-
-function attractionBadge(
-  id: string,
-  pool: DestinationBuildPayload["attractionPool"],
-  pl: boolean,
-): string | undefined {
-  const a = pool.find((x) => x.id === id);
-  if (!a) return undefined;
-  const meta = readPlanMeta(a);
-  if (meta?.kind === "day_trip" && meta.drive_minutes) {
-    return pl
-      ? `Wycieczka ~${meta.drive_minutes} min`
-      : `Day trip ~${meta.drive_minutes} min`;
-  }
-  if (meta?.group_size && meta.group_size > 1) {
-    return pl
-      ? `${meta.group_size} plaż w okolicy`
-      : `${meta.group_size} beaches grouped`;
-  }
-  return undefined;
-}
+type WizardStep = "discover" | "base" | "plan";
 
 export function DestinationPlanWizard({
   payload,
@@ -70,24 +47,69 @@ export function DestinationPlanWizard({
   const pl = locale !== "en";
 
   const rawPool = payload.attractionPool;
+
+  const discover = useMemo(() => {
+    if (payload.discover) return payload.discover;
+    return buildDiscoverPlaces({
+      pool: rawPool,
+      catalog: SEED_TOURIST_REGIONS,
+      destinationLabel: payload.destinationLabel ?? "",
+      touristRegionId: payload.touristRegionId,
+      regionContext: payload.region,
+      preferredActivities: payload.activities,
+      locale,
+      tripDays: payload.tripDays ?? 5,
+      explorationScope:
+        explorationScopeFromString(payload.explorationScope ?? null) ??
+        defaultExplorationScope(),
+      referencePoint: payload.cluster.center,
+      withKids,
+    });
+  }, [payload, rawPool, locale, withKids]);
+
+  const placeCards = discover.placeCards;
+  const story = discover.story;
+
   const explorationScope: ExplorationScope =
     explorationScopeFromString(payload.explorationScope ?? null) ??
     defaultExplorationScope();
   const tripDays = payload.tripDays ?? 5;
 
-  const [step, setStep] = useState<WizardStep>("base");
+  const [step, setStep] = useState<WizardStep>("discover");
   const [baseChoice, setBaseChoice] = useState<LodgingBaseChoice | null>(
     payload.lodgingBase?.choice ?? null,
   );
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
+    if (payload.selectedAttractionIds?.length) {
+      return new Set(payload.selectedAttractionIds);
+    }
+    if (discover.suggestedIds?.length) {
+      return new Set(discover.suggestedIds);
+    }
+    return new Set(
+      placeCards.filter((c) => c.recommended).slice(0, 6).map((c) => c.id),
+    );
+  });
+
+  const selectedPoolIds = useMemo(
+    () => resolvePlaceSelectionToPoolIds([...selectedIds], rawPool, placeCards),
+    [selectedIds, rawPool, placeCards],
+  );
+
+  const selectedAttractions = useMemo(
+    () => rawPool.filter((a) => selectedPoolIds.includes(a.id)),
+    [rawPool, selectedPoolIds],
+  );
+
   const baseOptions = useMemo(
     () =>
-      computeLodgingBaseOptions(rawPool, {
+      computeLodgingBaseOptions(selectedAttractions.length > 0 ? selectedAttractions : rawPool, {
         withKids,
         locale,
         cluster: payload.cluster,
       }),
-    [rawPool, withKids, locale, payload.cluster],
+    [selectedAttractions, rawPool, withKids, locale, payload.cluster],
   );
 
   const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
@@ -102,72 +124,11 @@ export function DestinationPlanWizard({
     );
   }, [rawPool, selectedBase, explorationScope, tripDays]);
 
-  const suggestionOptions = useMemo(
-    () => ({
-      explorationScope,
-      tripDays,
-      preferredActivities: payload.activities,
-      withKids,
-    }),
-    [explorationScope, tripDays, payload.activities, withKids],
-  );
-
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
-    if (payload.selectedAttractionIds?.length) {
-      return new Set(payload.selectedAttractionIds);
-    }
-    return new Set<string>();
-  });
-
-  const userEditedSelection = useRef(
-    Boolean(payload.selectedAttractionIds?.length),
-  );
-
-  function applyDefaultSelection(base: { lat: number; lon: number }) {
-    const withMeta = applyPlanMetaToPool(
-      rawPool,
-      base,
-      explorationScope,
-      tripDays,
-    );
-    const ids = computePlanSuggestions(withMeta, base, suggestionOptions);
-    setSelectedIds(new Set(ids));
-  }
-
-  const recomputeIfNeeded = useCallback(() => {
-    if (!selectedBase || step === "base" || userEditedSelection.current) return;
-    applyDefaultSelection({
-      lat: selectedBase.lat,
-      lon: selectedBase.lon,
-    });
-  }, [selectedBase, step, rawPool, explorationScope, tripDays, suggestionOptions]);
-
-  useEffect(() => {
-    recomputeIfNeeded();
-  }, [recomputeIfNeeded]);
-
-  function goToPickStep() {
-    if (!selectedBase) return;
-    userEditedSelection.current = false;
-    applyDefaultSelection({
-      lat: selectedBase.lat,
-      lon: selectedBase.lon,
-    });
-    setStep("pick");
-  }
-
-  function toggleAttraction(id: string) {
-    userEditedSelection.current = true;
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   const draftCluster: GeoCluster = useMemo(() => {
     const base = selectedBase;
+    const selectedFromPool = poolWithMeta.filter((a) =>
+      selectedPoolIds.includes(a.id),
+    );
     return {
       ...payload.cluster,
       center: base
@@ -176,35 +137,39 @@ export function DestinationPlanWizard({
       settlement: base
         ? { name: base.label, lat: base.lat, lon: base.lon }
         : payload.cluster.settlement,
-      attractions: poolWithMeta.filter((a) => selectedIds.has(a.id)),
+      attractions: selectedFromPool,
     };
-  }, [payload.cluster, poolWithMeta, selectedBase, selectedIds]);
+  }, [payload.cluster, poolWithMeta, selectedBase, selectedPoolIds]);
 
   const mapData = useMemo(
     () =>
       buildClusterMapData(draftCluster, [], {
-        selectedIds: step === "pick" ? undefined : selectedIds,
         locale,
-        maxAttractions: step === "pick" ? 400 : undefined,
         attractionPool: poolWithMeta,
       }),
-    [draftCluster, selectedIds, step, locale, poolWithMeta],
+    [draftCluster, locale, poolWithMeta],
   );
 
-  const pickMapData = useMemo(() => {
-    const allPoints = buildClusterMapData(
-      { ...draftCluster, attractions: poolWithMeta },
-      [],
-      { locale, maxAttractions: 400, attractionPool: poolWithMeta },
-    );
-    return allPoints;
-  }, [draftCluster, poolWithMeta, locale]);
+  function togglePlace(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
-  const dayTrips = poolWithMeta.filter(isDayTripAttraction);
-  const nearby = poolWithMeta.filter((a) => !isDayTripAttraction(a));
+  function selectRecommended() {
+    const ids = placeCards.filter((c) => c.recommended).map((c) => c.id);
+    if (discover.suggestedIds?.length) {
+      setSelectedIds(new Set(discover.suggestedIds));
+    } else {
+      setSelectedIds(new Set(ids));
+    }
+  }
 
   function confirmPlan() {
-    if (!selectedBase || selectedIds.size === 0) return;
+    if (!selectedBase || selectedPoolIds.length === 0) return;
     onComplete({
       ...payload,
       lodgingBase: {
@@ -213,45 +178,36 @@ export function DestinationPlanWizard({
         name: selectedBase.label,
         choice: selectedBase.choice,
       },
-      selectedAttractionIds: [...selectedIds],
+      selectedAttractionIds: selectedPoolIds,
       cluster: draftCluster,
       planComplete: true,
       poolEnriched: true,
     });
   }
 
-  const region = payload.region;
+  if (!story || placeCards.length === 0) {
+    return (
+      <Card>
+        <CardBody className="text-sm text-text-secondary">
+          {pl
+            ? "Brak opisów miejsc dla tej destynacji — wróć do wyszukiwarki lub wybierz region z katalogu."
+            : "No place descriptions for this destination — go back to search or pick a catalogued region."}
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {region && <RegionIntro region={region} locale={locale} />}
-
-      {!region && (
-        <Card className="border-brand-100 bg-brand-50/30">
-          <CardBody>
-            <p className="font-semibold text-text-primary">
-              {payload.destinationLabel ??
-                payload.cluster.settlement?.name ??
-                "Wybrany rejon"}
-            </p>
-            <p className="mt-2 text-sm text-text-secondary">
-              {pl
-                ? "Najpierw wybierz bazę noclegową (centrum vs nabrzeże), potem miejsca — w tym wycieczki dojazdowe."
-                : "Pick lodging base (centre vs waterfront), then places including day trips."}
-            </p>
-          </CardBody>
-        </Card>
-      )}
-
       <nav className="flex flex-wrap gap-2 text-sm">
-        {(["base", "pick", "summary"] as WizardStep[]).map((s, i) => {
+        {(["discover", "base", "plan"] as WizardStep[]).map((s, i) => {
           const labels = pl
-            ? ["1. Baza noclegowa", "2. Wybierz miejsca", "3. Podsumowanie"]
-            : ["1. Lodging base", "2. Pick places", "3. Summary"];
+            ? ["1. Co zobaczyć", "2. Baza noclegowa", "3. Trasy i plan"]
+            : ["1. What to see", "2. Lodging base", "3. Routes & plan"];
           const active = step === s;
           const done =
-            (s === "base" && baseChoice != null && step !== "base") ||
-            (s === "pick" && step === "summary");
+            (s === "discover" && step !== "discover") ||
+            (s === "base" && step === "plan");
           return (
             <span
               key={s}
@@ -270,25 +226,41 @@ export function DestinationPlanWizard({
         })}
       </nav>
 
+      {step === "discover" && (
+        <WhatToSeeStep
+          story={story}
+          placeCards={placeCards}
+          selectedIds={selectedIds}
+          tripDays={tripDays}
+          onToggle={togglePlace}
+          onContinue={() => setStep("base")}
+          onSelectRecommended={selectRecommended}
+          locale={locale}
+        />
+      )}
+
       {step === "base" && (
         <Card>
           <CardHeader
             title={pl ? "Gdzie się zatrzymać?" : "Where to stay?"}
           />
-          <CardBody className="space-y-3">
-            <p className="text-sm text-text-secondary">
+          <CardBody className="space-y-4">
+            <p className="text-sm leading-relaxed text-text-secondary">
               {pl
-                ? "Punkty na mapie to centrum miejscowości lub nabrzeże — tak szukasz na Booking (np. „Vlorë centrum” vs „przy plaży”)."
-                : "Map pins are town centre or waterfront — how you'd search on Booking."}
+                ? `Wybrałeś ${selectedIds.size} miejsc. Baza jest dopasowana pod nie — centrum vs nabrzeże to sposób szukania na Booking.`
+                : `You picked ${selectedIds.size} places. The base fits them — centre vs waterfront is how you'd search on Booking.`}
             </p>
+
+            <SelectedPlacesSummary
+              cards={placeCards.filter((c) => selectedIds.has(c.id))}
+              pl={pl}
+            />
+
             {baseOptions.map((option) => (
               <button
                 key={option.choice}
                 type="button"
-                onClick={() => {
-                  setBaseChoice(option.choice);
-                  userEditedSelection.current = false;
-                }}
+                onClick={() => setBaseChoice(option.choice)}
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   baseChoice === option.choice
@@ -302,104 +274,25 @@ export function DestinationPlanWizard({
                 </p>
               </button>
             ))}
-            <Button
-              className="mt-2"
-              disabled={!baseChoice}
-              onClick={goToPickStep}
-            >
-              {pl ? "Dalej — wybierz miejsca na mapie" : "Next — pick on map"}
-            </Button>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button variant="ghost" onClick={() => setStep("discover")}>
+                {pl ? "← Zmień miejsca" : "← Change places"}
+              </Button>
+              <Button disabled={!baseChoice} onClick={() => setStep("plan")}>
+                {pl ? "Dalej — zobacz trasy" : "Next — see routes"}
+              </Button>
+            </div>
           </CardBody>
         </Card>
       )}
 
-      {step === "pick" && (
+      {step === "plan" && (
         <>
           <Card className="overflow-hidden">
-            <CardHeader title={pl ? "Kliknij, co chcesz zobaczyć" : "Click what you want to see"} />
-            <RegionMap
-              points={pickMapData.points}
-              segments={[]}
-              height={480}
-              showRouteList={false}
-              highlightedPointId={null}
-              onPointClick={(point) => {
-                if (point.type === "attraction") toggleAttraction(point.id);
-              }}
+            <CardHeader
+              title={pl ? "Twój plan — trasy z bazy" : "Your plan — routes from base"}
             />
-            <CardBody className="text-sm text-text-secondary">
-              {pl
-                ? `Wybrane: ${selectedIds.size} z ${poolWithMeta.length} (w tym ${dayTrips.length} propozycji wycieczek dojazdowych).`
-                : `Selected: ${selectedIds.size} of ${poolWithMeta.length}.`}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="space-y-4">
-              {dayTrips.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-700">
-                    {pl ? "Wycieczki dojazdowe" : "Day trips"}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {dayTrips.map((a) => (
-                      <AttractionChip
-                        key={a.id}
-                        id={a.id}
-                        name={toPolishAttractionName(a.name, locale)}
-                        selected={selectedIds.has(a.id)}
-                        badge={attractionBadge(a.id, poolWithMeta, pl)}
-                        onToggle={() => toggleAttraction(a.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-                  {pl ? "W okolicy bazy" : "Near your base"}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {nearby.map((a) => (
-                    <AttractionChip
-                      key={a.id}
-                      id={a.id}
-                      name={toPolishAttractionName(a.name, locale)}
-                      selected={selectedIds.has(a.id)}
-                      badge={attractionBadge(a.id, poolWithMeta, pl)}
-                      onToggle={() => toggleAttraction(a.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    userEditedSelection.current = false;
-                    setStep("base");
-                  }}
-                >
-                  {pl ? "← Zmień bazę" : "← Change base"}
-                </Button>
-                <Button
-                  disabled={selectedIds.size === 0}
-                  onClick={() => setStep("summary")}
-                >
-                  {pl ? "Dalej — zobacz trasy" : "Next — see routes"}
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
-        </>
-      )}
-
-      {step === "summary" && (
-        <>
-          <Card className="overflow-hidden">
-            <CardHeader title={pl ? "Twoje trasy z bazy" : "Routes from your base"} />
             <RegionMap
               points={mapData.points}
               segments={mapData.segments}
@@ -408,13 +301,19 @@ export function DestinationPlanWizard({
             />
           </Card>
 
+          <SelectedPlacesSummary
+            cards={placeCards.filter((c) => selectedIds.has(c.id))}
+            pl={pl}
+            compact
+          />
+
           <div className="flex flex-wrap gap-3">
-            <Button variant="ghost" onClick={() => setStep("pick")}>
-              {pl ? "← Zmień miejsca" : "← Change places"}
+            <Button variant="ghost" onClick={() => setStep("base")}>
+              {pl ? "← Zmień bazę" : "← Change base"}
             </Button>
             <Button
               size="lg"
-              disabled={!selectedBase || selectedIds.size === 0}
+              disabled={!selectedBase || selectedPoolIds.length === 0}
               onClick={confirmPlan}
             >
               {pl ? "Przygotuj hotele i ofertę →" : "Prepare hotels & offers →"}
@@ -431,62 +330,33 @@ export function DestinationPlanWizard({
   );
 }
 
-function AttractionChip({
-  id,
-  name,
-  selected,
-  badge,
-  onToggle,
+function SelectedPlacesSummary({
+  cards,
+  pl,
+  compact,
 }: {
-  id: string;
-  name: string;
-  selected: boolean;
-  badge?: string;
-  onToggle: () => void;
+  cards: PlaceCard[];
+  pl: boolean;
+  compact?: boolean;
 }) {
+  if (cards.length === 0) return null;
   return (
-    <button
-      key={id}
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "rounded-xl border px-3 py-2 text-left text-sm",
-        selected
-          ? "border-brand-700 bg-brand-50 text-text-primary"
-          : "border-border-default bg-bg-soft text-text-tertiary line-through",
-      )}
-    >
-      <span className="font-medium">{name}</span>
-      {badge && (
-        <span className="mt-0.5 block text-xs text-brand-700">{badge}</span>
-      )}
-    </button>
-  );
-}
-
-function RegionIntro({
-  region,
-  locale,
-}: {
-  region: PlanRegionContext;
-  locale: "pl" | "en";
-}) {
-  const name = locale === "en" ? region.name_en : region.name_pl;
-  const overview = locale === "en" ? region.overview_en : region.overview_pl;
-  const stayHint = locale === "en" ? region.stay_hint_en : region.stay_hint_pl;
-
-  return (
-    <Card className="border-brand-100">
-      <CardBody className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          {locale === "en" ? "Your region" : "Twój rejon"}
-        </p>
-        <h2 className="font-display text-xl font-bold text-text-primary">{name}</h2>
-        <p className="text-sm leading-relaxed text-text-primary">{overview}</p>
-        <p className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-sm text-text-secondary">
-          {stayHint}
-        </p>
-      </CardBody>
-    </Card>
+    <div className="rounded-xl border border-brand-100 bg-brand-50/30 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+        {pl ? "Twoje wybrane miejsca" : "Your selected places"}
+      </p>
+      <ul className={cn("mt-2 space-y-2", compact && "space-y-1")}>
+        {cards.map((c) => (
+          <li key={c.id} className="text-sm">
+            <span className="font-medium text-text-primary">{c.name}</span>
+            {!compact && (
+              <span className="mt-0.5 block text-xs leading-relaxed text-text-secondary">
+                {c.why}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
