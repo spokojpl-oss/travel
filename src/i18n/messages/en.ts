@@ -321,6 +321,17 @@ export const en: Messages = {
     mapTitle: "Where on the map",
     mapHint:
       "Each colour is a suggested lodging base. Click a circle or number — the card below highlights. Airports help you orient on the island.",
+    mapHintDesktop:
+      "Click a circle or number — details appear on the right. You can pick up to 3 regions (e.g. two weeks in different bases).",
+    introDesktop:
+      "Map on the left, details on the right. Click a region, read the description, then confirm — up to three regions.",
+    yourSelection: "Your selection",
+    confirmRegion: "Select this region",
+    confirmedInSelection: "This region is already in your list.",
+    removeFromSelection: "Remove from selection",
+    maxRegionsHint: "Maximum {max} regions — remove one to add another.",
+    clickMapHint: "Click a coloured region on the map to see its description.",
+    continueMulti: "Continue with {count} regions →",
     mapAirport: "Airport",
     viewOnMap: "View area in Google Maps",
     skipToActivities: "Skip — pick activities manually →",

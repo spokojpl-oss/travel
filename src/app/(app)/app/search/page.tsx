@@ -653,7 +653,7 @@ function SearchPageContent() {
 
   function updateRhythm(rhythm: TripRhythm) {
     setTrip((prev) => {
-      const next = { ...prev, trip_rhythm: rhythm, tourist_region_id: null };
+      const next = { ...prev, trip_rhythm: rhythm, tourist_region_id: null, tourist_region_ids: [] };
       syncUrl(next, step);
       return next;
     });
@@ -685,25 +685,45 @@ function SearchPageContent() {
     syncUrl(trip, 5);
   }
 
-  function handleSelectRegion(region: ScoredTouristRegion) {
-    const rhythm = trip.trip_rhythm;
-    if (!rhythm) return;
+  function centroidOfRegions(
+    list: ScoredTouristRegion[],
+  ): { lat: number; lon: number } | null {
+    if (list.length === 0) return null;
+    return {
+      lat: list.reduce((s, r) => s + r.center_lat, 0) / list.length,
+      lon: list.reduce((s, r) => s + r.center_lon, 0) / list.length,
+    };
+  }
 
-    const slugs = suggestActivitiesFromRhythm({
-      rhythm,
-      counts: activityCounts,
-      weather: discovery?.weather ?? null,
-      passengers: trip.passengers,
-      extraSlugs: region.activity_slugs,
-    });
-    setSelectedActivities(new Set(slugs));
+  function handleRegionSelectionChange(ids: string[]) {
+    const rhythm = trip.trip_rhythm;
+    const selectedRegions = ids
+      .map((id) => scoredRegions.find((r) => r.id === id))
+      .filter((r): r is ScoredTouristRegion => r != null);
+
+    if (rhythm && selectedRegions.length > 0) {
+      const extraSlugs = [
+        ...new Set(selectedRegions.flatMap((r) => r.activity_slugs)),
+      ];
+      const slugs = suggestActivitiesFromRhythm({
+        rhythm,
+        counts: activityCounts,
+        weather: discovery?.weather ?? null,
+        passengers: trip.passengers,
+        extraSlugs,
+      });
+      setSelectedActivities(new Set(slugs));
+    }
+
+    const center = centroidOfRegions(selectedRegions);
 
     setTrip((prev) => {
       const next = {
         ...prev,
-        tourist_region_id: region.id,
-        destination_lat: region.center_lat,
-        destination_lon: region.center_lon,
+        tourist_region_ids: ids,
+        tourist_region_id: ids[0] ?? null,
+        destination_lat: center?.lat ?? prev.destination_lat,
+        destination_lon: center?.lon ?? prev.destination_lon,
       };
       syncUrl(next, step);
       return next;
@@ -874,16 +894,43 @@ function SearchPageContent() {
   }
 
   function regionContextFromTrip(): PlanRegionContext | undefined {
-    const region = scoredRegions.find((r) => r.id === trip.tourist_region_id);
-    if (!region) return undefined;
+    const ids =
+      trip.tourist_region_ids.length > 0
+        ? trip.tourist_region_ids
+        : trip.tourist_region_id
+          ? [trip.tourist_region_id]
+          : [];
+    if (ids.length === 0) return undefined;
+    const matched = ids
+      .map((id) => scoredRegions.find((r) => r.id === id))
+      .filter((r): r is ScoredTouristRegion => r != null);
+    const primary = matched[0];
+    if (!primary) return undefined;
+    if (matched.length === 1) {
+      return {
+        id: primary.id,
+        name_pl: primary.name_pl,
+        name_en: primary.name_en,
+        overview_pl: primary.overview_pl,
+        overview_en: primary.overview_en,
+        stay_hint_pl: primary.stay_hint_pl,
+        stay_hint_en: primary.stay_hint_en,
+      };
+    }
+    const pl = locale !== "en";
     return {
-      id: region.id,
-      name_pl: region.name_pl,
-      name_en: region.name_en,
-      overview_pl: region.overview_pl,
-      overview_en: region.overview_en,
-      stay_hint_pl: region.stay_hint_pl,
-      stay_hint_en: region.stay_hint_en,
+      id: primary.id,
+      name_pl: matched.map((r) => r.name_pl).join(" · "),
+      name_en: matched.map((r) => r.name_en).join(" · "),
+      overview_pl: pl
+        ? `Wybraliście ${matched.length} rejony — plan może łączyć bazy w: ${matched.map((r) => r.name_pl).join(", ")}.`
+        : primary.overview_pl,
+      overview_en:
+        locale === "en"
+          ? `You picked ${matched.length} areas — the plan can combine bases in: ${matched.map((r) => r.name_en).join(", ")}.`
+          : primary.overview_en,
+      stay_hint_pl: primary.stay_hint_pl,
+      stay_hint_en: primary.stay_hint_en,
     };
   }
 
@@ -902,6 +949,7 @@ function SearchPageContent() {
       planComplete: false,
       poolEnriched: false,
       touristRegionId: trip.tourist_region_id,
+      touristRegionIds: trip.tourist_region_ids,
       explorationScope: trip.exploration_scope,
       stayRadiusKm: searchRadii.stay_radius_km ?? searchRadii.max_radius_km,
       exploreRadiusKm: searchRadii.explore_radius_km,
@@ -1118,8 +1166,8 @@ function SearchPageContent() {
           {!regionsLoading && (
             <TouristRegionCards
               regions={scoredRegions}
-              selectedId={trip.tourist_region_id}
-              onSelect={handleSelectRegion}
+              selectedIds={trip.tourist_region_ids}
+              onSelectedIdsChange={handleRegionSelectionChange}
               onContinue={goToActivitiesStep}
               onSkip={goToActivitiesStep}
               onBack={() => {

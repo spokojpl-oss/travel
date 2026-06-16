@@ -37,9 +37,27 @@ export type TripContext = {
   exploration_scope: ExplorationScope | null;
   /** Rozkład dni (plaża, miasta, …) — krok przed wyborem regionu. */
   trip_rhythm: TripRhythm | null;
-  /** Wybrany region turystyczny z poradnika (id). */
+  /** Wybrany region turystyczny z poradnika (id) — pierwszy z listy, kompatybilność wsteczna. */
   tourist_region_id: string | null;
+  /** Do 3 regionów — np. tydzień Pafos + tydzień Ayia Napa. */
+  tourist_region_ids: string[];
 };
+
+export const MAX_TOURIST_REGIONS = 3;
+
+export function parseTouristRegionParam(value: string | null): string[] {
+  if (!value?.trim()) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, MAX_TOURIST_REGIONS);
+}
+
+export function serializeTouristRegionIds(ids: string[]): string | null {
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, MAX_TOURIST_REGIONS);
+  return unique.length > 0 ? unique.join(",") : null;
+}
 
 export const TRAVEL_MODE_OPTIONS: Array<{
   value: TravelMode;
@@ -173,6 +191,7 @@ export function defaultTripContext(): TripContext {
     exploration_scope: null,
     trip_rhythm: null,
     tourist_region_id: null,
+    tourist_region_ids: [],
   });
 }
 
@@ -186,25 +205,36 @@ export function inferTravelMode(
 }
 
 export function normalizeTripContext(trip: TripContext): TripContext {
-  let travel_mode = trip.travel_mode ?? inferTravelMode(trip) ?? "flight";
+  let ids = trip.tourist_region_ids ?? [];
+  if (ids.length === 0 && trip.tourist_region_id) {
+    ids = [trip.tourist_region_id];
+  }
+  ids = [...new Set(ids.filter(Boolean))].slice(0, MAX_TOURIST_REGIONS);
+  const synced: TripContext = {
+    ...trip,
+    tourist_region_ids: ids,
+    tourist_region_id: ids[0] ?? null,
+  };
+
+  let travel_mode = synced.travel_mode ?? inferTravelMode(synced) ?? "flight";
   if (travel_mode === "train" || travel_mode === "bus") {
     travel_mode = "flight";
   }
 
   if (travel_mode === "flight") {
     return {
-      ...trip,
+      ...synced,
       travel_mode,
       vehicle_source: null,
-      ...resolveFlightOriginFields(trip),
+      ...resolveFlightOriginFields(synced),
     };
   }
 
   return {
-    ...trip,
+    ...synced,
     travel_mode,
     vehicle_source:
-      travel_mode === "car" ? (trip.vehicle_source ?? "own") : null,
+      travel_mode === "car" ? (synced.vehicle_source ?? "own") : null,
     origin_iata: null,
     origin_scope: null,
   };
@@ -269,7 +299,12 @@ export function tripContextToParams(trip: TripContext): URLSearchParams {
   if (trip.origin_lat != null) p.set("origin_lat", String(trip.origin_lat));
   if (trip.origin_lon != null) p.set("origin_lon", String(trip.origin_lon));
   if (trip.passengers) p.set("passengers", trip.passengers);
-  if (trip.tourist_region_id) p.set("tourist_region", trip.tourist_region_id);
+  if (trip.tourist_region_ids.length > 0) {
+    const serialized = serializeTouristRegionIds(trip.tourist_region_ids);
+    if (serialized) p.set("tourist_region", serialized);
+  } else if (trip.tourist_region_id) {
+    p.set("tourist_region", trip.tourist_region_id);
+  }
   const rhythmParams = trip.trip_rhythm
     ? tripRhythmToParams(trip.trip_rhythm)
     : null;
@@ -331,7 +366,11 @@ export function tripContextFromParams(
   const rhythm = tripRhythmFromParams(params);
   if (rhythm) partial.trip_rhythm = rhythm;
   const touristRegion = params.get("tourist_region");
-  if (touristRegion) partial.tourist_region_id = touristRegion;
+  if (touristRegion) {
+    const ids = parseTouristRegionParam(touristRegion);
+    partial.tourist_region_ids = ids;
+    partial.tourist_region_id = ids[0] ?? null;
+  }
   return partial;
 }
 

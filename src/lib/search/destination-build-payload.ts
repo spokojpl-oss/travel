@@ -35,6 +35,7 @@ export type DestinationBuildPayload = {
   /** @deprecated Sugestie liczone w wizardzie po wyborze bazy. */
   suggestedAttractionIds?: string[];
   touristRegionId?: string | null;
+  touristRegionIds?: string[];
   explorationScope?: string | null;
   /** Promień rejonu z kroku wyszukiwania (suwak „Promień jednego rejonu”). */
   stayRadiusKm?: number;

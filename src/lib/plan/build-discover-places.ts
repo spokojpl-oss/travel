@@ -13,6 +13,7 @@ import {
   pickDisplayName,
   pickWhy,
   regionDisplayName,
+  regionMapRadiusKm,
   type TouristRegion,
 } from "@/lib/destinations/tourist-regions";
 import type { TripDayTheme } from "@/lib/search/trip-rhythm";
@@ -165,6 +166,7 @@ export function buildDiscoverPlaces({
   catalog,
   destinationLabel,
   touristRegionId,
+  touristRegionIds,
   regionContext,
   preferredActivities = [],
   locale = "pl",
@@ -178,6 +180,7 @@ export function buildDiscoverPlaces({
   catalog: TouristRegion[];
   destinationLabel: string;
   touristRegionId?: string | null;
+  touristRegionIds?: string[] | null;
   regionContext?: PlanRegionContext | null;
   preferredActivities?: string[];
   locale?: Locale;
@@ -192,6 +195,7 @@ export function buildDiscoverPlaces({
     catalog,
     destinationLabel,
     touristRegionId,
+    touristRegionIds,
   );
   const story = resolveDestinationStory({
     destinationLabel,
@@ -208,8 +212,8 @@ export function buildDiscoverPlaces({
 
   const maxCardKm =
     stayRadiusKmParam ??
-    (touristRegionId && primaryRegion?.radius_km
-      ? primaryRegion.radius_km
+    (regions.length > 0
+      ? Math.max(...regions.map((r) => regionMapRadiusKm(r)))
       : undefined);
 
   const poolInRange =

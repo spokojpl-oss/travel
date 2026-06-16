@@ -55,6 +55,7 @@ export function DestinationPlanWizard({
       catalog: SEED_TOURIST_REGIONS,
       destinationLabel: payload.destinationLabel ?? "",
       touristRegionId: payload.touristRegionId,
+      touristRegionIds: payload.touristRegionIds,
       regionContext: payload.region,
       preferredActivities: payload.activities,
       locale,

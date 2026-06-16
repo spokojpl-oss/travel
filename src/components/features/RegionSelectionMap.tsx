@@ -9,7 +9,6 @@ import {
   localizeGoogleMapsUrl,
 } from "@/lib/maps/google-maps-config";
 import {
-  regionAreaLabel,
   regionDisplayName,
   regionMapRadiusKm,
   type ScoredTouristRegion,
@@ -39,16 +38,20 @@ function isCyprusRegions(regions: ScoredTouristRegion[]): boolean {
 
 type RegionSelectionMapProps = {
   regions: ScoredTouristRegion[];
-  selectedId: string | null;
-  onSelect: (region: ScoredTouristRegion) => void;
+  /** Rejon aktualnie podglądany w panelu bocznym. */
+  focusedId: string | null;
+  /** Potwierdzone rejony (do 3). */
+  selectedIds: string[];
+  onFocus: (regionId: string) => void;
   className?: string;
   height?: number;
 };
 
 export function RegionSelectionMap({
   regions,
-  selectedId,
-  onSelect,
+  focusedId,
+  selectedIds,
+  onFocus,
   className,
   height = 360,
 }: RegionSelectionMapProps) {
@@ -63,6 +66,7 @@ export function RegionSelectionMap({
   const [mapError, setMapError] = useState<string | null>(null);
 
   const regionsKey = regions.map((r) => r.id).join("|");
+  const selectionKey = `${focusedId ?? ""}|${selectedIds.join(",")}`;
 
   useEffect(() => {
     if (!apiKey || regions.length === 0 || !containerRef.current) return;
@@ -97,10 +101,11 @@ export function RegionSelectionMap({
         regions.forEach((region, index) => {
           const center = { lat: region.center_lat, lng: region.center_lon };
           const radiusM = regionMapRadiusKm(region) * 1000;
-          const selected = region.id === selectedId;
-          const color = selected
-            ? "#ff5b00"
-            : (REGION_COLORS[index % REGION_COLORS.length] ?? "#003faa");
+          const isSelected = selectedIds.includes(region.id);
+          const isFocused = region.id === focusedId;
+          const baseColor =
+            REGION_COLORS[index % REGION_COLORS.length] ?? "#003faa";
+          const color = isSelected ? "#ff5b00" : baseColor;
 
           bounds.extend(center);
 
@@ -109,14 +114,14 @@ export function RegionSelectionMap({
             center,
             radius: radiusM,
             strokeColor: color,
-            strokeOpacity: selected ? 1 : 0.85,
-            strokeWeight: selected ? 3 : 2,
+            strokeOpacity: isFocused ? 1 : 0.85,
+            strokeWeight: isFocused ? 4 : isSelected ? 3 : 2,
             fillColor: color,
-            fillOpacity: selected ? 0.28 : 0.14,
+            fillOpacity: isSelected ? 0.32 : isFocused ? 0.22 : 0.14,
             clickable: true,
           });
 
-          circle.addListener("click", () => onSelect(region));
+          circle.addListener("click", () => onFocus(region.id));
 
           const marker = new maps.Marker({
             map,
@@ -130,15 +135,15 @@ export function RegionSelectionMap({
             },
             icon: {
               path: maps.SymbolPath.CIRCLE,
-              scale: selected ? 14 : 12,
+              scale: isFocused ? 15 : isSelected ? 14 : 12,
               fillColor: color,
               fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 2,
+              strokeColor: isFocused ? "#1e293b" : "#ffffff",
+              strokeWeight: isFocused ? 3 : 2,
             },
           });
 
-          marker.addListener("click", () => onSelect(region));
+          marker.addListener("click", () => onFocus(region.id));
 
           overlaysRef.current.push(circle, marker);
 
@@ -193,14 +198,14 @@ export function RegionSelectionMap({
       clearOverlays();
       mapRef.current = null;
     };
-  }, [apiKey, locale, regionsKey, regions, selectedId, onSelect, t]);
+  }, [apiKey, locale, regionsKey, selectionKey, regions, focusedId, selectedIds, onFocus, t]);
 
   if (regions.length === 0) return null;
 
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-border-default bg-white shadow-card",
+        "flex h-full flex-col overflow-hidden rounded-2xl border border-border-default bg-white shadow-card",
         className,
       )}
     >
@@ -209,15 +214,15 @@ export function RegionSelectionMap({
           {t("regions.mapTitle")}
         </p>
         <p className="mt-0.5 text-xs text-text-secondary">
-          {t("regions.mapHint")}
+          {t("regions.mapHintDesktop")}
         </p>
       </div>
 
-      <div className="relative">
+      <div className="relative min-h-0 flex-1">
         <div
           ref={containerRef}
-          style={{ height }}
-          className="w-full bg-bg-soft"
+          style={{ height: height, minHeight: "100%" }}
+          className="h-full w-full bg-bg-soft lg:!h-full lg:min-h-[480px]"
         />
         {mapError && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/95 p-4 text-center text-sm text-text-secondary">
@@ -226,20 +231,21 @@ export function RegionSelectionMap({
         )}
       </div>
 
-      <ul className="flex flex-wrap gap-2 border-t border-border-default px-4 py-3">
+      <ul className="flex flex-wrap gap-2 border-t border-border-default px-4 py-3 lg:hidden">
         {regions.map((region, index) => {
-          const selected = region.id === selectedId;
-          const color = selected
+          const isSelected = selectedIds.includes(region.id);
+          const isFocused = region.id === focusedId;
+          const color = isSelected
             ? "#ff5b00"
             : (REGION_COLORS[index % REGION_COLORS.length] ?? "#003faa");
           return (
             <li key={region.id}>
               <button
                 type="button"
-                onClick={() => onSelect(region)}
+                onClick={() => onFocus(region.id)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                  selected
+                  isFocused
                     ? "border-brand-700 bg-brand-50 text-brand-800"
                     : "border-border-default bg-bg-soft text-text-secondary hover:border-brand-200",
                 )}

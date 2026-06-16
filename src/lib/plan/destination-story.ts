@@ -183,13 +183,22 @@ export function matchingRegionsForDestination(
   catalog: TouristRegion[],
   destinationLabel: string,
   touristRegionId?: string | null,
+  touristRegionIds?: string[] | null,
 ): TouristRegion[] {
   const matched = catalog.filter((r) =>
     regionMatchesDestination(r, destinationLabel),
   );
-  if (touristRegionId) {
-    const selected = matched.find((r) => r.id === touristRegionId);
-    if (selected) return [selected];
+  const ids =
+    touristRegionIds && touristRegionIds.length > 0
+      ? touristRegionIds
+      : touristRegionId
+        ? [touristRegionId]
+        : [];
+  if (ids.length > 0) {
+    const selected = ids
+      .map((id) => matched.find((r) => r.id === id))
+      .filter((r): r is TouristRegion => r != null);
+    if (selected.length > 0) return selected;
   }
   return matched;
 }

@@ -322,6 +322,17 @@ export const pl = {
     mapTitle: "Gdzie to jest na mapie",
     mapHint:
       "Każdy kolor to proponowana baza noclegowa. Kliknij okrąg lub numer — karta poniżej się podświetli. Lotniska pomagają zorientować się na wyspie.",
+    mapHintDesktop:
+      "Kliknij okrąg lub numer — po prawej zobaczysz opis. Możesz wybrać do 3 regionów (np. dwa tygodnie w różnych bazach).",
+    introDesktop:
+      "Mapa po lewej, szczegóły po prawej. Kliknij rejon, poczytaj opis i zatwierdź przyciskiem — możesz dodać do trzech.",
+    yourSelection: "Twój wybór",
+    confirmRegion: "Wybieram ten rejon",
+    confirmedInSelection: "Ten rejon jest już na liście.",
+    removeFromSelection: "Usuń z wyboru",
+    maxRegionsHint: "Maksymalnie {max} regiony — usuń jeden, żeby dodać inny.",
+    clickMapHint: "Kliknij kolorowy rejon na mapie, żeby zobaczyć opis.",
+    continueMulti: "Dalej z {count} rejonami →",
     mapAirport: "Lotnisko",
     viewOnMap: "Zobacz rejon w Google Maps",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",

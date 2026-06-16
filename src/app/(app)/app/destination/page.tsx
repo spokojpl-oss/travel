@@ -200,6 +200,8 @@ export default function DestinationPage() {
             activities: planPayload.activities,
             destination_label: planPayload.destinationLabel,
             tourist_region_id: planPayload.touristRegionId ?? trip.tourist_region_id,
+            tourist_region_ids:
+              planPayload.touristRegionIds ?? trip.tourist_region_ids,
             exploration_scope:
               planPayload.explorationScope ?? trip.exploration_scope,
             stay_radius_km: planPayload.stayRadiusKm,
