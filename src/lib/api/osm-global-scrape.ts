@@ -14,6 +14,7 @@ const ALL_OSM_CATEGORIES = OSM_SCRAPE_CATEGORIES;
 export async function performGlobalOsmScrape(options?: {
   bboxFilter?: string[];
   categoryFilter?: OsmCategory[];
+  fetchBboxOverride?: BoundingBox;
   delayBetweenRequestsMs?: number;
 }): Promise<{
   total_fetched: number;
@@ -68,9 +69,10 @@ export async function performGlobalOsmScrape(options?: {
 
     for (const category of categories) {
       const categoryStarted = Date.now();
+      const fetchBbox = options?.fetchBboxOverride ?? bbox;
       try {
         const places = await fetchOsmPlaces({
-          bbox,
+          bbox: fetchBbox,
           category,
           forceRefresh: true,
         });
@@ -90,6 +92,7 @@ export async function performGlobalOsmScrape(options?: {
             data: {
               bbox: name,
               category,
+              fetchBbox,
               fetched: places.length,
               upserted,
               durationMs: Date.now() - categoryStarted,

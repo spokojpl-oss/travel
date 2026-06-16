@@ -5,8 +5,13 @@ import Link from "next/link";
 import { PageContainer, Breadcrumb } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
+import { EUROPE_SCRAPE_REGIONS, scrapeRegionByName } from "@/lib/api/osm-scrape-regions";
 import { OSM_SCRAPE_CATEGORIES } from "@/lib/api/osm-scrape-categories";
+import {
+  subdivideBbox,
+  tileGridForScrape,
+  tileLabel,
+} from "@/lib/api/bbox-tiles";
 
 type SetupStatus = {
   user: { email: string; is_admin: boolean };
@@ -154,7 +159,7 @@ function stepFromResult(label: string, result: ScrapeStepResult): QueueStep {
   if (!error && scrapeErrors > 0) {
     error = `${scrapeErrors} błędów Overpass`;
   }
-  if (!error && warningText) {
+  if (!error && warningText && scrapeErrors > 0) {
     error = warningText;
   }
 
@@ -167,6 +172,22 @@ function stepFromResult(label: string, result: ScrapeStepResult): QueueStep {
   };
 }
 
+function countScrapeSteps(regions: string[]): number {
+  let total = 0;
+  for (const region of regions) {
+    const def = scrapeRegionByName(region);
+    if (!def) {
+      total += OSM_SCRAPE_CATEGORIES.length;
+      continue;
+    }
+    for (const category of OSM_SCRAPE_CATEGORIES) {
+      const grid = tileGridForScrape(def.bbox, category);
+      total += grid * grid;
+    }
+  }
+  return total;
+}
+
 async function scrapeRegionByCategories(
   region: string,
   steps: QueueStep[],
@@ -175,20 +196,42 @@ async function scrapeRegionByCategories(
   onProgress: (label: string, steps: QueueStep[]) => void,
 ): Promise<QueueStep[]> {
   const next = [...steps];
-  for (let i = 0; i < OSM_SCRAPE_CATEGORIES.length; i++) {
-    const category = OSM_SCRAPE_CATEGORIES[i]!;
-    const stepNum = stepOffset + i + 1;
-    const label = `${region} / ${category}`;
-    onProgress(`Scrape: ${label} (${stepNum}/${totalSteps})…`, next);
-
-    const params = new URLSearchParams({
-      bbox: region,
-      category,
-      skipTagging: "true",
+  const def = scrapeRegionByName(region);
+  if (!def) {
+    const label = `${region} (nieznany region)`;
+    next.push({
+      region: label,
+      ok: false,
+      error: "Nie rozpoznano regionu scrape",
     });
-    const result = await postScrapeRequest(params);
-    next.push(stepFromResult(label, result));
-    onProgress(`Scrape: ${label} (${stepNum}/${totalSteps})…`, next);
+    return next;
+  }
+
+  let stepIndex = stepOffset;
+  for (const category of OSM_SCRAPE_CATEGORIES) {
+    const grid = tileGridForScrape(def.bbox, category);
+    const tiles = subdivideBbox(def.bbox, grid);
+
+    for (let ti = 0; ti < tiles.length; ti++) {
+      const tile = tiles[ti]!;
+      stepIndex += 1;
+      const suffix = tileLabel(grid, ti);
+      const label = `${region} / ${category}${suffix}`;
+      onProgress(`Scrape: ${label} (${stepIndex}/${totalSteps})…`, next);
+
+      const params = new URLSearchParams({
+        bbox: region,
+        category,
+        skipTagging: "true",
+        south: String(tile.south),
+        north: String(tile.north),
+        west: String(tile.west),
+        east: String(tile.east),
+      });
+      const result = await postScrapeRequest(params);
+      next.push(stepFromResult(label, result));
+      onProgress(`Scrape: ${label} (${stepIndex}/${totalSteps})…`, next);
+    }
   }
   return next;
 }
@@ -279,7 +322,7 @@ export default function AdminSetupPage() {
 
       if (bbox) {
         setQueueLabel(`Scrape: ${bbox}…`);
-        const totalSteps = OSM_SCRAPE_CATEGORIES.length + 1;
+        const totalSteps = countScrapeSteps([bbox]) + 1;
         let steps: QueueStep[] = [];
         steps = await scrapeRegionByCategories(
           bbox,
@@ -367,7 +410,7 @@ export default function AdminSetupPage() {
         return;
       }
 
-      const totalSteps = regions.length * OSM_SCRAPE_CATEGORIES.length;
+      const totalSteps = countScrapeSteps(regions);
       let steps: QueueStep[] = [];
 
       for (const region of regions) {
@@ -582,9 +625,9 @@ export default function AdminSetupPage() {
                 <CardHeader title="Uruchom scrape" />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-text-secondary">
-                    Kolejka wykonuje małe kroki (region + kategoria OSM), żeby
-                    nie przekroczyć limitu 5 min Vercel. Postęp aktualizuje się
-                    co ok. 30–90 s. Nie zamykaj karty.
+                    Duże regiony (np. Włochy) są dzielone na kafelki 2×2–4×4,
+                    żeby nie przekroczyć limitu 5 min Vercel. Postęp aktualizuje
+                    się co ok. 20–90 s. Nie zamykaj karty.
                   </p>
                   <p className="text-sm text-text-secondary">
                     Scrape OSM uzupełnia plaże, muzea, zamki itd.{" "}

@@ -6,6 +6,7 @@ import {
 import { OSM_SCRAPE_CATEGORIES } from "@/lib/api/osm-scrape-categories";
 import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
 import type { OsmCategory } from "@/lib/api/osm";
+import type { BoundingBox } from "@/types/domain";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminEmails, isAdminEmail } from "@/lib/admin/auth";
@@ -77,6 +78,20 @@ export async function POST(request: Request) {
   const skipScrape = searchParams.get("skipScrape") === "true";
   const skipTagging = searchParams.get("skipTagging") === "true";
 
+  let fetchBboxOverride: BoundingBox | undefined;
+  const south = searchParams.get("south");
+  const north = searchParams.get("north");
+  const west = searchParams.get("west");
+  const east = searchParams.get("east");
+  if (south != null && north != null && west != null && east != null) {
+    fetchBboxOverride = {
+      south: Number(south),
+      north: Number(north),
+      west: Number(west),
+      east: Number(east),
+    };
+  }
+
   const requestStarted = Date.now();
   // #region agent log
   fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
@@ -84,10 +99,10 @@ export async function POST(request: Request) {
     headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
     body: JSON.stringify({
       sessionId: "0c16de",
-      hypothesisId: "E",
+      hypothesisId: "F",
       location: "initial-scrape/route.ts:POST",
       message: "request start",
-      data: { bboxFilter, categoryFilter, skipScrape, skipTagging },
+      data: { bboxFilter, categoryFilter, fetchBboxOverride, skipScrape, skipTagging },
       timestamp: Date.now(),
     }),
   }).catch(() => {});
@@ -99,7 +114,8 @@ export async function POST(request: Request) {
     results.scrape = await performGlobalOsmScrape({
       bboxFilter,
       categoryFilter,
-      delayBetweenRequestsMs: categoryFilter ? 400 : 1200,
+      fetchBboxOverride,
+      delayBetweenRequestsMs: categoryFilter ? 600 : 1200,
     });
   }
 
@@ -129,11 +145,12 @@ export async function POST(request: Request) {
   const taggingErrors = tagging?.errors?.length ?? 0;
 
   const warnings: string[] = [];
-  if (!skipScrape && persisted === 0) {
+  const fetched = scrape?.total_fetched ?? 0;
+  if (!skipScrape && scrapeErrors > 0) {
     warnings.push(
-      scrapeErrors > 0
+      persisted === 0
         ? `Scrape zakończony z ${scrapeErrors} błędami i 0 zapisanych atrakcji.`
-        : "Scrape nie zapisał żadnych atrakcji (Overpass zwrócił 0 miejsc z nazwą).",
+        : `Scrape częściowo udany: ${persisted} zapisanych, ${scrapeErrors} błędów Overpass.`,
     );
   }
   if (!skipTagging && tagsCreated === 0 && (tagging?.total_attractions ?? 0) > 0) {

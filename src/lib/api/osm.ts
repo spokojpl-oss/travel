@@ -58,6 +58,14 @@ export type NormalizedOsmPlace = {
   tags: Record<string, string>;
 };
 
+function overpassTimeoutSec(bbox: BoundingBox): number {
+  const span =
+    Math.abs(bbox.north - bbox.south) + Math.abs(bbox.east - bbox.west);
+  if (span > 8) return 90;
+  if (span > 4) return 60;
+  return 45;
+}
+
 export async function fetchOsmPlaces({
   bbox,
   category,
@@ -68,9 +76,10 @@ export async function fetchOsmPlaces({
   forceRefresh?: boolean;
 }): Promise<NormalizedOsmPlace[]> {
   const queryTag = OSM_QUERY_TEMPLATES[category];
+  const timeoutSec = overpassTimeoutSec(bbox);
 
   const overpassQuery = `
-    [out:json][timeout:30];
+    [out:json][timeout:${timeoutSec}];
     (
       node${queryTag}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
       way${queryTag}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
@@ -96,8 +105,12 @@ export async function fetchOsmPlaces({
               body: `data=${encodeURIComponent(overpassQuery)}`,
             });
 
-            if (response.status === 429 || response.status === 503) {
-              await sleep(1500 * (attempt + 1));
+            if (
+              response.status === 429 ||
+              response.status === 503 ||
+              response.status === 504
+            ) {
+              await sleep(2500 * (attempt + 1));
               continue;
             }
 
