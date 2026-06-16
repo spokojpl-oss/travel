@@ -3,6 +3,7 @@ import { SEED_TOURIST_REGIONS_EXTRA } from "./tourist-regions-seed-extra";
 import { SEED_TOURIST_REGIONS_COASTAL } from "./tourist-regions-seed-coastal";
 import { SEED_TOURIST_REGIONS_COASTAL_2 } from "./tourist-regions-seed-coastal-2";
 import { SEED_TOURIST_REGIONS_EUROPE } from "./tourist-regions-seed-europe";
+import { SEED_TOURIST_REGIONS_CYPRUS } from "./tourist-regions-cyprus-seed";
 
 export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   {
@@ -525,63 +526,6 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     ]
   },
   {
-    "id": "cy-paphos",
-    "destination_keys": [
-      "pafos",
-      "paphos",
-      "cyprus",
-      "cypr"
-    ],
-    "slug": "paphos-coast",
-    "name_pl": "Pafos i wybrzeże",
-    "name_en": "Paphos & coast",
-    "character": "mixed",
-    "vibe": "balanced",
-    "overview_pl": "Plaże, stanowiska archeologiczne i spokojniejsze tempo niż Ajia Napa.",
-    "overview_en": "Beaches, archaeological sites and a slower pace than Ayia Napa.",
-    "stay_hint_pl": "Kato Paphos przy promenadzie — blisko ruin i plaż.",
-    "stay_hint_en": "Kato Paphos on the promenade — close to ruins and beaches.",
-    "center_lat": 34.7571,
-    "center_lon": 32.4144,
-    "picks": [
-      {
-        "day_theme": "beach_relax",
-        "name_pl": "Coral Bay",
-        "name_en": "Coral Bay",
-        "why_pl": "Piaszczysta zatoka na północ od centrum — dobra dla rodzin.",
-        "why_en": "Sandy bay north of centre — family-friendly.",
-        "activity_slugs": [
-          "sandy_beaches"
-        ],
-        "rank": 1
-      },
-      {
-        "day_theme": "city_culture",
-        "name_pl": "Park archeologiczny Pafos",
-        "name_en": "Pafos Archaeological Park",
-        "why_pl": "Mozaiki i ruiny rzymskie — UNESCO u wybrzeża.",
-        "why_en": "Roman mosaics and ruins — UNESCO by the sea.",
-        "activity_slugs": [
-          "archaeology",
-          "old_towns"
-        ],
-        "rank": 1
-      },
-      {
-        "day_theme": "nature",
-        "name_pl": "Akamas — Blue Lagoon",
-        "name_en": "Akamas Blue Lagoon",
-        "why_pl": "Wycieczka łodzią lub jeep safari na półwysep.",
-        "why_en": "Boat trip or jeep safari to the peninsula.",
-        "activity_slugs": [
-          "boat_tour",
-          "viewpoints"
-        ],
-        "rank": 1
-      }
-    ]
-  },
-  {
     "id": "es-mallorca-alcudia",
     "destination_keys": [
       "mallorca",
@@ -900,4 +844,5 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   ...SEED_TOURIST_REGIONS_COASTAL,
   ...SEED_TOURIST_REGIONS_COASTAL_2,
   ...SEED_TOURIST_REGIONS_EUROPE,
+  ...SEED_TOURIST_REGIONS_CYPRUS,
 ] as TouristRegion[];

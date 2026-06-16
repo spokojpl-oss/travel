@@ -1025,15 +1025,12 @@ function SearchPageContent() {
 
       {showActivitiesStep && (
         <SearchScopeParamsPanel
-          explorationScope={trip.exploration_scope ?? "region"}
-          onScopeChange={setExplorationScope}
           matchMode={matchMode}
           onMatchModeChange={setMatchMode}
           maxRadius={maxRadius}
           onMaxRadiusChange={handleMaxRadiusChange}
           minPerActivity={minPerActivity}
           onMinPerActivityChange={setMinPerActivity}
-          showScope={isDestinationFlow}
         />
       )}
 

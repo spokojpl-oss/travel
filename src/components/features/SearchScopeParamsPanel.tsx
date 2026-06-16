@@ -1,38 +1,25 @@
 "use client";
 
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { cn } from "@/lib/utils/cn";
-import {
-  EXPLORATION_SCOPE_OPTIONS,
-  scopeSearchRadii,
-  type ExplorationScope,
-} from "@/lib/search/exploration-scope";
 import { useLocale } from "@/i18n/locale-provider";
 
 export function SearchScopeParamsPanel({
-  explorationScope,
-  onScopeChange,
   matchMode,
   onMatchModeChange,
   maxRadius,
   onMaxRadiusChange,
   minPerActivity,
   onMinPerActivityChange,
-  showScope = true,
 }: {
-  explorationScope: ExplorationScope;
-  onScopeChange: (scope: ExplorationScope) => void;
   matchMode: "all" | "any";
   onMatchModeChange: (mode: "all" | "any") => void;
   maxRadius: number;
   onMaxRadiusChange: (km: number) => void;
   minPerActivity: number;
   onMinPerActivityChange: (n: number) => void;
-  showScope?: boolean;
 }) {
   const { locale } = useLocale();
   const pl = locale !== "en";
-  const exploreKm = scopeSearchRadii(explorationScope).explore_radius_km;
 
   return (
     <Card className="mb-6 border-brand-200 bg-gradient-to-br from-brand-50/80 to-white shadow-sm">
@@ -42,68 +29,9 @@ export function SearchScopeParamsPanel({
       <CardBody className="space-y-5 text-sm">
         <p className="leading-relaxed text-text-secondary">
           {pl
-            ? "To ustawienie decyduje, czy chcesz atrakcje blisko siebie (jeden rejon, krótkie dojazdy) czy szerzej po wyspie / kraju. Wpływa na wyniki wyszukiwania poniżej."
-            : "This controls whether you want attractions close together (one area, short drives) or spread across the island / country. It affects search results below."}
+            ? "Ustaw promień jednego rejonu na mapie i to, ile miejsc musi pasować do wybranych aktywności. Reszta wyszukiwania korzysta z tych wartości."
+            : "Set the map cluster radius and how many places must match your selected activities."}
         </p>
-
-        {showScope && (
-          <div>
-            <p className="mb-2 font-semibold text-text-primary">
-              {pl ? "Zasięg podróży" : "Travel range"}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {EXPLORATION_SCOPE_OPTIONS.map((opt) => {
-                const active = explorationScope === opt.value;
-                const radii = scopeSearchRadii(opt.value);
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onScopeChange(opt.value)}
-                    className={cn(
-                      "rounded-xl border p-3 text-left transition-colors",
-                      active
-                        ? "border-brand-700 bg-white ring-2 ring-brand-200"
-                        : "border-border-default bg-white/80 hover:border-brand-300",
-                    )}
-                  >
-                    <p className="font-semibold text-text-primary">
-                      {pl ? opt.label_pl : opt.label_en}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
-                      {pl ? opt.description_pl : opt.description_en}
-                    </p>
-                    <p className="mt-1.5 text-[11px] font-medium text-brand-700">
-                      {pl
-                        ? `Szukamy do ${radii.explore_radius_km} km · rejon ~${radii.stay_radius_km} km`
-                        : `Search up to ${radii.explore_radius_km} km · area ~${radii.stay_radius_km} km`}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-xl border border-brand-100 bg-white/90 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            {pl ? "Aktywne promienie" : "Active radii"}
-          </p>
-          <p className="mt-1 text-sm text-text-primary">
-            {pl ? (
-              <>
-                Pobieramy atrakcje w promieniu{" "}
-                <strong>{exploreKm} km</strong> · grupujemy w rejonach po{" "}
-                <strong>{maxRadius} km</strong>
-              </>
-            ) : (
-              <>
-                Fetching attractions within <strong>{exploreKm} km</strong> ·
-                clustering areas at <strong>{maxRadius} km</strong>
-              </>
-            )}
-          </p>
-        </div>
 
         <div>
           <p className="mb-2 font-semibold text-text-primary">

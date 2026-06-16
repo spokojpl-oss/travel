@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -7,12 +8,17 @@ import { cn } from "@/lib/utils/cn";
 import {
   pickDisplayName,
   pickWhy,
-  regionCharacterLabel,
+  regionAreaLabel,
   regionDisplayName,
+  regionCharacterLabel,
   regionVibeLabel,
   type ScoredTouristRegion,
 } from "@/lib/destinations/tourist-regions";
 import { useLocale, useT } from "@/i18n/locale-provider";
+import {
+  RegionSelectionMap,
+  regionMapsSearchUrl,
+} from "@/components/features/RegionSelectionMap";
 
 export function TouristRegionCards({
   regions,
@@ -31,6 +37,17 @@ export function TouristRegionCards({
 }) {
   const t = useT();
   const { locale } = useLocale();
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  function handleSelect(region: ScoredTouristRegion) {
+    onSelect(region);
+    requestAnimationFrame(() => {
+      cardRefs.current[region.id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
+  }
 
   if (regions.length === 0) {
     return (
@@ -58,15 +75,25 @@ export function TouristRegionCards({
         {t("regions.introHints")}
       </p>
 
+      <RegionSelectionMap
+        regions={regions}
+        selectedId={selectedId}
+        onSelect={handleSelect}
+      />
+
       <div className="space-y-4">
         {regions.map((region, idx) => {
           const selected = selectedId === region.id;
           const overview = locale === "en" ? region.overview_en : region.overview_pl;
           const stayHint = locale === "en" ? region.stay_hint_en : region.stay_hint_pl;
+          const areaLabel = regionAreaLabel(region, locale);
 
           return (
             <div
               key={region.id}
+              ref={(el) => {
+                cardRefs.current[region.id] = el;
+              }}
               className={cn(
                 "rounded-2xl border transition-all",
                 selected
@@ -79,6 +106,11 @@ export function TouristRegionCards({
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
                       {t("regions.hintLabel")} #{idx + 1}
+                      {areaLabel && (
+                        <span className="ml-2 normal-case font-normal text-text-secondary">
+                          · {areaLabel}
+                        </span>
+                      )}
                     </p>
                     <h3 className="font-display text-xl font-bold text-text-primary">
                       {regionDisplayName(region, locale)}
@@ -132,10 +164,18 @@ export function TouristRegionCards({
                 <Button
                   variant={selected ? "secondary" : "primary"}
                   size="sm"
-                  onClick={() => onSelect(region)}
+                  onClick={() => handleSelect(region)}
                 >
                   {selected ? t("regions.useAsBase") : t("regions.selectHint")}
                 </Button>
+                <a
+                  href={regionMapsSearchUrl(region, locale)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-3 text-xs font-semibold text-brand-700 hover:underline"
+                >
+                  {t("regions.viewOnMap")} →
+                </a>
               </div>
             </div>
           );

@@ -1,6 +1,7 @@
 declare namespace google.maps {
   enum SymbolPath {
     CIRCLE = 0,
+    BACKWARD_CLOSED_ARROW = 3,
   }
 
   interface LatLngLiteral {
@@ -28,11 +29,19 @@ declare namespace google.maps {
     left?: number;
   }
 
+  interface MarkerLabel {
+    text: string;
+    color?: string;
+    fontWeight?: string;
+    fontSize?: string;
+  }
+
   interface MarkerOptions {
     position: LatLngLiteral;
     map?: Map | null;
     title?: string;
     icon?: SymbolIcon;
+    label?: MarkerLabel | string;
   }
 
   interface SymbolIcon {
@@ -42,9 +51,27 @@ declare namespace google.maps {
     fillOpacity?: number;
     strokeColor?: string;
     strokeWeight?: number;
+    rotation?: number;
+  }
+
+  interface CircleOptions {
+    map?: Map | null;
+    center?: LatLngLiteral;
+    radius?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeWeight?: number;
+    fillColor?: string;
+    fillOpacity?: number;
+    clickable?: boolean;
   }
 
   interface Marker {
+    setMap(map: Map | null): void;
+    addListener(event: string, handler: () => void): MapsEventListener;
+  }
+
+  interface Circle {
     setMap(map: Map | null): void;
     addListener(event: string, handler: () => void): MapsEventListener;
   }
@@ -90,6 +117,10 @@ declare namespace google.maps {
 
   class Marker {
     constructor(opts?: MarkerOptions);
+  }
+
+  class Circle {
+    constructor(opts?: CircleOptions);
   }
 
   class Polyline {

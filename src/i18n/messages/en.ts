@@ -306,7 +306,7 @@ export const en: Messages = {
     intro:
       "Each card is a suggested base with specific places for your days — no starting from scratch.",
     introHints:
-      "These are hints, not a fixed plan — pick a base, skip this step, or refine activities manually.",
+      "These are hints, not a fixed plan — pick an area on the map (circle) or from the list. Each description explains who it's for and where it sits geographically.",
     hintLabel: "Hint",
     selectHint: "Use as lodging base",
     useAsBase: "Selected base",
@@ -318,6 +318,11 @@ export const en: Messages = {
     emptyTitle: "No curated guide for this place yet",
     emptyBody:
       "We don't have region cards for this destination yet. Adjust your day plan, pick another place, or continue manually — OSM activity search still works.",
+    mapTitle: "Where on the map",
+    mapHint:
+      "Each colour is a suggested lodging base. Click a circle or number — the card below highlights. Airports help you orient on the island.",
+    mapAirport: "Airport",
+    viewOnMap: "View area in Google Maps",
     skipToActivities: "Skip — pick activities manually →",
   },
   flights: {

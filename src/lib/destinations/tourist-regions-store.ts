@@ -92,7 +92,7 @@ export async function loadTouristRegionsCatalog(): Promise<TouristRegion[]> {
 export async function findTouristRegionsAsync({
   destinationLabel,
   rhythm,
-  limit = 6,
+  limit = 8,
 }: {
   destinationLabel: string;
   rhythm: TripRhythm;

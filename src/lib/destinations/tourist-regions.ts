@@ -25,12 +25,17 @@ export type TouristRegion = {
   name_en: string;
   character: RegionCharacter;
   vibe: RegionVibe;
+  /** Krótka wskazówka geograficzna na mapie (np. „Wschód wyspy · lotnisko LCA”). */
+  area_label_pl?: string;
+  area_label_en?: string;
   overview_pl: string;
   overview_en: string;
   stay_hint_pl: string;
   stay_hint_en: string;
   center_lat: number;
   center_lon: number;
+  /** Promień rejonu na mapie wyboru bazy (km). */
+  radius_km?: number;
   picks: RegionPick[];
 };
 
@@ -55,6 +60,7 @@ export type DbTouristRegionRow = {
   stay_hint_en: string;
   center_lat: number;
   center_lon: number;
+  radius_km?: number | null;
   active?: boolean;
   sort_order?: number;
   region_picks?: DbRegionPickRow[];
@@ -153,8 +159,46 @@ export function mapDbRowToTouristRegion(row: DbTouristRegionRow): TouristRegion 
     stay_hint_en: row.stay_hint_en,
     center_lat: Number(row.center_lat),
     center_lon: Number(row.center_lon),
+    radius_km:
+      row.radius_km != null ? Number(row.radius_km) : undefined,
     picks,
   };
+}
+
+export function regionAreaLabel(
+  region: TouristRegion,
+  locale: Locale = "pl",
+): string | null {
+  const label = locale === "en" ? region.area_label_en : region.area_label_pl;
+  return label?.trim() || null;
+}
+
+export function regionMapRadiusKm(region: TouristRegion): number {
+  if (region.radius_km != null && region.radius_km > 0) {
+    return region.radius_km;
+  }
+  switch (region.character) {
+    case "resort":
+      return 16;
+    case "historic":
+      return 14;
+    case "wild":
+      return 28;
+    default:
+      return 20;
+  }
+}
+
+const GENERAL_REGION_IDS = new Set([
+  "cy-cyprus-general",
+]);
+
+function isGeneralFallbackRegion(region: TouristRegion): boolean {
+  return (
+    GENERAL_REGION_IDS.has(region.id) ||
+    region.slug.endsWith("-general") ||
+    region.id.endsWith("-general")
+  );
 }
 
 export function destinationKeysFromLabel(
@@ -196,6 +240,8 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "baleares",
   "kyklady",
   "cyclades",
+  "cypr",
+  "cyprus",
 ]);
 
 function matchesDestinationKey(
@@ -278,26 +324,35 @@ export function findTouristRegionsInCatalog(
   {
     destinationLabel,
     rhythm,
-    limit = 6,
+    limit = 8,
   }: {
     destinationLabel: string;
     rhythm: TripRhythm;
     limit?: number;
   },
 ): ScoredTouristRegion[] {
-  return catalog
+  const scored = catalog
     .filter((r) => regionMatchesDestination(r, destinationLabel))
     .map((r) => scoreRegionForRhythm(r, rhythm))
     .filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score);
+
+  const specific = scored.filter((r) => !isGeneralFallbackRegion(r));
+  const general = scored.filter((r) => isGeneralFallbackRegion(r));
+
+  const ordered =
+    specific.length >= 3
+      ? [...specific, ...general.slice(0, 1)]
+      : [...specific, ...general];
+
+  return ordered.slice(0, limit);
 }
 
 /** Synchroniczny fallback na seed — używaj `findTouristRegionsAsync` w API. */
 export function findTouristRegions({
   destinationLabel,
   rhythm,
-  limit = 6,
+  limit = 8,
 }: {
   destinationLabel: string;
   rhythm: TripRhythm;

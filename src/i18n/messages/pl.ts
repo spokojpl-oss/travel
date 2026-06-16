@@ -307,7 +307,7 @@ export const pl = {
     intro:
       "Każda karta to proponowana baza noclegowa z konkretnymi miejscami na Wasze dni — nie trzeba szukać od zera.",
     introHints:
-      "To podpowiedzi, nie gotowy plan — możecie wybrać bazę, pominąć ten krok albo doprecyzować aktywności ręcznie.",
+      "To podpowiedzi, nie gotowy plan — wybierz rejon na mapie (okrąg) lub z listy. Opis mówi, dla kogo i gdzie geograficznie leży baza.",
     hintLabel: "Podpowiedź",
     selectHint: "Użyj jako bazy noclegowej",
     useAsBase: "Wybrana baza",
@@ -319,6 +319,11 @@ export const pl = {
     emptyTitle: "Brak gotowych propozycji dla tego miejsca",
     emptyBody:
       "Nie mamy jeszcze kart regionu dla tej destynacji. Zmień plan dni, wybierz inne miejsce albo przejdź dalej ręcznie — aktywności i wyszukiwanie OSM nadal działają.",
+    mapTitle: "Gdzie to jest na mapie",
+    mapHint:
+      "Każdy kolor to proponowana baza noclegowa. Kliknij okrąg lub numer — karta poniżej się podświetli. Lotniska pomagają zorientować się na wyspie.",
+    mapAirport: "Lotnisko",
+    viewOnMap: "Zobacz rejon w Google Maps",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",
   },
   flights: {
