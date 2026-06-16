@@ -1,8 +1,29 @@
 import { fetchWithCache } from "@/lib/cache/api-cache";
 import { apiEnv } from "@/config/api-env";
+import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox, GeoPoint } from "@/types/domain";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1";
+
+export type GooglePlaceReview = {
+  author: string;
+  rating: number;
+  text: string;
+  publishedAt: string | null;
+};
+
+export type GooglePlaceDetails = {
+  place_id: string;
+  name: string;
+  editorial_summary: string | null;
+  rating: number | null;
+  rating_count: number | null;
+  google_maps_url: string | null;
+  website: string | null;
+  address: string | null;
+  photo_names: string[];
+  reviews: GooglePlaceReview[];
+};
 
 function requireGooglePlacesKey(): string {
   const key = apiEnv.GOOGLE_PLACES_API_KEY;
@@ -190,4 +211,172 @@ function normalizeGooglePlace(
     opening_hours: raw.currentOpeningHours?.weekdayDescriptions ?? [],
     editorial_summary: raw.editorialSummary?.text ?? null,
   };
+}
+
+function bboxAround(lat: number, lon: number, delta = 0.04): BoundingBox {
+  return {
+    north: lat + delta,
+    south: lat - delta,
+    east: lon + delta,
+    west: lon - delta,
+  };
+}
+
+function normalizeForMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function namesLikelyMatch(a: string, b: string): boolean {
+  const na = normalizeForMatch(a);
+  const nb = normalizeForMatch(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const wordsA = na.split(" ").filter((w) => w.length > 3);
+  const wordsB = new Set(nb.split(" ").filter((w) => w.length > 3));
+  const overlap = wordsA.filter((w) => wordsB.has(w)).length;
+  return overlap >= 2 || (wordsA.length === 1 && wordsB.has(wordsA[0]!));
+}
+
+/** Proxy URL for a Places photo resource (served by `/api/places/photo`). */
+export function googlePlacePhotoUrl(photoName: string): string {
+  return `/api/places/photo?name=${encodeURIComponent(photoName)}`;
+}
+
+type GooglePlaceDetailsResponse = {
+  id?: string;
+  displayName?: { text: string };
+  formattedAddress?: string;
+  rating?: number;
+  userRatingCount?: number;
+  editorialSummary?: { text: string };
+  googleMapsUri?: string;
+  websiteUri?: string;
+  photos?: Array<{ name: string }>;
+  reviews?: Array<{
+    rating: number;
+    text?: { text: string };
+    publishTime?: string;
+    authorAttribution?: { displayName: string };
+  }>;
+};
+
+export async function fetchGooglePlaceDetails(
+  placeId: string,
+): Promise<GooglePlaceDetails | null> {
+  if (!apiEnv.GOOGLE_PLACES_API_KEY) return null;
+
+  const resourceName = placeId.startsWith("places/")
+    ? placeId
+    : `places/${placeId}`;
+
+  try {
+    const { data } = await fetchWithCache<GooglePlaceDetailsResponse>({
+      source: "google-places-details",
+      cacheParams: { place_id: resourceName },
+      ttlSeconds: 30 * 24 * 60 * 60,
+      fetcher: async () => {
+        const response = await fetch(`${PLACES_API_BASE}/${resourceName}`, {
+          method: "GET",
+          headers: {
+            "X-Goog-Api-Key": requireGooglePlacesKey(),
+            "X-Goog-FieldMask": [
+              "id",
+              "displayName",
+              "formattedAddress",
+              "rating",
+              "userRatingCount",
+              "editorialSummary",
+              "googleMapsUri",
+              "websiteUri",
+              "photos",
+              "reviews",
+            ].join(","),
+          },
+        });
+        if (!response.ok) {
+          throw new Error(`Place Details error: ${response.status}`);
+        }
+        return response.json() as Promise<GooglePlaceDetailsResponse>;
+      },
+    });
+
+    const reviews = (data.reviews ?? [])
+      .map((r) => ({
+        author: r.authorAttribution?.displayName?.trim() || "Google user",
+        rating: r.rating,
+        text: r.text?.text?.trim() ?? "",
+        publishedAt: r.publishTime?.substring(0, 10) ?? null,
+      }))
+      .filter((r) => r.text.length >= 40)
+      .sort((a, b) => b.rating - a.rating || b.text.length - a.text.length)
+      .slice(0, 4);
+
+    return {
+      place_id: data.id ?? resourceName,
+      name: data.displayName?.text ?? "",
+      editorial_summary: data.editorialSummary?.text?.trim() ?? null,
+      rating: data.rating ?? null,
+      rating_count: data.userRatingCount ?? null,
+      google_maps_url: data.googleMapsUri ?? null,
+      website: data.websiteUri ?? null,
+      address: data.formattedAddress ?? null,
+      photo_names: (data.photos ?? [])
+        .map((p) => p.name)
+        .filter(Boolean)
+        .slice(0, 4),
+      reviews,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function findMatchingGooglePlace({
+  name,
+  lat,
+  lon,
+  searchVariants,
+  maxDistanceKm = 1.5,
+}: {
+  name: string;
+  lat: number;
+  lon: number;
+  searchVariants: string[];
+  maxDistanceKm?: number;
+}): Promise<GooglePlace | null> {
+  if (!apiEnv.GOOGLE_PLACES_API_KEY) return null;
+
+  const bbox = bboxAround(lat, lon);
+  const queries = searchVariants.length > 0 ? searchVariants : [name];
+
+  for (const query of queries.slice(0, 4)) {
+    try {
+      const places = await searchPlacesByText({ textQuery: query, bbox });
+      const match = places
+        .filter((p) => p.location)
+        .map((p) => ({
+          p,
+          dist: distanceKm({ lat, lon }, p.location!),
+          nameOk: namesLikelyMatch(name, p.name),
+        }))
+        .filter((x) => x.dist <= maxDistanceKm && x.nameOk)
+        .sort((a, b) => {
+          if (Math.abs(a.dist - b.dist) > 0.15) return a.dist - b.dist;
+          return (b.p.rating_count ?? 0) - (a.p.rating_count ?? 0);
+        })[0];
+
+      if (match) return match.p;
+    } catch {
+      /* brak klucza / limit */
+    }
+  }
+
+  return null;
 }

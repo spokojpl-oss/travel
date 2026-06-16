@@ -1,7 +1,10 @@
-import { apiEnv } from "@/config/api-env";
-import { searchPlacesByText } from "@/lib/api/google-places";
+import {
+  fetchGooglePlaceDetails,
+  findMatchingGooglePlace,
+  googlePlacePhotoUrl,
+  type GooglePlaceReview,
+} from "@/lib/api/google-places";
 import { fetchWikipediaPageSummary } from "@/lib/api/wikipedia-summary";
-import { distanceKm } from "@/lib/search/geo-clustering";
 import {
   attractionNameSearchVariants,
   buildInlineAttractionDetail,
@@ -10,79 +13,43 @@ import {
   wikipediaTargetFromOsmTags,
 } from "@/lib/plan/attraction-detail-text";
 import type { AttractionWithActivities } from "@/types/domain";
-import type { BoundingBox } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
+
+export type AttractionGoogleEnrichment = {
+  placeId: string;
+  rating: number | null;
+  ratingCount: number | null;
+  googleMapsUrl: string | null;
+  website: string | null;
+  photoUrls: string[];
+  reviews: GooglePlaceReview[];
+};
 
 export type AttractionDetailResult = {
   overview: string | null;
   highlights: string[];
   source: "curated" | "db" | "osm" | "wikipedia" | "google" | "none";
   wikipediaUrl?: string;
+  google?: AttractionGoogleEnrichment;
 };
 
-function bboxAround(lat: number, lon: number, delta = 0.04): BoundingBox {
-  return {
-    north: lat + delta,
-    south: lat - delta,
-    east: lon + delta,
-    west: lon - delta,
-  };
+function reviewOverviewSnippet(reviews: GooglePlaceReview[]): string | null {
+  const best = reviews.find((r) => r.text.length >= 80 && r.rating >= 4);
+  if (!best) return reviews[0]?.text?.trim() || null;
+  const text = best.text.trim();
+  if (text.length <= 420) return text;
+  const cut = text.slice(0, 400);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${cut.slice(0, lastSpace > 200 ? lastSpace : 400).trim()}…`;
 }
 
-function normalizeForMatch(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function namesLikelyMatch(a: string, b: string): boolean {
-  const na = normalizeForMatch(a);
-  const nb = normalizeForMatch(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (na.includes(nb) || nb.includes(na)) return true;
-  const wordsA = na.split(" ").filter((w) => w.length > 3);
-  const wordsB = new Set(nb.split(" ").filter((w) => w.length > 3));
-  const overlap = wordsA.filter((w) => wordsB.has(w)).length;
-  return overlap >= 2 || (wordsA.length === 1 && wordsB.has(wordsA[0]!));
-}
-
-async function fetchGoogleEditorialSummary(
-  name: string,
-  lat: number,
-  lon: number,
-): Promise<string | null> {
-  if (!apiEnv.GOOGLE_PLACES_API_KEY) return null;
-
-  const bbox = bboxAround(lat, lon);
-  const variants = attractionNameSearchVariants(name);
-
-  for (const query of variants.slice(0, 3)) {
-    try {
-      const places = await searchPlacesByText({ textQuery: query, bbox });
-      const match = places
-        .filter((p) => p.location && p.editorial_summary?.trim())
-        .map((p) => ({
-          p,
-          dist: distanceKm({ lat, lon }, p.location!),
-          nameOk: namesLikelyMatch(name, p.name),
-        }))
-        .filter((x) => x.dist <= 1.2 && x.nameOk)
-        .sort((a, b) => a.dist - b.dist)[0];
-
-      if (match?.p.editorial_summary) {
-        return match.p.editorial_summary.trim();
-      }
-    } catch {
-      /* brak klucza / limit — pomiń */
-    }
-  }
-
-  return null;
+function googleOverviewText(
+  enrichment: Awaited<ReturnType<typeof fetchGooglePlaceDetails>>,
+): string | null {
+  if (!enrichment) return null;
+  const editorial = enrichment.editorial_summary?.trim();
+  if (editorial && !isWeakAttractionDescription(editorial)) return editorial;
+  return reviewOverviewSnippet(enrichment.reviews);
 }
 
 async function fetchWikipediaOverview(
@@ -124,23 +91,22 @@ async function fetchWikipediaOverview(
   return null;
 }
 
+function inlineSource(
+  attraction: AttractionWithActivities,
+  inlineOverview: string,
+): AttractionDetailResult["source"] {
+  if (attraction.source === "curated") return "curated";
+  if (inlineOverview === attraction.description?.trim()) return "db";
+  return "osm";
+}
+
 export async function resolveAttractionDetail(
   attraction: AttractionWithActivities,
   locale: Locale,
 ): Promise<AttractionDetailResult> {
   const inline = buildInlineAttractionDetail(attraction, locale);
-  if (inline.overview && !isWeakAttractionDescription(inline.overview)) {
-    return {
-      overview: inline.overview,
-      highlights: inline.highlights,
-      source:
-        attraction.source === "curated"
-          ? "curated"
-          : inline.overview === attraction.description?.trim()
-            ? "db"
-            : "osm",
-    };
-  }
+  const lat = Number(attraction.lat);
+  const lon = Number(attraction.lon);
 
   const tags =
     attraction.tags && typeof attraction.tags === "object" && !Array.isArray(attraction.tags)
@@ -152,32 +118,83 @@ export async function resolveAttractionDetail(
         ) as Record<string, string>)
       : {};
 
-  const wiki = await fetchWikipediaOverview(attraction, tags, locale);
-  if (wiki) {
+  const hasStrongInline =
+    Boolean(inline.overview) && !isWeakAttractionDescription(inline.overview);
+
+  const variants = attractionNameSearchVariants(attraction.name);
+  const matchPromise = findMatchingGooglePlace({
+    name: attraction.name,
+    lat,
+    lon,
+    searchVariants: variants,
+  });
+
+  const [match, wiki] = await Promise.all([
+    matchPromise,
+    hasStrongInline ? Promise.resolve(null) : fetchWikipediaOverview(attraction, tags, locale),
+  ]);
+
+  const details = match ? await fetchGooglePlaceDetails(match.place_id) : null;
+
+  const googleEnrichment: AttractionGoogleEnrichment | undefined = match
+    ? {
+        placeId: details?.place_id ?? match.place_id,
+        rating: details?.rating ?? match.rating,
+        ratingCount: details?.rating_count ?? match.rating_count,
+        googleMapsUrl: details?.google_maps_url ?? match.google_maps_url,
+        website: details?.website ?? match.website,
+        photoUrls: (details?.photo_names ?? []).map(googlePlacePhotoUrl),
+        reviews: details?.reviews ?? [],
+      }
+    : undefined;
+
+  const googleText = googleOverviewText(details);
+
+  if (hasStrongInline) {
     return {
-      overview: wiki.overview,
+      overview: inline.overview,
       highlights: inline.highlights,
-      source: "wikipedia",
-      wikipediaUrl: wiki.wikipediaUrl,
+      source: inlineSource(attraction, inline.overview!),
+      google: googleEnrichment,
     };
   }
 
-  const googleSummary = await fetchGoogleEditorialSummary(
-    attraction.name,
-    Number(attraction.lat),
-    Number(attraction.lon),
-  );
-  if (googleSummary && !isWeakAttractionDescription(googleSummary)) {
-    return {
-      overview: googleSummary,
-      highlights: inline.highlights,
-      source: "google",
-    };
+  let overview: string | null = null;
+  let source: AttractionDetailResult["source"] = "none";
+  let wikipediaUrl: string | undefined;
+
+  if (googleText && !isWeakAttractionDescription(googleText)) {
+    overview = googleText;
+    source = "google";
+  } else if (wiki) {
+    overview = wiki.overview;
+    source = "wikipedia";
+    wikipediaUrl = wiki.wikipediaUrl;
+  } else if (googleText) {
+    overview = googleText;
+    source = "google";
+  } else if (inline.overview) {
+    overview = inline.overview;
+    source = inlineSource(attraction, inline.overview);
+  }
+
+  if (
+    googleText &&
+    wiki &&
+    source === "google" &&
+    googleText.length < 140 &&
+    wiki.overview.length > googleText.length + 80
+  ) {
+    overview = wiki.overview;
+    source = "wikipedia";
+    wikipediaUrl = wiki.wikipediaUrl;
   }
 
   return {
-    overview: null,
-    highlights: [],
-    source: "none",
+    overview,
+    highlights: inline.highlights,
+    source,
+    wikipediaUrl,
+    google: googleEnrichment,
   };
 }

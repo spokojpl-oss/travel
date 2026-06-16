@@ -313,6 +313,8 @@ export const en: Messages = {
     noDetail:
       "No description in our database — an OpenStreetMap point only. Try Wikipedia or judge by the map pin.",
     searchWikipedia: "Search Wikipedia",
+    openInMaps: "Open in Google Maps",
+    travellerReviews: "Traveller reviews",
     websiteLink: "Website",
     addToPlan: "Add to plan",
     removeFromPlan: "Remove from plan",
@@ -354,6 +356,7 @@ export const en: Messages = {
     continueMulti: "Continue with {count} regions →",
     mapAirport: "Airport",
     viewOnMap: "View area in Google Maps",
+    detailLoading: "Loading extended area description…",
     skipToActivities: "Skip — pick activities manually →",
     wholeIslandTitle: "Explore the whole island",
     wholeIslandBody:

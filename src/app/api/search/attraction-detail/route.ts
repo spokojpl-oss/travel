@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (result.overview) {
+  if (result.overview || result.google) {
     return NextResponse.json(result);
   }
 

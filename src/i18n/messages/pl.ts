@@ -314,6 +314,8 @@ export const pl = {
     noDetail:
       "Brak opisu w bazie — to punkt z OpenStreetMap. Szukaj na Wikipedii albo oceń po mapie, czy warto jechać.",
     searchWikipedia: "Szukaj w Wikipedii",
+    openInMaps: "Otwórz w Google Maps",
+    travellerReviews: "Opinie podróżników",
     websiteLink: "Strona www",
     addToPlan: "Dodaj do planu",
     removeFromPlan: "Usuń z planu",
@@ -355,6 +357,7 @@ export const pl = {
     continueMulti: "Dalej z {count} rejonami →",
     mapAirport: "Lotnisko",
     viewOnMap: "Zobacz rejon w Google Maps",
+    detailLoading: "Wczytuję rozszerzony opis rejonu…",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",
     wholeIslandTitle: "Chcę zwiedzać całą wyspę",
     wholeIslandBody:

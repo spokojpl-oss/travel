@@ -39,13 +39,75 @@ function RegionDetailPanel({
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const overview = locale === "en" ? region.overview_en : region.overview_pl;
+  const seedOverview = locale === "en" ? region.overview_en : region.overview_pl;
   const stayHint = locale === "en" ? region.stay_hint_en : region.stay_hint_pl;
   const areaLabel = regionAreaLabel(region, locale);
   const topPicks = region.picks_for_rhythm.slice(0, 2);
 
+  const [overview, setOverview] = useState(seedOverview);
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [googleMapsUrl, setGoogleMapsUrl] = useState<string | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingCount, setRatingCount] = useState<number | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOverview(seedOverview);
+    setHeroImageUrl(null);
+    setGoogleMapsUrl(null);
+    setRating(null);
+    setRatingCount(null);
+    setDetailLoading(true);
+
+    fetch("/api/search/region-detail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regionId: region.id, locale }),
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<{
+          overview?: string;
+          heroImageUrl?: string | null;
+          googleMapsUrl?: string;
+          rating?: number | null;
+          ratingCount?: number | null;
+        }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.overview?.trim()) setOverview(data.overview.trim());
+        setHeroImageUrl(data.heroImageUrl ?? null);
+        setGoogleMapsUrl(data.googleMapsUrl ?? null);
+        setRating(data.rating ?? null);
+        setRatingCount(data.ratingCount ?? null);
+      })
+      .catch(() => {
+        /* seed overview zostaje */
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [region.id, locale, seedOverview]);
+
   return (
     <div className="flex flex-col gap-3">
+      {heroImageUrl && (
+        <div className="overflow-hidden rounded-xl border border-border-default">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroImageUrl}
+            alt=""
+            className="aspect-[16/10] w-full object-cover"
+          />
+        </div>
+      )}
+
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
           #{index + 1}
@@ -58,6 +120,15 @@ function RegionDetailPanel({
         <h3 className="font-display mt-0.5 text-lg font-bold leading-tight text-text-primary">
           {regionDisplayName(region, locale)}
         </h3>
+        {rating != null && rating > 0 && (
+          <p className="mt-1 text-xs text-text-secondary">
+            <span className="font-semibold text-amber-700">{rating.toFixed(1)}</span>
+            {" · "}
+            {locale === "en"
+              ? `${(ratingCount ?? 0).toLocaleString()} Google reviews`
+              : `${(ratingCount ?? 0).toLocaleString()} opinii Google`}
+          </p>
+        )}
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-bg-soft px-2 py-0.5 text-[11px] font-medium text-text-secondary">
             {regionCharacterLabel(region.character, locale)}
@@ -68,7 +139,11 @@ function RegionDetailPanel({
         </div>
       </div>
 
-      <p className="text-sm leading-snug text-text-primary">{overview}</p>
+      {detailLoading ? (
+        <p className="text-sm text-text-secondary">{t("regions.detailLoading")}</p>
+      ) : (
+        <p className="text-sm leading-relaxed text-text-primary">{overview}</p>
+      )}
       <p className="rounded-md border border-brand-100 bg-brand-50/40 px-2.5 py-2 text-xs leading-snug text-text-secondary">
         {stayHint}
       </p>
@@ -90,7 +165,7 @@ function RegionDetailPanel({
       )}
 
       <a
-        href={regionMapsSearchUrl(region, locale)}
+        href={googleMapsUrl ?? regionMapsSearchUrl(region, locale)}
         target="_blank"
         rel="noopener noreferrer"
         className="text-[11px] font-semibold text-brand-700 hover:underline"
