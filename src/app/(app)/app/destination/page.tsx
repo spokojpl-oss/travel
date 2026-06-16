@@ -70,11 +70,9 @@ export default function DestinationPage() {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [buildTitle, setBuildTitle] = useState<string | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
-  const [weather, setWeather] = useState<object | null>(null);
   const [wikivoyage, setWikivoyage] =
     useState<WikivoyageDestinationContent | null>(null);
   const [googlePlaces, setGooglePlaces] = useState<GooglePlace[]>([]);
-  const [attractionCount, setAttractionCount] = useState(0);
   const [attractions, setAttractions] = useState<
     Pick<Attraction, "id" | "name">[]
   >([]);
@@ -178,14 +176,10 @@ export default function DestinationPage() {
       setBuildTitle(String(event.destination_name ?? ""));
     } else if (event.type === "destination_ready") {
       setDestination(event.destination as Destination);
-    } else if (event.type === "weather_loaded") {
-      setWeather((event.weather as object | null) ?? null);
     } else if (event.type === "wikivoyage_loaded") {
       setWikivoyage(
         (event.wikivoyage as WikivoyageDestinationContent | null) ?? null,
       );
-    } else if (event.type === "attractions_loaded") {
-      setAttractionCount((event.count as number) ?? 0);
     } else if (event.type === "google_places_loaded") {
       setGooglePlaces((event.places as GooglePlace[]) ?? []);
     } else if (event.type === "ai_synthesis_loaded") {
@@ -425,18 +419,6 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {attractionCount > 0 && (
-        <Card className="mb-8">
-          <CardHeader title={`Atrakcje (${attractionCount})`} />
-          <CardBody>
-            <p className="text-sm text-text-secondary">
-              Atrakcje powiązane z wybranymi aktywnościami zostały przypisane
-              do destynacji.
-            </p>
-          </CardBody>
-        </Card>
-      )}
-
       {wikivoyage && (
         <Card className="mb-8">
           <CardHeader title="Wikivoyage" />
@@ -483,17 +465,6 @@ export default function DestinationPage() {
                 </li>
               ))}
             </ul>
-          </CardBody>
-        </Card>
-      )}
-
-      {weather && (
-        <Card className="mb-8">
-          <CardHeader title="Pogoda na wyjazd" />
-          <CardBody className="text-sm text-text-secondary">
-            <pre className="overflow-auto text-xs">
-              {JSON.stringify(weather, null, 2)}
-            </pre>
           </CardBody>
         </Card>
       )}

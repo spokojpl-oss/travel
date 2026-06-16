@@ -1,5 +1,9 @@
 import { toPolishPlaceName } from "@/lib/destinations/polish-names";
 import { distanceKm } from "@/lib/search/geo-clustering";
+import {
+  forwardGeocodeSettlementName,
+  reverseGeocodeLocality,
+} from "@/lib/search/nominatim-settlement";
 import type {
   AttractionWithActivities,
   GeoCluster,
@@ -33,13 +37,30 @@ const REGION_SUFFIXES = new Set([
   "spain",
   "españa",
   "greece",
+  "grecja",
   "italy",
   "france",
   "portugal",
   "croatia",
   "poland",
   "polska",
+  "crete",
+  "kreta",
+  "europe",
+  "europa",
 ]);
+
+const COUNTRY_NAMES: Record<string, string> = {
+  GR: "Greece",
+  ES: "Spain",
+  IT: "Italy",
+  FR: "France",
+  PT: "Portugal",
+  HR: "Croatia",
+  PL: "Poland",
+  DE: "Germany",
+  TR: "Turkey",
+};
 
 function normalizeName(value: string): string {
   return value.trim().toLowerCase();
@@ -70,18 +91,29 @@ function extractCountryFromTags(tags: Record<string, string>): string | undefine
   return undefined;
 }
 
+function firstLocalityFromIsIn(value: string): string | null {
+  const part = value.split(",")[0]?.trim();
+  if (!part || isRegionLabel(part)) return null;
+  return toPolishPlaceName(part);
+}
+
 function extractSettlementFromTags(
   tags: Record<string, string>,
 ): { name: string; country_code?: string } | null {
   const candidates = [
     tags["addr:city"],
+    tags["addr:town"],
+    tags["addr:village"],
+    tags["addr:hamlet"],
     tags["addr:place"],
+    tags["addr:suburb"],
     tags["is_in:city"],
     tags["is_in:town"],
-    tags["is_in:municipality"],
     tags["is_in:village"],
     tags["is_in:hamlet"],
+    tags["is_in:municipality"],
     tags["is_in:suburb"],
+    tags["is_in:place"],
   ].filter(Boolean) as string[];
 
   for (const raw of candidates) {
@@ -91,12 +123,23 @@ function extractSettlementFromTags(
       country_code: extractCountryFromTags(tags),
     };
   }
+
+  if (tags["is_in"]) {
+    const fromIsIn = firstLocalityFromIsIn(tags["is_in"]);
+    if (fromIsIn) {
+      return {
+        name: fromIsIn,
+        country_code: extractCountryFromTags(tags),
+      };
+    }
+  }
+
   return null;
 }
 
 function extractSettlementFromAddress(
   address: string,
-): { name: string } | null {
+): { name: string; country_code?: string } | null {
   const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
   if (parts.length < 2) return null;
 
@@ -104,15 +147,13 @@ function extractSettlementFromAddress(
     const part = parts[i];
     if (!part || isRegionLabel(part)) continue;
     if (/^\d{2,5}(-\d+)?$/.test(part)) continue;
-    return { name: toPolishPlaceName(part) };
+    const last = parts[parts.length - 1];
+    return {
+      name: toPolishPlaceName(part),
+      country_code: last?.length === 2 ? last.toUpperCase() : undefined,
+    };
   }
   return null;
-}
-
-function extractCountryFromAddress(address: string): string | undefined {
-  const last = address.split(",").pop()?.trim();
-  if (last && last.length === 2) return last.toUpperCase();
-  return undefined;
 }
 
 function voteFromAttraction(
@@ -135,7 +176,7 @@ function voteFromAttraction(
     if (fromAddress) {
       return {
         name: fromAddress.name,
-        country_code: extractCountryFromAddress(attraction.address),
+        country_code: fromAddress.country_code,
         point: { lat: Number(attraction.lat), lon: Number(attraction.lon) },
         weight,
       };
@@ -145,7 +186,9 @@ function voteFromAttraction(
   return null;
 }
 
-function pickSettlementFromVotes(votes: SettlementVote[]): ClusterSettlement | null {
+function pickSettlementFromVotes(
+  votes: SettlementVote[],
+): ClusterSettlement | null {
   if (votes.length === 0) return null;
 
   const byName = new Map<
@@ -186,106 +229,71 @@ function pickSettlementFromVotes(votes: SettlementVote[]): ClusterSettlement | n
   };
 }
 
-async function reverseGeocodeSettlement(
-  point: GeoPoint,
+async function resolveSettlementCoords(
+  name: string,
+  near: GeoPoint,
+  countryCode?: string,
 ): Promise<ClusterSettlement | null> {
-  try {
-    const params = new URLSearchParams({
-      lat: String(point.lat),
-      lon: String(point.lon),
-      format: "json",
-      addressdetails: "1",
-      zoom: "14",
-      "accept-language": "pl",
-    });
+  const countryHint = countryCode ? COUNTRY_NAMES[countryCode] : undefined;
+  const geocoded = await forwardGeocodeSettlementName({
+    name,
+    countryHint,
+    near,
+  });
+  if (geocoded) return geocoded;
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?${params}`,
-      {
-        headers: {
-          "User-Agent": "Travel.app/1.0 (https://travel.mpai.pl)",
-          Accept: "application/json",
-          "Accept-Language": "pl",
-        },
-        next: { revalidate: 86400 },
-      },
-    );
-
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as {
-      lat?: string;
-      lon?: string;
-      address?: Record<string, string>;
-    };
-
-    const addr = data.address ?? {};
-    const candidates = [
-      addr.city,
-      addr.town,
-      addr.village,
-      addr.municipality,
-      addr.hamlet,
-      addr.suburb,
-    ].filter(Boolean) as string[];
-
-    for (const raw of candidates) {
-      if (isRegionLabel(raw)) continue;
-      return {
-        name: toPolishPlaceName(raw),
-        lat: Number(data.lat ?? point.lat),
-        lon: Number(data.lon ?? point.lon),
-        country_code: addr.country_code?.toUpperCase(),
-      };
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  return reverseGeocodeLocality(near);
 }
 
 export async function resolveClusterSettlement(
   cluster: GeoCluster,
-  options?: { fastMode?: boolean },
 ): Promise<ClusterSettlement | null> {
   const centroid = cluster.center;
+
+  const votes: SettlementVote[] = [];
+  for (const attraction of cluster.attractions) {
+    const vote = voteFromAttraction(attraction, 1);
+    if (vote) votes.push(vote);
+  }
+
+  const fromTags = pickSettlementFromVotes(votes);
+  if (fromTags) {
+    const resolved = await resolveSettlementCoords(
+      fromTags.name,
+      centroid,
+      fromTags.country_code,
+    );
+    if (resolved) return resolved;
+  }
+
   const sorted = [...cluster.attractions].sort(
     (a, b) =>
       distanceKm(centroid, { lat: Number(a.lat), lon: Number(a.lon) }) -
       distanceKm(centroid, { lat: Number(b.lat), lon: Number(b.lon) }),
   );
 
-  const votes: SettlementVote[] = [];
-  for (let i = 0; i < sorted.length; i++) {
-    const vote = voteFromAttraction(sorted[i], i === 0 ? 2 : 1);
-    if (vote) votes.push(vote);
+  const reversed = await reverseGeocodeLocality(centroid);
+  if (reversed) return reversed;
+
+  const nearest = sorted[0];
+  if (nearest) {
+    return reverseGeocodeLocality({
+      lat: Number(nearest.lat),
+      lon: Number(nearest.lon),
+    });
   }
 
-  const fromTags = pickSettlementFromVotes(votes);
-  if (fromTags) return fromTags;
-
-  if (options?.fastMode) return null;
-
-  for (const attraction of sorted.slice(0, 3)) {
-    const point = { lat: Number(attraction.lat), lon: Number(attraction.lon) };
-    const reversed = await reverseGeocodeSettlement(point);
-    if (reversed) return reversed;
-    await new Promise((r) => setTimeout(r, 1100));
-  }
-
-  const reversedCentroid = await reverseGeocodeSettlement(centroid);
-  return reversedCentroid;
+  return null;
 }
 
 export async function enrichClusterWithSettlement(
   cluster: GeoCluster,
-  options?: { fastMode?: boolean },
 ): Promise<GeoCluster> {
   if (cluster.settlement?.name) {
     return applySettlementToCluster(cluster, cluster.settlement);
   }
 
-  const settlement = await resolveClusterSettlement(cluster, options);
+  const settlement = await resolveClusterSettlement(cluster);
   if (!settlement) return cluster;
 
   return applySettlementToCluster(cluster, settlement);
@@ -319,25 +327,26 @@ function applySettlementToCluster(
 export function clusterDisplayName(cluster: GeoCluster): string {
   if (cluster.settlement?.name) return cluster.settlement.name;
 
-  const fromAttraction = cluster.attractions
-    .map((a) => {
-      const tags =
-        a.tags && typeof a.tags === "object" && !Array.isArray(a.tags)
-          ? (a.tags as Record<string, string>)
-          : {};
-      return (
-        tags["addr:city"] ??
-        tags["addr:place"] ??
-        tags["is_in:city"] ??
-        tags["is_in:town"] ??
-        null
-      );
-    })
-    .find(Boolean);
+  for (const attraction of cluster.attractions) {
+    const tags = parseTagsRecord(attraction.tags);
+    const fromTags = extractSettlementFromTags(tags);
+    if (fromTags) return fromTags.name;
 
-  if (fromAttraction) return toPolishPlaceName(fromAttraction);
+    if (attraction.address) {
+      const fromAddress = extractSettlementFromAddress(attraction.address);
+      if (fromAddress) return fromAddress.name;
+    }
+  }
 
-  return (
-    cluster.center.lat.toFixed(2) + ", " + cluster.center.lon.toFixed(2)
-  );
+  return "Region do wyboru";
+}
+
+export async function enrichClustersWithSettlements(
+  clusters: GeoCluster[],
+): Promise<GeoCluster[]> {
+  const out: GeoCluster[] = [];
+  for (const cluster of clusters) {
+    out.push(await enrichClusterWithSettlement(cluster));
+  }
+  return out;
 }

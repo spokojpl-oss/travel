@@ -8,6 +8,7 @@ import {
   type WikivoyageDestinationContent,
 } from "@/lib/api/wikivoyage";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toPolishPlaceName } from "@/lib/destinations/polish-names";
 import { enrichClusterWithSettlement } from "@/lib/search/settlement-resolver";
 import {
   getOrCreateDestinationSummary,
@@ -59,9 +60,7 @@ export async function* buildDestinationPage(
   const supabase = createAdminClient();
   const buildId = crypto.randomUUID();
 
-  const cluster = await enrichClusterWithSettlement(input.cluster, {
-    fastMode: true,
-  });
+  const cluster = await enrichClusterWithSettlement(input.cluster);
   const destinationName = generateDestinationName(cluster);
   const slug = generateSlug(cluster);
 
@@ -292,20 +291,14 @@ function errorMsg(error: unknown): string {
 function generateDestinationName(cluster: GeoCluster): string {
   if (cluster.settlement?.name) return cluster.settlement.name;
 
-  const topAttractions = cluster.attractions
-    .filter((a) => a.address)
-    .slice(0, 3);
-
-  if (topAttractions.length > 0) {
-    const cities = topAttractions
-      .map((a) => extractCityFromAddress(a.address ?? ""))
-      .filter(Boolean) as string[];
-    if (cities.length > 0) {
-      return cities[0];
+  for (const attraction of cluster.attractions) {
+    if (attraction.address) {
+      const city = extractCityFromAddress(attraction.address);
+      if (city && city.length > 2) return toPolishPlaceName(city);
     }
   }
 
-  return `Region ${cluster.center.lat.toFixed(2)}, ${cluster.center.lon.toFixed(2)}`;
+  return "Region do wyboru";
 }
 
 function extractCityFromAddress(address: string): string | null {

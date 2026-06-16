@@ -74,7 +74,7 @@ export const pl = {
       "Plan dzień po dniu, lista do spakowania, pre-trip todo. Wyślij linkiem rodzinie.",
   },
   footer: {
-    tagline: "Twoje narzędzie do planowania wyjazdów rodzinnych.",
+    tagline: "Twoje narzędzie do planowania wspólnych wyjazdów — rodzina, znajomi, grupa.",
     tools: "Narzędzia",
     search: "Wyszukiwarka",
     account: "Konto",

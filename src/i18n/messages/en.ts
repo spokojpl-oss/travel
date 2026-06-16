@@ -76,7 +76,7 @@ export const en: Messages = {
       "Day-by-day plan, packing list, pre-trip checklist. Share with a link.",
   },
   footer: {
-    tagline: "Your family travel planning tool.",
+    tagline: "Your tool for planning trips together — family, friends, your group.",
     tools: "Tools",
     search: "Search",
     account: "Account",

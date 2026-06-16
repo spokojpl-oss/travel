@@ -14,7 +14,7 @@ import {
   applyExplorationScopeToQuery,
   explorationScopeFromString,
 } from "./exploration-scope";
-import { enrichClusterWithSettlement } from "./settlement-resolver";
+import { enrichClustersWithSettlements } from "./settlement-resolver";
 import type {
   ActivitySearchQuery,
   ActivitySearchResult,
@@ -628,12 +628,8 @@ export async function searchActivities(
 
   const enrichBudget = remainingMs(startTime, SEARCH_TIME_BUDGET_MS);
   const enrichedClusters = await withTimeout(
-    Promise.all(
-      topClusters.map((cluster) =>
-        enrichClusterWithSettlement(cluster, { fastMode: true }),
-      ),
-    ),
-    Math.max(enrichBudget, 3_000),
+    enrichClustersWithSettlements(topClusters),
+    Math.max(enrichBudget, 8_000),
     topClusters,
   );
 

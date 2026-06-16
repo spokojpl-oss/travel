@@ -1,4 +1,5 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
+import { clusterDisplayName } from "@/lib/search/settlement-resolver";
 import type { GeoCluster } from "@/types/domain";
 import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
 import type { IslandMapAirport } from "@/lib/maps/build-island-map";
@@ -11,6 +12,7 @@ export function buildClusterMapData(
   segments: MapRouteSegment[];
 } {
   const center = cluster.center;
+  const labelName = clusterDisplayName(cluster);
   const attractions = cluster.attractions.slice(0, 8);
   const maxDistKm =
     attractions.length > 0
@@ -27,7 +29,7 @@ export function buildClusterMapData(
       type: "centroid",
       label: cluster.settlement?.name
         ? `Baza pobytu: ${cluster.settlement.name}`
-        : "Centrum regionu",
+        : `Baza: ${labelName}`,
       lat: center.lat,
       lon: center.lon,
       badge:
