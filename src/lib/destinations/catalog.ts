@@ -14,6 +14,12 @@ export type DestinationSuggestion = {
   islandBbox?: BoundingBox;
   /** Główne lotniska na wyspie (IATA). */
   primaryAirports?: string[];
+  /** Ręczne progi dni — gdy bbox zawyża powierzchnię (np. Fuerteventura). */
+  islandProfile?: {
+    wholeWithBeachDays: number;
+    wholeSightseeingDays: number;
+    kidsExtraDays?: number;
+  };
 };
 
 export const DESTINATION_CATALOG: DestinationSuggestion[] = [
@@ -65,6 +71,7 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
     lon: -13.5477,
     islandBbox: { north: 29.27, south: 28.83, east: -13.4, west: -13.95 },
     primaryAirports: ["ACE"],
+    islandProfile: { wholeWithBeachDays: 6, wholeSightseeingDays: 4, kidsExtraDays: 1 },
   },
   {
     name: "Fuerteventura",
@@ -73,6 +80,7 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
     lon: -13.8627,
     islandBbox: { north: 28.87, south: 28.05, east: -13.75, west: -14.55 },
     primaryAirports: ["FUE"],
+    islandProfile: { wholeWithBeachDays: 7, wholeSightseeingDays: 5, kidsExtraDays: 1 },
   },
   {
     name: "Gran Canaria",
@@ -82,6 +90,7 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
     lon: -15.4363,
     islandBbox: { north: 28.18, south: 27.73, east: -15.32, west: -15.85 },
     primaryAirports: ["LPA"],
+    islandProfile: { wholeWithBeachDays: 7, wholeSightseeingDays: 5, kidsExtraDays: 1 },
   },
   {
     name: "Rodos",

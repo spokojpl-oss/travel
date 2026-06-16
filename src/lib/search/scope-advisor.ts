@@ -6,6 +6,7 @@ import {
 } from "@/lib/search/trip-rhythm";
 import {
   resolveDestinationSizeProfile,
+  wholeIslandDayTargets,
   type DestinationKind,
 } from "@/lib/search/destination-size";
 
@@ -92,17 +93,14 @@ function buildIslandAdvice({
   locale: Locale;
 }): ScopeAdvice {
   const pl = locale !== "en";
-  const minWhole = profile.wholeWithBeachDays + (withKids ? profile.kidsExtraDays : 0);
-  const minFast = profile.wholeSightseeingDays;
+  const targets = wholeIslandDayTargets(profile, withKids);
 
-  const canWholeComfortably = tripDays >= minWhole;
-  const canWholeFast = tripDays >= minFast && !withKids;
+  const canRelaxed = tripDays >= targets.relaxed;
+  const canActive = tripDays >= targets.active;
 
   let recommended: ExplorationScope = "region";
-  if (canWholeComfortably) recommended = "island";
-  else if (canWholeFast) recommended = "island";
+  if (canRelaxed || canActive) recommended = "island";
   else if (tripDays <= 4) recommended = "local";
-  else recommended = "region";
 
   const options: ScopeOption[] = [];
 
@@ -111,34 +109,34 @@ function buildIslandAdvice({
     options.push({ value: scope, label, description, rationale });
   };
 
-  if (canWholeComfortably) {
+  if (canRelaxed) {
     add(
       "island",
       pl
-        ? `${tripDays} dni wystarczy, żeby objechać ${profile.name} z plażowaniem — to nasza rekomendacja.`
-        : `${tripDays} days is enough to cover ${profile.name} with beach time — recommended.`,
+        ? `${tripDays} dni wystarczy na spokojny objazd ${profile.name} z plażą — to nasza rekomendacja.`
+        : `${tripDays} days is enough for a relaxed loop of ${profile.name} with beach time.`,
     );
-  } else if (canWholeFast) {
+  } else if (canActive) {
     add(
       "island",
       pl
-        ? `${tripDays} dni — da się objechać całość, ale w szybkim tempie (głównie zwiedzanie).`
-        : `${tripDays} days — doable at a fast sightseeing pace.`,
+        ? `${tripDays} dni — da się objechać całość w aktywnym tempie${withKids ? " (krótsze dojazdy dziennie)" : ""}.`
+        : `${tripDays} days — whole island at an active pace${withKids ? " (shorter daily drives)" : ""}.`,
     );
   } else {
     add(
       "island",
       pl
-        ? `${tripDays} dni to mało na całą ${profile.name} z plażą — możliwe, ale ciasno.`
-        : `${tripDays} days is tight for all of ${profile.name} with beach time.`,
+        ? `${tripDays} dni to mało na spokojny objazd całej ${profile.name} — możliwe, ale ciasno.`
+        : `${tripDays} days is tight for a relaxed loop of ${profile.name}.`,
     );
   }
 
   add(
     "region",
     pl
-      ? `Przy ${tripDays} dniach wygodniej wybrać jeden rejon niż jeździć po całej wyspie.`
-      : `With ${tripDays} days, one area is more comfortable than the whole island.`,
+      ? `Przy ${tripDays} dniach jeden rejon = mniej jazdy${withKids ? " i wygodniej z dziećmi" : ""}.`
+      : `With ${tripDays} days, one area means less driving${withKids ? " and easier with kids" : ""}.`,
   );
 
   if (tripDays >= 5) {
@@ -150,26 +148,43 @@ function buildIslandAdvice({
     );
   }
 
-  if (tripDays >= 10 && !withKids) {
+  if (tripDays >= 10) {
     add(
       "roadtrip",
       pl
-        ? "Elastyczny obwód z kilkoma bazami — dla tych, którzy lubią jeździć."
+        ? "Elastyczny objazd z kilkoma bazami — dla tych, którzy lubią jeździć."
         : "Flexible loop with several bases — for those who enjoy driving.",
     );
   }
 
-  const headline = pl
-    ? `${profile.name} · ${tripDays} dni${withKids ? " · z dziećmi" : ""}`
-    : `${profile.name} · ${tripDays} days${withKids ? " · with kids" : ""}`;
+  const kidsTag = withKids ? (pl ? " · z dziećmi" : " · with kids") : "";
 
-  const summary = canWholeComfortably
-    ? pl
+  const headline = pl
+    ? `${profile.name} · ${tripDays} dni${kidsTag}`
+    : `${profile.name} · ${tripDays} days${kidsTag}`;
+
+  let summary: string;
+  if (canRelaxed) {
+    summary = pl
       ? `Przy ${tripDays} dniach możecie spokojnie objechać całą wyspę — pokażemy mapę i dopasujemy plan.`
-      : `With ${tripDays} days you can comfortably cover the whole island — we'll show a map and tailor the plan.`
-    : pl
-      ? `Przy ${tripDays} dniach cała ${profile.name} to spory kawałek${withKids ? " ze dziećmi" : ""} — proponujemy rejon albo wydłużenie pobytu (min. ~${minWhole} dni z plażą).`
-      : `${tripDays} days is a lot for all of ${profile.name}${withKids ? " with kids" : ""} — we suggest one area or extending the trip (~${minWhole} days with beach).`;
+      : `With ${tripDays} days you can comfortably cover the whole island — we'll show a map and tailor the plan.`;
+  } else if (canActive) {
+    summary = pl
+      ? withKids
+        ? `Przy ${tripDays} dniach da się objechać ${profile.name}, ale w raczej aktywnym tempie. Z dziećmi wygodniej jeden rejon albo ~${targets.relaxed} dni na spokojniejszy objazd z plażą.`
+        : `Przy ${tripDays} dniach objechacie ${profile.name} w aktywnym tempie — mapa całej wyspy ma sens.`
+      : withKids
+        ? `${tripDays} days works for ${profile.name} at an active pace. With kids, one area or ~${targets.relaxed} days is more relaxed.`
+        : `${tripDays} days fits an active loop of ${profile.name} — a full-island map makes sense.`;
+  } else {
+    summary = pl
+      ? withKids
+        ? `Przy ${tripDays} dniach cała ${profile.name} to już spory objazd z dziećmi. Wygodniej jeden rejon albo ~${targets.relaxed} dni z czasem na plażę.`
+        : `Przy ${tripDays} dniach cała ${profile.name} to spory objazd — proponujemy rejon albo ~${targets.relaxed} dni z plażą.`
+      : withKids
+        ? `${tripDays} days is a big loop of ${profile.name} with kids. One area or ~${targets.relaxed} days with beach time works better.`
+        : `${tripDays} days is a lot for all of ${profile.name} — try one area or ~${targets.relaxed} days with beach time.`;
+  }
 
   return {
     kind: "island",
@@ -294,7 +309,7 @@ function buildRegionAdvice({
     add(
       "roadtrip",
       pl
-        ? "Obwód z kilkoma bazami — dla doświadczonych podróżników."
+        ? "Objazd z kilkoma bazami — dla doświadczonych podróżników."
         : "Multi-base road trip — for experienced travelers.",
     );
   }

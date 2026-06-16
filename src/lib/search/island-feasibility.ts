@@ -1,7 +1,10 @@
 import type { Locale } from "@/i18n/config";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
-import { resolveDestinationSizeProfile } from "@/lib/search/destination-size";
+import {
+  resolveDestinationSizeProfile,
+  wholeIslandDayTargets,
+} from "@/lib/search/destination-size";
 import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 
 export type IslandFeasibilityLevel = "ok" | "tight" | "too_short";
@@ -10,15 +13,12 @@ export type IslandFeasibilityAdvice = {
   level: IslandFeasibilityLevel;
   title: string;
   body: string;
-  /** Suggested minimum days for whole-island with beach. */
   suggestedMinDays?: number;
-  /** Alternative scopes when too short. */
   alternatives: Array<{
     action: "extend" | "narrow_scope";
     label: string;
     description: string;
   }>;
-  /** Weather hint when hot. */
   weatherHint?: string;
 };
 
@@ -44,13 +44,11 @@ export function assessIslandFeasibility({
 
   const pl = locale !== "en";
   const withKids = hasChildrenInPassengers(passengers);
-  const minWhole =
-    profile.wholeWithBeachDays + (withKids ? profile.kidsExtraDays : 0);
-  const minFast = profile.wholeSightseeingDays;
+  const targets = wholeIslandDayTargets(profile, withKids);
 
   let level: IslandFeasibilityLevel = "ok";
-  if (tripDays < minFast) level = "too_short";
-  else if (tripDays < minWhole) level = "tight";
+  if (tripDays < targets.active) level = "too_short";
+  else if (tripDays < targets.relaxed) level = "tight";
 
   const alternatives: IslandFeasibilityAdvice["alternatives"] = [];
 
@@ -58,18 +56,18 @@ export function assessIslandFeasibility({
     alternatives.push({
       action: "extend",
       label: pl
-        ? `Wydłuż do ~${minWhole} dni`
-        : `Extend to ~${minWhole} days`,
+        ? `Wydłuż do ~${targets.relaxed} dni`
+        : `Extend to ~${targets.relaxed} days`,
       description: pl
-        ? "Spokojne objechanie wyspy z czasem na plażę."
-        : "Comfortably cover the island with beach time.",
+        ? "Spokojniejszy objazd z czasem na plażę."
+        : "A more relaxed loop with beach time.",
     });
     alternatives.push({
       action: "narrow_scope",
       label: pl ? "Zawęź do jednego rejonu" : "Focus on one area",
       description: pl
-        ? "Zmień zakres na „część wyspy” — mniej jazdy, więcej odpoczynku."
-        : 'Switch to "part of island" — less driving, more relaxation.',
+        ? "Mniej jazdy dziennie — wygodniej z dziećmi."
+        : "Less daily driving — easier with kids.",
     });
   }
 
@@ -81,22 +79,30 @@ export function assessIslandFeasibility({
       ? `${tripDays} dni na całą ${profile.name} — pasuje`
       : `${tripDays} days for all of ${profile.name} — looks good`;
     body = pl
-      ? "Macie wystarczająco czasu, żeby objechać wyspę z plażowaniem. Na mapie filtrujcie typy atrakcji — nie musicie widzieć wszystkiego naraz."
-      : "Enough time to cover the island with beach days. Filter activity types on the map — you don't need to see everything at once.";
+      ? "Macie wystarczająco czasu na spokojny objazd z plażą. Na mapie filtrujcie typy atrakcji — nie musicie widzieć wszystkiego naraz."
+      : "Enough time for a relaxed loop with beach days. Filter activity types on the map — you don't need to see everything at once.";
   } else if (level === "tight") {
     title = pl
-      ? `Mało dni na całą ${profile.name}`
-      : `Short time for all of ${profile.name}`;
+      ? `${tripDays} dni na całą ${profile.name} — da się, ale w aktywnym tempie`
+      : `${tripDays} days for all of ${profile.name} — doable at an active pace`;
     body = pl
-      ? `${tripDays} dni to napięty harmonogram${withKids ? " z dziećmi" : ""}. Da się, ale liczcie się z większą ilością jazdy albo wybierzcie rejon.`
-      : `${tripDays} days is a packed schedule${withKids ? " with kids" : ""}. Doable, but expect more driving or pick one area.`;
+      ? withKids
+        ? `Objazd w ${tripDays} dni jest możliwy, ale liczcie krótsze transfery i mniej punktów dziennie. Z dziećmi wygodniej jeden rejon albo ~${targets.relaxed} dni na spokojniejsze tempo.`
+        : `Da się objechać wyspę w ${tripDays} dni, ale raczej w aktywnym tempie. Na spokojniejszy objazd z plażą liczcie ~${targets.relaxed} dni.`
+      : withKids
+        ? `A ${tripDays}-day loop is possible with shorter daily drives. With kids, one area or ~${targets.relaxed} days is more relaxed.`
+        : `You can loop the island in ${tripDays} days at an active pace. For a relaxed beach loop, plan ~${targets.relaxed} days.`;
   } else {
     title = pl
-      ? `Za krótko na całą ${profile.name}`
-      : `Too short for all of ${profile.name}`;
+      ? `Za krótko na cały objazd ${profile.name}`
+      : `Too short for a full loop of ${profile.name}`;
     body = pl
-      ? `Przy ${tripDays} dniach trudno sensownie objechać całą wyspę z plażą. Polecamy wydłużyć pobyt (min. ~${minWhole} dni) albo wybrać jeden rejon.`
-      : `With ${tripDays} days it's hard to cover the whole island with beach time. Extend the trip (~${minWhole} days) or pick one area.`;
+      ? withKids
+        ? `Przy ${tripDays} dniach trudno sensownie objechać całą wyspę z dziećmi. Polecamy rejon albo ~${targets.relaxed} dni.`
+        : `Przy ${tripDays} dniach trudno sensownie objechać całą wyspę. Polecamy rejon albo ~${targets.relaxed} dni z plażą.`
+      : withKids
+        ? `${tripDays} days is tight for a full island loop with kids. Try one area or ~${targets.relaxed} days.`
+        : `${tripDays} days is tight for the whole island. Try one area or ~${targets.relaxed} days with beach time.`;
   }
 
   let weatherHint: string | undefined;
@@ -115,7 +121,7 @@ export function assessIslandFeasibility({
     level,
     title,
     body,
-    suggestedMinDays: level !== "ok" ? minWhole : undefined,
+    suggestedMinDays: level !== "ok" ? targets.relaxed : undefined,
     alternatives,
     weatherHint,
   };
