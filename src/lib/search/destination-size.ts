@@ -1,9 +1,9 @@
-import type { BoundingBox } from "@/types/domain";
+import type { BoundingBox, GeoPoint } from "@/types/domain";
 import {
   DESTINATION_CATALOG,
   type DestinationSuggestion,
 } from "@/lib/destinations/catalog";
-import { resolveIslandBoundary } from "@/lib/destinations/island-boundary";
+import { resolveIslandBoundaryForSearch } from "@/lib/destinations/island-boundary";
 import {
   countrySizeTier,
   resolveCountryOnlyLabel,
@@ -147,9 +147,13 @@ export function isCompactIslandDestination(
 
 export function resolveDestinationSizeProfile(
   destinationLabel: string | null | undefined,
+  near?: GeoPoint | null,
 ): DestinationSizeProfile | null {
   const entry = findCatalogDestination(destinationLabel);
-  const island = resolveIslandBoundary(destinationLabel);
+  const island = resolveIslandBoundaryForSearch(
+    destinationLabel,
+    near?.lat != null && near?.lon != null ? near : null,
+  );
 
   if (island) {
     const areaKm2 = bboxAreaKm2(island.bbox);

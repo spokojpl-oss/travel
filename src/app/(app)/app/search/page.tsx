@@ -60,7 +60,8 @@ import {
   type TripContext,
 } from "@/lib/search/trip-context";
 import { DestinationOverviewPanel } from "@/components/features/DestinationOverviewPanel";
-import { scopeSearchRadii } from "@/lib/search/exploration-scope";
+import { scopeSearchRadii, explorationScopeFromString } from "@/lib/search/exploration-scope";
+import { resolveDestinationSizeProfile } from "@/lib/search/destination-size";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
 import { buildFallbackDiscovery } from "@/lib/search/destination-discover";
 import type {
@@ -202,6 +203,7 @@ function SearchPageContent() {
   const [initialized, setInitialized] = useState(false);
   const [scoredRegions, setScoredRegions] = useState<ScoredTouristRegion[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(false);
+  const interestsMatchedRef = useRef(false);
 
   const activityNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -241,11 +243,14 @@ function SearchPageContent() {
   }, []);
 
   useEffect(() => {
-    if (initialized || pageLoading) return;
+    if (initialized) return;
 
     const fromUrl = tripContextFromParams(searchParams);
     let merged = mergeTripContext(defaultTripContext(), fromUrl);
     let resolvedStep: SearchStep = 2;
+    const scopeFromUrl = explorationScopeFromString(
+      searchParams.get("exploration_scope"),
+    );
 
     const restored = sessionStorage.getItem("restore_search_activities");
     if (restored) {
@@ -263,31 +268,26 @@ function SearchPageContent() {
 
     if (Object.keys(fromUrl).length > 0) {
       merged = mergeTripContext(merged, fromUrl);
-      const matched = matchActivitySlugsFromText(
-        merged.interests,
-        taxonomy,
-      );
-      if (matched.length > 0) {
-        setSelectedActivities(new Set(matched));
-      }
 
       if (merged.mode === "destination") {
         setMatchMode("any");
         const label = merged.destination_label ?? merged.destination ?? "";
-        if (
-          !merged.exploration_scope &&
-          merged.departure_date &&
-          label
-        ) {
+        if (!scopeFromUrl && merged.departure_date && label) {
           const advice = adviseExplorationScope({
             destinationLabel: label,
             departureDate: merged.departure_date,
             returnDate: merged.return_date,
             passengers: merged.passengers,
             locale,
+            destinationLat: merged.destination_lat,
+            destinationLon: merged.destination_lon,
           });
           merged = mergeTripContext(merged, {
             exploration_scope: advice.recommended,
+          });
+        } else if (scopeFromUrl) {
+          merged = mergeTripContext(merged, {
+            exploration_scope: scopeFromUrl,
           });
         }
         const scope = merged.exploration_scope ?? "region";
@@ -332,7 +332,18 @@ function SearchPageContent() {
 
     setTrip(merged);
     setInitialized(true);
-  }, [initialized, pageLoading, searchParams, taxonomy, locale]);
+  }, [initialized, searchParams, locale]);
+
+  useEffect(() => {
+    if (!initialized || interestsMatchedRef.current || taxonomy.length === 0) return;
+    if (!trip.interests?.trim()) return;
+
+    const matched = matchActivitySlugsFromText(trip.interests, taxonomy);
+    if (matched.length > 0) {
+      setSelectedActivities(new Set(matched));
+      interestsMatchedRef.current = true;
+    }
+  }, [initialized, taxonomy, trip.interests]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -363,12 +374,37 @@ function SearchPageContent() {
     let cancelled = false;
     resolveDestinationCoords(label).then((coords) => {
       if (cancelled || !coords) return;
-      setTrip((t) => ({
-        ...t,
-        destination_lat: coords.lat,
-        destination_lon: coords.lon,
-        destination_label: coords.label,
-      }));
+      setTrip((t) => {
+        const nextLabel = coords.label;
+        const scopeFromUrl = explorationScopeFromString(
+          searchParams.get("exploration_scope"),
+        );
+        let exploration_scope = t.exploration_scope;
+        if (
+          !scopeFromUrl &&
+          t.departure_date &&
+          nextLabel &&
+          t.exploration_scope === "region"
+        ) {
+          const advice = adviseExplorationScope({
+            destinationLabel: nextLabel,
+            departureDate: t.departure_date,
+            returnDate: t.return_date,
+            passengers: t.passengers,
+            locale,
+            destinationLat: coords.lat,
+            destinationLon: coords.lon,
+          });
+          exploration_scope = advice.recommended;
+        }
+        return {
+          ...t,
+          destination_lat: coords.lat,
+          destination_lon: coords.lon,
+          destination_label: nextLabel,
+          exploration_scope,
+        };
+      });
     });
 
     return () => {
@@ -381,6 +417,8 @@ function SearchPageContent() {
     trip.destination_lon,
     trip.destination_label,
     trip.destination,
+    searchParams,
+    locale,
   ]);
 
   useEffect(() => {
@@ -561,6 +599,23 @@ function SearchPageContent() {
         : 0,
     [trip.departure_date, trip.return_date],
   );
+
+  const scopeDestinationLabel =
+    trip.destination_label ?? trip.destination ?? "";
+
+  const scopeProfilePending = useMemo(() => {
+    if (!scopeDestinationLabel.trim()) return false;
+    const near =
+      trip.destination_lat != null && trip.destination_lon != null
+        ? { lat: trip.destination_lat, lon: trip.destination_lon }
+        : null;
+    if (resolveDestinationSizeProfile(scopeDestinationLabel, near)) return false;
+    return trip.destination_lat == null || trip.destination_lon == null;
+  }, [
+    scopeDestinationLabel,
+    trip.destination_lat,
+    trip.destination_lon,
+  ]);
 
   const islandFeasibility = useMemo(() => {
     if (!trip.destination_label && !trip.destination) return null;
@@ -1232,12 +1287,25 @@ function SearchPageContent() {
         </Card>
       )}
 
-      {showScopeStep && trip.departure_date && (
+      {showScopeStep && !initialized && trip.departure_date && (
+        <SkeletonList count={3} />
+      )}
+
+      {showScopeStep && initialized && scopeProfilePending && trip.departure_date && (
+        <SkeletonList count={3} />
+      )}
+
+      {showScopeStep &&
+        initialized &&
+        !scopeProfilePending &&
+        trip.departure_date && (
         <ExplorationScopeStep
-          destinationLabel={trip.destination_label ?? trip.destination ?? ""}
+          destinationLabel={scopeDestinationLabel}
           departureDate={trip.departure_date}
           returnDate={trip.return_date}
           passengers={trip.passengers}
+          destinationLat={trip.destination_lat}
+          destinationLon={trip.destination_lon}
           selectedScope={trip.exploration_scope ?? "region"}
           onSelectScope={setExplorationScope}
           onContinue={() => {

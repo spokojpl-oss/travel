@@ -257,3 +257,22 @@ export async function fetchWikipediaSummary(
 
   return data;
 }
+
+/** Artykuł Wikipedii po tytule strony (np. z tagu OSM wikipedia=pl:Mdina). */
+export async function fetchWikipediaPageSummary(
+  pageName: string,
+  locale: Locale = "pl",
+  timeoutMs = 3500,
+): Promise<WikipediaSummary | null> {
+  const normalized = pageName.trim().replace(/\s+/g, "_");
+  if (!normalized) return null;
+
+  const { data } = await fetchWithCache<WikipediaSummary | null>({
+    source: locale === "pl" ? "wikipedia-summary-pl" : "wikipedia-summary-en",
+    cacheParams: { pageName: normalized, kind: "page" },
+    ttlSeconds: 60 * 24 * 60 * 60,
+    fetcher: () => fetchWikipediaSummaryLive(normalized, locale, timeoutMs),
+  });
+
+  return data;
+}

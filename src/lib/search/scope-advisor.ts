@@ -335,16 +335,27 @@ export function adviseExplorationScope({
   returnDate,
   passengers,
   locale = "pl",
+  destinationLat,
+  destinationLon,
 }: {
   destinationLabel: string;
   departureDate: string;
   returnDate: string | null;
   passengers?: string;
   locale?: Locale;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
 }): ScopeAdvice {
   const tripDays = daysBetweenIso(departureDate, returnDate ?? departureDate);
   const withKids = hasChildrenInPassengers(passengers);
-  const profile = resolveDestinationSizeProfile(destinationLabel);
+  const near =
+    destinationLat != null &&
+    destinationLon != null &&
+    Number.isFinite(destinationLat) &&
+    Number.isFinite(destinationLon)
+      ? { lat: destinationLat, lon: destinationLon }
+      : null;
+  const profile = resolveDestinationSizeProfile(destinationLabel, near);
 
   const pl = locale !== "en";
 

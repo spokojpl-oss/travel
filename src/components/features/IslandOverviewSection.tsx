@@ -28,29 +28,6 @@ function activityLabel(
   );
 }
 
-function attractionSummary(
-  attraction: AttractionWithActivities,
-  activityNames: Record<string, string>,
-  taxonomyActivities: TaxonomyActivity[],
-  locale: "pl" | "en",
-): string {
-  const description = attraction.description?.trim();
-  if (description && description.length >= 12) return description;
-
-  const tags = attraction.activity_tags
-    .map((tag) => activityLabel(tag.activity_slug, activityNames, taxonomyActivities, locale))
-    .join(", ");
-  if (tags) {
-    return locale === "en"
-      ? `Point of interest: ${tags}.`
-      : `Miejsce z kategorii: ${tags}.`;
-  }
-
-  return locale === "en"
-    ? "No detailed description yet — add to your plan if the location fits your trip."
-    : "Brak szczegółowego opisu — dodaj do planu, jeśli lokalizacja pasuje do wyjazdu.";
-}
-
 function AttractionDetailPanel({
   attraction,
   activityNames,
@@ -70,6 +47,50 @@ function AttractionDetailPanel({
   const tags = attraction.activity_tags.map((tag) =>
     activityLabel(tag.activity_slug, activityNames, taxonomyActivities, locale),
   );
+
+  const [overview, setOverview] = useState<string | null>(null);
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setOverview(null);
+    setHighlights([]);
+
+    fetch("/api/search/attraction-detail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: attraction.id, locale }),
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<{
+          overview: string;
+          highlights?: string[];
+        }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setOverview(data.overview);
+        setHighlights(data.highlights ?? []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOverview(
+          locale === "en"
+            ? "Could not load a description — check the map pin or website."
+            : "Nie udało się wczytać opisu — zerknij na pinezkę na mapie.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attraction.id, locale]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -91,9 +112,24 @@ function AttractionDetailPanel({
         )}
       </div>
 
-      <p className="text-sm leading-snug text-text-primary">
-        {attractionSummary(attraction, activityNames, taxonomyActivities, locale)}
-      </p>
+      {loading ? (
+        <p className="text-sm text-text-secondary">{t("island.detailLoading")}</p>
+      ) : (
+        <p className="text-sm leading-snug text-text-primary">{overview}</p>
+      )}
+
+      {!loading && highlights.length > 0 && (
+        <ul className="space-y-1.5">
+          {highlights.map((line) => (
+            <li
+              key={line}
+              className="rounded-md border border-border-default/80 px-2.5 py-1.5 text-xs text-text-secondary"
+            >
+              {line}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {attraction.duration_minutes != null && attraction.duration_minutes > 0 && (
         <p className="text-xs text-text-secondary">
@@ -104,6 +140,17 @@ function AttractionDetailPanel({
 
       {attraction.address?.trim() && (
         <p className="text-xs text-text-tertiary">{attraction.address.trim()}</p>
+      )}
+
+      {attraction.website?.trim() && (
+        <a
+          href={attraction.website.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] font-semibold text-brand-700 hover:underline"
+        >
+          {t("island.websiteLink")} →
+        </a>
       )}
 
       <div className="border-t border-border-default pt-3">
@@ -327,41 +374,6 @@ export function IslandOverviewSection({
             <p className="py-4 text-center text-sm text-text-secondary">
               {t("island.noFilters")}
             </p>
-          )}
-
-          {filteredAttractions.length > 1 && (
-            <div className="mt-4 border-t border-border-default pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
-                {t("island.browseList", { n: filteredAttractions.length })}
-              </p>
-              <ul className="max-h-48 space-y-1 overflow-y-auto">
-                {filteredAttractions.map((attraction) => {
-                  const name = toPolishAttractionName(attraction.name, locale);
-                  const isActive = selectedPointId === attraction.id;
-                  return (
-                    <li key={attraction.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPointId(attraction.id)}
-                        className={cn(
-                          "w-full rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors",
-                          isActive
-                            ? "border-brand-300 bg-brand-50 text-brand-900"
-                            : "border-border-default/80 text-text-secondary hover:border-brand-200 hover:bg-bg-soft",
-                        )}
-                      >
-                        <span className="font-medium text-text-primary">{name}</span>
-                        {planIds.has(attraction.id) && (
-                          <span className="ml-1.5 text-[10px] font-semibold text-brand-700">
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
           )}
         </aside>
       </div>

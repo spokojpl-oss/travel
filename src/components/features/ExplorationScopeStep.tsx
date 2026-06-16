@@ -16,6 +16,8 @@ export function ExplorationScopeStep({
   departureDate,
   returnDate,
   passengers,
+  destinationLat,
+  destinationLon,
   selectedScope,
   onSelectScope,
   onContinue,
@@ -24,6 +26,8 @@ export function ExplorationScopeStep({
   departureDate: string;
   returnDate: string | null;
   passengers?: string;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
   selectedScope: ExplorationScope;
   onSelectScope: (scope: ExplorationScope) => void;
   onContinue: () => void;
@@ -39,8 +43,18 @@ export function ExplorationScopeStep({
         returnDate,
         passengers,
         locale,
+        destinationLat,
+        destinationLon,
       }),
-    [destinationLabel, departureDate, returnDate, passengers, locale],
+    [
+      destinationLabel,
+      departureDate,
+      returnDate,
+      passengers,
+      locale,
+      destinationLat,
+      destinationLon,
+    ],
   );
 
   return (
