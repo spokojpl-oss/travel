@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { isAcceptableHeroImageUrl } from "@/lib/destinations/destination-hero-images";
 import { resolveHeroImageUrl } from "@/lib/search/destination-overview-instant";
 
 export function DestinationOverviewLoader({
@@ -10,7 +11,9 @@ export function DestinationOverviewLoader({
   waitingForCoords?: boolean;
 }) {
   const placeName = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
-  const heroUrl = resolveHeroImageUrl(destinationLabel);
+  const heroUrlRaw = resolveHeroImageUrl(destinationLabel);
+  const heroUrl =
+    heroUrlRaw && isAcceptableHeroImageUrl(heroUrlRaw) ? heroUrlRaw : null;
   const [imageSharp, setImageSharp] = useState(false);
 
   return (

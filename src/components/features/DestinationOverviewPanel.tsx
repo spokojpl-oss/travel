@@ -7,6 +7,7 @@ import { DestinationClimateBudgetPanel } from "@/components/features/Destination
 import { DestinationOverviewLoader } from "@/components/features/DestinationOverviewLoader";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
 import type { Activity, ActivityGroup } from "@/types/domain";
+import { isAcceptableHeroImageUrl } from "@/lib/destinations/destination-hero-images";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
 function OverviewHero({
@@ -32,7 +33,7 @@ function OverviewHero({
     if (img.complete && img.naturalWidth > 0) setSharp(true);
   }, [imageUrl]);
 
-  if (!imageUrl || failed) {
+  if (!imageUrl || failed || !isAcceptableHeroImageUrl(imageUrl)) {
     return (
       <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900 p-8 shadow-card">
         <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h2>

@@ -66,7 +66,7 @@ export function suggestActivities({
   return [...picked].slice(0, 8);
 }
 
-const DISCOVERY_FILL_TIMEOUT_MS = 28_000;
+const DISCOVERY_FILL_TIMEOUT_MS = 45_000;
 
 export async function discoverDestination({
   destinationLabel,

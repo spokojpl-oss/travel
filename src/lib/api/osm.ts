@@ -8,6 +8,10 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
 ];
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const OSM_QUERY_TEMPLATES = {
   bicycle_rental: `["amenity"="bicycle_rental"]`,
   car_rental: `["amenity"="car_rental"]`,
@@ -84,23 +88,31 @@ export async function fetchOsmPlaces({
       let lastError: Error | null = null;
 
       for (const endpoint of OVERPASS_ENDPOINTS) {
-        try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `data=${encodeURIComponent(overpassQuery)}`,
-          });
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: `data=${encodeURIComponent(overpassQuery)}`,
+            });
 
-          if (!response.ok) {
-            throw new Error(
-              `OSM Overpass error: ${response.status} ${response.statusText}`,
-            );
+            if (response.status === 429 || response.status === 503) {
+              await sleep(1500 * (attempt + 1));
+              continue;
+            }
+
+            if (!response.ok) {
+              throw new Error(
+                `OSM Overpass error: ${response.status} ${response.statusText}`,
+              );
+            }
+
+            return response.json() as Promise<OsmResponse>;
+          } catch (error) {
+            lastError =
+              error instanceof Error ? error : new Error(String(error));
+            if (attempt < 3) await sleep(1000 * (attempt + 1));
           }
-
-          return response.json() as Promise<OsmResponse>;
-        } catch (error) {
-          lastError =
-            error instanceof Error ? error : new Error(String(error));
         }
       }
 

@@ -1,33 +1,6 @@
-import { DESTINATION_CATALOG } from "@/lib/destinations/catalog";
+import { resolveCuratedHeroImageUrl } from "@/lib/destinations/destination-hero-images";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
-
-const HERO_IMAGES: Record<string, string> = {
-  majorka: "https://upload.wikimedia.org/wikipedia/commons/2/24/Mallorca.jpg",
-  mallorca: "https://upload.wikimedia.org/wikipedia/commons/2/24/Mallorca.jpg",
-  kreta: "https://upload.wikimedia.org/wikipedia/commons/7/7c/Balos_lagoon_Crete_Greece.jpg",
-  crete: "https://upload.wikimedia.org/wikipedia/commons/7/7c/Balos_lagoon_Crete_Greece.jpg",
-  praga:
-    "https://upload.wikimedia.org/wikipedia/commons/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
-  prague:
-    "https://upload.wikimedia.org/wikipedia/commons/e/e5/Prague_from_Petr%C5%AFin_Lookout_Tower.jpg",
-  barcelona:
-    "https://upload.wikimedia.org/wikipedia/commons/5/56/Barcelona_Skyline_Panorama_-_Dec_2007.jpg",
-  lizbona: "https://upload.wikimedia.org/wikipedia/commons/9/93/Lisbon_aerial_view.jpg",
-  lisbon: "https://upload.wikimedia.org/wikipedia/commons/9/93/Lisbon_aerial_view.jpg",
-  czechy:
-    "https://upload.wikimedia.org/wikipedia/commons/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
-  czechia:
-    "https://upload.wikimedia.org/wikipedia/commons/6/6d/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
-};
-
-function normalizeKey(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
 
 export function parseDestinationLabel(label: string): {
   place: string;
@@ -40,19 +13,7 @@ export function parseDestinationLabel(label: string): {
 }
 
 export function resolveHeroImageUrl(destinationLabel: string): string | null {
-  const { place } = parseDestinationLabel(destinationLabel);
-  const key = normalizeKey(place);
-  if (HERO_IMAGES[key]) return HERO_IMAGES[key];
-
-  const catalogHit = DESTINATION_CATALOG.find((d) => {
-    const nameKey = normalizeKey(d.name);
-    if (nameKey === key) return true;
-    return (d.aliases ?? []).some((a) => normalizeKey(a) === key);
-  });
-  if (!catalogHit) return null;
-
-  const catalogKey = normalizeKey(catalogHit.name);
-  return HERO_IMAGES[catalogKey] ?? null;
+  return resolveCuratedHeroImageUrl(destinationLabel);
 }
 
 export function buildScopeIntro(

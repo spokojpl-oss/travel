@@ -3,7 +3,6 @@ import { fetchWeatherPreview } from "@/lib/api/weather";
 import type { Locale } from "@/i18n/config";
 import {
   buildInstantOverview,
-  resolveHeroImageUrl,
   type DestinationOverview,
 } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
@@ -61,15 +60,10 @@ export async function buildDestinationOverview({
       : Promise.resolve(null),
   ]);
 
-  const hero =
-    base.hero_image_url ??
-    wiki?.thumbnail ??
-    resolveHeroImageUrl(destinationLabel);
-
   return {
     ...base,
     summary: wiki?.extract ?? base.summary,
-    hero_image_url: hero,
+    hero_image_url: base.hero_image_url,
     weather,
     enriching: false,
   };

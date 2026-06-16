@@ -95,6 +95,9 @@ export async function fillDestinationAttractionsFromOsm({
 }): Promise<{ persisted: number; tagged: number }> {
   const bbox = searchBbox ?? bboxFromCenter(lat, lon, radiusKm);
   const categories = categoriesForActivities(activitySlugs);
+  const bboxSpan =
+    Math.abs(bbox.north - bbox.south) + Math.abs(bbox.east - bbox.west);
+  const categoryDelayMs = bboxSpan > 3 ? 900 : 450;
 
   const seen = new Set<string>();
   const allPlaces = [];
@@ -110,7 +113,7 @@ export async function fillDestinationAttractionsFromOsm({
     } catch {
       /* pojedyncza kategoria — kontynuuj */
     }
-    await sleep(400);
+    await sleep(categoryDelayMs);
   }
 
   const { upserted } = await persistOsmPlaces(allPlaces, null);

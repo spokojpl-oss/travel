@@ -40,6 +40,8 @@ const ALL_OSM_CATEGORIES: OsmCategory[] = [
   "theme_park",
   "hiking",
   "waterfall",
+  "castle",
+  "archaeological_site",
 ];
 
 export async function performGlobalOsmScrape(options?: {

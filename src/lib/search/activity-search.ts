@@ -1,7 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
-import { fillRadiusKm } from "@/lib/api/destination-activity-prefill";
+import {
+  ensureDestinationActivities,
+  fillRadiusKm,
+} from "@/lib/api/destination-activity-prefill";
 import { findAirportsForDestination } from "@/lib/flights/airport-finder";
 import {
   pointInIslandBbox,
@@ -29,6 +32,8 @@ const ID_CHUNK_SIZE = 200;
 const ID_CHUNK_PARALLEL = 8;
 /** Budżet czasu na uzupełnianie OSM/Google w trakcie wyszukiwania (ms). */
 const SUPPLEMENT_BUDGET_MS = 12_000;
+/** Gdy baza pusta — pełniejsze uzupełnienie z OSM (cała wyspa / region). */
+const EMPTY_DB_FILL_BUDGET_MS = 38_000;
 const SEARCH_TIME_BUDGET_MS = 48_000;
 
 const ATTRACTION_FIELDS = `
@@ -421,6 +426,7 @@ async function supplementMissingActivities(
   const fillRadius = island
     ? Math.min(radiusKm, island.maxRadiusKm)
     : radiusKm;
+  const searchBbox = island?.bbox;
 
   if (missing.length === 0 || timeoutMs <= 0) {
     return { osmFilled: false, googleFilled: false };
@@ -437,7 +443,7 @@ async function supplementMissingActivities(
           lon: center.lon,
           radiusKm: fillRadius,
           activitySlugs: missing,
-          // Lokalny promień — nie cała wyspa (Overpass timeout).
+          searchBbox,
         });
         osmFilled = osm.persisted > 0;
       } catch {
@@ -453,6 +459,7 @@ async function supplementMissingActivities(
           destinationLabel: query.destination_label,
           onlySlugs: missing,
           islandBbox: island?.bbox,
+          searchBbox,
         });
         if (result.persisted > 0) googleFilled = true;
       } catch {
@@ -490,10 +497,46 @@ export async function searchActivities(
   let googleFilled = false;
 
   if (hasNearPoint(effectiveQuery)) {
-    const fetched = await fetchTagRowsForRadii(supabase, effectiveQuery, island);
+    let fetched = await fetchTagRowsForRadii(supabase, effectiveQuery, island);
     tagRows = fetched.tagRows;
     geoRadiusUsed = fetched.geoRadiusUsed;
     attractionsInBbox = fetched.attractionsInBbox;
+
+    if (tagRows.length === 0 || attractionsInBbox === 0) {
+      const emptyFillBudget = Math.min(
+        EMPTY_DB_FILL_BUDGET_MS,
+        remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
+      );
+      if (emptyFillBudget > 4_000) {
+        const filled = await withTimeout(
+          ensureDestinationActivities({
+            lat: effectiveQuery.near_lat,
+            lon: effectiveQuery.near_lon,
+            radiusKm:
+              effectiveQuery.near_radius_km ??
+              island?.maxRadiusKm ??
+              120,
+            destinationLabel: effectiveQuery.destination_label,
+          }),
+          emptyFillBudget,
+          { osmPersisted: 0, googlePersisted: 0 },
+        );
+        osmFilled = osmFilled || filled.osmPersisted > 0;
+        googleFilled = googleFilled || filled.googlePersisted > 0;
+
+        fetched = await fetchTagRowsForRadii(
+          supabase,
+          effectiveQuery,
+          island,
+        );
+        tagRows = fetched.tagRows;
+        geoRadiusUsed = fetched.geoRadiusUsed ?? geoRadiusUsed;
+        attractionsInBbox = Math.max(
+          attractionsInBbox,
+          fetched.attractionsInBbox,
+        );
+      }
+    }
 
     const missing = missingActivities(tagRows, effectiveQuery.activities);
     const supplementBudget = Math.min(

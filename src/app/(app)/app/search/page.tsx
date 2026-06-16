@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState, Suspense, useRef } from "react";
+import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
-import { RegionMap, RegionMapMini } from "@/components/features/RegionMap";
+import { RegionMap } from "@/components/features/RegionMap";
+import { RegionResultCard } from "@/components/features/RegionResultCard";
 import {
   SearchStepIndicator,
   TripContextBar,
 } from "@/components/features/TripContextBar";
-import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
 import { buildIslandMapData } from "@/lib/maps/build-island-map";
-import { clusterDisplayName } from "@/lib/search/settlement-resolver";
 import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
@@ -51,39 +50,6 @@ type DataStatus = {
   search_ready: boolean;
   message: string | null;
 };
-
-function IslandRegionCard({
-  cluster,
-  idx,
-  airports,
-  onOpen,
-}: {
-  cluster: GeoCluster;
-  idx: number;
-  airports: Array<{ iata_code: string; name: string; lat: number; lon: number }>;
-  onOpen: () => void;
-}) {
-  const mapData = buildClusterMapData(cluster, airports);
-  return (
-    <Card className="card-hover mb-4 overflow-hidden">
-      <RegionMapMini points={mapData.points} segments={mapData.segments} />
-      <CardBody>
-        <h3 className="font-display text-lg font-bold text-text-primary">
-          #{idx + 1} – {clusterDisplayName(cluster)}
-        </h3>
-        <p className="mt-1 text-sm text-text-secondary">
-          {cluster.settlement?.name
-            ? `Proponowana baza: ${cluster.settlement.name} · `
-            : ""}
-          {cluster.attractions.length} atrakcji w rejonie
-        </p>
-        <Button size="sm" className="mt-4" onClick={onOpen}>
-          Planuj pobyt w tym regionie →
-        </Button>
-      </CardBody>
-    </Card>
-  );
-}
 
 function EmptyResultsCard({
   results,
@@ -180,6 +146,16 @@ function SearchPageContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  const activityNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const group of taxonomy) {
+      for (const act of group.activities) {
+        map[act.slug] = locale === "en" ? act.name_en : act.name_pl;
+      }
+    }
+    return map;
+  }, [taxonomy, locale]);
 
   useEffect(() => {
     if (!hasTripParams(searchParams)) {
@@ -1053,12 +1029,16 @@ function SearchPageContent() {
                     Wybierz region na nocleg ({results.clusters.length})
                   </h3>
                   {results.clusters.map((cluster, idx) => (
-                    <IslandRegionCard
+                    <RegionResultCard
                       key={cluster.id}
                       cluster={cluster}
                       idx={idx}
                       airports={results.airports ?? []}
+                      destinationLabel={trip.destination_label ?? undefined}
+                      activityNames={activityNames}
+                      locale={locale}
                       onOpen={() => openDestination(cluster)}
+                      ctaLabel="Planuj pobyt w tym regionie →"
                     />
                   ))}
                 </>
@@ -1071,7 +1051,7 @@ function SearchPageContent() {
               </h2>
               <p className="mb-6 text-sm text-text-secondary">
                 {formatTravelSummary(trip)} · {formatTripDateRange(trip)} ·
-                Wybierz rejon — poniżej mapa atrakcji w okolicy
+                Każdy rejon ma mapę i krótki opis — wybierz bazę na nocleg
               </p>
 
               {results.clusters.length === 0 && (
@@ -1084,57 +1064,19 @@ function SearchPageContent() {
                 />
               )}
 
-              {results.clusters.map((cluster, idx) => {
-                const mapData = buildClusterMapData(
-                  cluster,
-                  results.airports ?? [],
-                );
-                return (
-                  <Card
-                    key={cluster.id}
-                    className="card-hover mb-4 overflow-hidden"
-                  >
-                    <RegionMapMini
-                      points={mapData.points}
-                      segments={mapData.segments}
-                    />
-                    <CardBody>
-                      <h3 className="font-display text-lg font-bold text-text-primary">
-                        #{idx + 1} – {clusterDisplayName(cluster)}
-                      </h3>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {cluster.settlement?.name
-                          ? `Baza pobytu: ${cluster.settlement.name} · `
-                          : ""}
-                        Atrakcji: {cluster.attractions.length} · Aktywności:{" "}
-                        {cluster.covered_activities.length}/
-                        {selectedActivities.size}
-                      </p>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        {cluster.covered_activities
-                          .map((slug) => {
-                            const act = taxonomy
-                              .flatMap((g) => g.activities)
-                              .find((a) => a.slug === slug);
-                            return act
-                              ? locale === "en"
-                                ? act.name_en
-                                : act.name_pl
-                              : slug;
-                          })
-                          .join(" · ")}
-                      </p>
-                      <Button
-                        size="sm"
-                        className="mt-4"
-                        onClick={() => openDestination(cluster)}
-                      >
-                        Zobacz szczegóły regionu →
-                      </Button>
-                    </CardBody>
-                  </Card>
-                );
-              })}
+              {results.clusters.map((cluster, idx) => (
+                <RegionResultCard
+                  key={cluster.id}
+                  cluster={cluster}
+                  idx={idx}
+                  airports={results.airports ?? []}
+                  destinationLabel={trip.destination_label ?? undefined}
+                  activityNames={activityNames}
+                  locale={locale}
+                  onOpen={() => openDestination(cluster)}
+                  ctaLabel="Zobacz szczegóły regionu →"
+                />
+              ))}
             </>
           )}
         </section>
