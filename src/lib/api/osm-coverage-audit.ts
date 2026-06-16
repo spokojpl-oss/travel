@@ -156,6 +156,22 @@ export async function buildOsmCoverageReport(): Promise<OsmCoverageReport> {
 
   europeRegions.sort((a, b) => a.attractions - b.attractions);
 
+  const regionsFromEmptyDestinations = [
+    ...new Set(
+      destinations
+        .filter((d) => d.status === "empty" && d.region)
+        .map((d) => d.region as string)
+        .filter((name) => EUROPE_SCRAPE_REGIONS.includes(name)),
+    ),
+  ];
+
+  const regionsNeedingScrape = [
+    ...new Set([
+      ...europeRegions.filter((r) => r.needsScrape).map((r) => r.name),
+      ...regionsFromEmptyDestinations,
+    ]),
+  ];
+
   return {
     totals: {
       attractions: totalAttractions ?? 0,
@@ -166,9 +182,7 @@ export async function buildOsmCoverageReport(): Promise<OsmCoverageReport> {
     emptyDestinations: destinations
       .filter((d) => d.status === "empty")
       .map((d) => d.name),
-    regionsNeedingScrape: europeRegions
-      .filter((r) => r.needsScrape)
-      .map((r) => r.name),
+    regionsNeedingScrape,
   };
 }
 

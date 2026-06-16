@@ -143,6 +143,7 @@ export function DateRangePicker({
   onFromChange,
   onToChange,
   min,
+  large,
   className,
 }: {
   labelFrom?: string;
@@ -152,6 +153,7 @@ export function DateRangePicker({
   onFromChange: (v: string, suggestedTo?: string) => void;
   onToChange: (v: string) => void;
   min?: string;
+  large?: boolean;
   className?: string;
 }) {
   const calendar = useDatePickerLocale();
@@ -214,6 +216,7 @@ export function DateRangePicker({
         label={labelFrom ?? "Wyjazd"}
         value={fromValue}
         display={formatDisplay(fromValue, calendar.intlLocale, calendar.pickDateLabel)}
+        large={large}
         open={activeField === "from"}
         triggerRef={fromRef}
         onToggle={() =>
@@ -224,6 +227,7 @@ export function DateRangePicker({
         label={labelTo ?? "Powrót"}
         value={toValue}
         display={formatDisplay(toValue, calendar.intlLocale, calendar.pickDateLabel)}
+        large={large}
         open={activeField === "to"}
         triggerRef={toRef}
         onToggle={() => setActiveField((f) => (f === "to" ? null : "to"))}

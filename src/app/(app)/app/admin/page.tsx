@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PageContainer, Breadcrumb } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
 
 type SetupStatus = {
   user: { email: string; is_admin: boolean };
@@ -61,13 +62,25 @@ type CoverageReport = {
   regionsNeedingScrape: string[];
 };
 
+type QueueStep = {
+  region: string;
+  ok: boolean;
+  summary?: ScrapeResponse["summary"];
+  error?: string;
+};
+
 const EUROPE_SCRAPE_BUTTONS = [
-  { label: "Europa (wszystko)", param: "europe=true" },
+  { label: "Europa — kolejka (puste regiony)", action: "queue-empty" as const },
+  { label: "Europa — kolejka (wszystkie)", action: "queue-all" as const },
   { label: "Grecja + Cypr", bbox: "Greece + Cyprus" },
-  { label: "Bałkany (Chorwacja, Albania…)", bbox: "Balkans" },
+  { label: "Bałkany", bbox: "Balkans" },
   { label: "Włochy + Malta", bbox: "Italy + Malta" },
   { label: "Francja + Benelux", bbox: "France + Benelux" },
   { label: "Hiszpania + Wyspy", bbox: "Iberia + Madeira + Canary" },
+  { label: "Niemcy + Alpy", bbox: "Germany + Alps" },
+  { label: "UK + Irlandia", bbox: "UK + Ireland" },
+  { label: "Nordyki", bbox: "Nordics" },
+  { label: "Europa Środkowa", bbox: "Central Europe" },
   { label: "Turcja", bbox: "Turkey" },
   { label: "Polska + sąsiedzi", bbox: "Poland + neighbors" },
 ] as const;
@@ -80,6 +93,8 @@ export default function AdminSetupPage() {
   const [coverage, setCoverage] = useState<CoverageReport | null>(null);
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [queueProgress, setQueueProgress] = useState<QueueStep[]>([]);
+  const [queueLabel, setQueueLabel] = useState<string | null>(null);
 
   async function loadStatus() {
     setLoading(true);
@@ -100,6 +115,11 @@ export default function AdminSetupPage() {
     loadStatus();
   }, []);
 
+  useEffect(() => {
+    if (!status?.user.is_admin || !status.service_role_ok) return;
+    void loadCoverage();
+  }, [status]);
+
   async function loadCoverage() {
     setCoverageLoading(true);
     try {
@@ -114,16 +134,15 @@ export default function AdminSetupPage() {
     }
   }
 
-  async function runScrape(bbox?: string, europe = false) {
+  async function runScrape(bbox?: string, options?: { skipTagging?: boolean }) {
     setScraping(true);
     setScrapeResult(null);
     setError(null);
     try {
-      const url = europe
-        ? "/api/admin/initial-scrape?europe=true"
-        : bbox
-          ? `/api/admin/initial-scrape?bbox=${encodeURIComponent(bbox)}`
-          : "/api/admin/initial-scrape";
+      const params = new URLSearchParams();
+      if (bbox) params.set("bbox", bbox);
+      if (options?.skipTagging) params.set("skipTagging", "true");
+      const url = `/api/admin/initial-scrape${params.size ? `?${params}` : ""}`;
       const r = await fetch(url, { method: "POST" });
       const data = (await r.json()) as ScrapeResponse;
       setScrapeResult(data);
@@ -132,6 +151,92 @@ export default function AdminSetupPage() {
       }
       await loadStatus();
       await loadCoverage();
+      return data;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      return null;
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  async function runScrapeEuropeQueue(mode: "empty" | "all") {
+    setScraping(true);
+    setScrapeResult(null);
+    setError(null);
+    setQueueProgress([]);
+    setQueueLabel(
+      mode === "all"
+        ? "Uzupełnianie wszystkich regionów Europy…"
+        : "Uzupełnianie pustych regionów Europy…",
+    );
+
+    try {
+      if (!coverage) {
+        await loadCoverage();
+      }
+
+      const auditRes = await fetch("/api/admin/osm-audit");
+      const audit = (await auditRes.json()) as CoverageReport;
+      if (!auditRes.ok) {
+        throw new Error((audit as { error?: string }).error ?? `HTTP ${auditRes.status}`);
+      }
+      setCoverage(audit);
+
+      const regions =
+        mode === "all"
+          ? [...EUROPE_SCRAPE_REGIONS]
+          : audit.regionsNeedingScrape.length > 0
+            ? [...audit.regionsNeedingScrape]
+            : [...EUROPE_SCRAPE_REGIONS];
+
+      if (regions.length === 0) {
+        setQueueLabel("Regiony OK — uruchamiam tagowanie…");
+        const tagRes = await fetch("/api/admin/initial-scrape?skipScrape=true", {
+          method: "POST",
+        });
+        const tagData = (await tagRes.json()) as ScrapeResponse;
+        setScrapeResult(tagData);
+        await loadStatus();
+        await loadCoverage();
+        setQueueLabel("Tagowanie zakończone.");
+        return;
+      }
+
+      const steps: QueueStep[] = [];
+
+      for (const region of regions) {
+        setQueueLabel(`Scrape: ${region} (${steps.length + 1}/${regions.length})…`);
+        const params = new URLSearchParams({
+          bbox: region,
+          skipTagging: "true",
+        });
+        const r = await fetch(`/api/admin/initial-scrape?${params}`, {
+          method: "POST",
+        });
+        const data = (await r.json()) as ScrapeResponse;
+        steps.push({
+          region,
+          ok: r.ok && (data.summary?.persisted ?? 0) >= 0,
+          summary: data.summary,
+          error: data.error ?? (r.ok ? undefined : `HTTP ${r.status}`),
+        });
+        setQueueProgress([...steps]);
+      }
+
+      setQueueLabel("Tagowanie aktywności…");
+      const tagRes = await fetch("/api/admin/initial-scrape?skipScrape=true", {
+        method: "POST",
+      });
+      const tagData = (await tagRes.json()) as ScrapeResponse;
+      setScrapeResult(tagData);
+      if (!tagRes.ok) {
+        setError(tagData.error ?? `HTTP ${tagRes.status}`);
+      }
+
+      await loadStatus();
+      await loadCoverage();
+      setQueueLabel("Kolejka Europy zakończona.");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -303,9 +408,29 @@ export default function AdminSetupPage() {
                 <CardHeader title="Uruchom scrape" />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-text-secondary">
-                    Scrape Europy trwa ok. 45–90 min — nie zamykaj karty. Po
-                    scrape uruchamiane jest automatyczne tagowanie aktywności.
+                    Jeden region trwa ok. 3–8 min (limit Vercel). Kolejka uruchamia
+                    regiony po kolei, na końcu tagowanie. Nie zamykaj karty do
+                    końca kolejki.
                   </p>
+                  {queueLabel && (
+                    <p className="text-sm font-medium text-brand-800">{queueLabel}</p>
+                  )}
+                  {queueProgress.length > 0 && (
+                    <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-bg-soft p-3 text-xs">
+                      {queueProgress.map((step) => (
+                        <li key={step.region}>
+                          <span className={step.ok ? "text-success" : "text-danger"}>
+                            {step.ok ? "✓" : "✗"}
+                          </span>{" "}
+                          {step.region}
+                          {step.summary
+                            ? ` — ${step.summary.persisted} zapisanych, ${step.summary.scrape_errors} błędów`
+                            : ""}
+                          {step.error ? ` (${step.error})` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <div className="flex flex-wrap gap-3">
                     {EUROPE_SCRAPE_BUTTONS.map((btn) => (
                       <Button
@@ -313,15 +438,17 @@ export default function AdminSetupPage() {
                         size="sm"
                         disabled={scraping}
                         variant={
-                          btn.label.startsWith("Europa") ? "primary" : "secondary"
+                          "action" in btn ? "primary" : "secondary"
                         }
                         onClick={() =>
-                          "param" in btn
-                            ? runScrape(undefined, true)
+                          "action" in btn
+                            ? runScrapeEuropeQueue(
+                                btn.action === "queue-all" ? "all" : "empty",
+                              )
                             : runScrape(btn.bbox)
                         }
                       >
-                        {scraping ? "Trwa..." : btn.label}
+                        {scraping && queueLabel ? "Trwa..." : btn.label}
                       </Button>
                     ))}
                     <Button
