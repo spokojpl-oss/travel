@@ -38,6 +38,17 @@ export const GOOGLE_PREFILL_SLUGS = [
   "climbing",
 ] as const;
 
+const GOOGLE_PREFILL_SET = new Set<string>(GOOGLE_PREFILL_SLUGS);
+
+/** Wypożyczalnie, wycieczki, sporty wodne — OSM ich prawie nie ma. */
+export function isCommercialActivity(slug: string): boolean {
+  return GOOGLE_PREFILL_SET.has(slug);
+}
+
+export function commercialActivitySlugs(slugs: string[]): string[] {
+  return slugs.filter(isCommercialActivity);
+}
+
 export async function ensureDestinationActivities({
   lat,
   lon,

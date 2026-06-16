@@ -13,6 +13,7 @@ type SetupStatus = {
   service_role_ok: boolean;
   service_role_error: string | null;
   admin_emails_configured: boolean;
+  google_places_configured: boolean;
   counts: {
     activities: number;
     attractions: number;
@@ -311,6 +312,16 @@ export default function AdminSetupPage() {
                   </span>
                 )}
               </p>
+              <p>
+                <strong>Google Places:</strong>{" "}
+                {status.google_places_configured ? (
+                  <span className="text-success">OK — wypożyczalnie, quady, nurkowanie</span>
+                ) : (
+                  <span className="text-danger">
+                    Brak GOOGLE_PLACES_API_KEY — usługi komercyjne nie będą znajdowane
+                  </span>
+                )}
+              </p>
               <dl className="grid gap-2 sm:grid-cols-2">
                 <Stat label="Aktywności" value={status.counts.activities} />
                 <Stat label="Mapowania OSM" value={status.counts.osm_mappings} />
@@ -410,6 +421,13 @@ export default function AdminSetupPage() {
                 <CardHeader title="Uruchom scrape" />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-text-secondary">
+                    Scrape OSM uzupełnia plaże, muzea, zamki itd.{" "}
+                    <strong>Nie</strong> wypożyczalnie rowerów, quadów, nurkowanie —
+                    te pobierane są z Google Places przy wyszukiwaniu (wymaga{" "}
+                    <code className="rounded bg-bg-soft px-1">GOOGLE_PLACES_API_KEY</code>
+                    ).
+                  </p>
+                  <p className="text-sm text-text-secondary">
                     Jeden region trwa ok. 3–8 min (limit Vercel). Kolejka uruchamia
                     regiony po kolei, na końcu tagowanie. Nie zamykaj karty do
                     końca kolejki.
@@ -476,6 +494,28 @@ export default function AdminSetupPage() {
                 </CardBody>
               </Card>
             </>
+          )}
+
+          {status.user.is_admin && !status.service_role_ok && (
+            <Card className="mb-6 border-amber-200 bg-amber-50/40">
+              <CardHeader title="Scrape niedostępny" />
+              <CardBody className="space-y-3 text-sm text-text-secondary">
+                <p>
+                  Jesteś administratorem, ale przyciski scrape (w tym{" "}
+                  <strong>Europa — kolejka (wszystkie)</strong>) są ukryte, bo{" "}
+                  <code className="rounded bg-bg-soft px-1">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+                  nie działa na tym środowisku.
+                </p>
+                <p>
+                  Ustaw klucz w Vercel → Settings → Environment Variables, zrób redeploy,
+                  albo uruchom scrape lokalnie:{" "}
+                  <code className="rounded bg-bg-soft px-1">npm run scrape:europe</code>
+                </p>
+                {status.service_role_error && (
+                  <p className="text-danger">Błąd: {status.service_role_error}</p>
+                )}
+              </CardBody>
+            </Card>
           )}
 
           {scrapeResult && (

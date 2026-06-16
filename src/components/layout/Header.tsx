@@ -9,9 +9,11 @@ import { useT } from "@/i18n/locale-provider";
 
 export function Header({
   userEmail,
+  isAdmin = false,
   variant = "app",
 }: {
   userEmail?: string;
+  isAdmin?: boolean;
   variant?: "app" | "public";
 }) {
   const t = useT();
@@ -39,6 +41,14 @@ export function Header({
               {link.label}
             </Link>
           ))}
+          {variant === "app" && isAdmin && (
+            <Link
+              href="/app/admin"
+              className="rounded-md px-3.5 py-2 text-sm font-medium text-accent-300 transition-colors hover:bg-white/5 hover:text-accent-200"
+            >
+              {t("nav.admin")}
+            </Link>
+          )}
           {variant === "app" && (
             <Link
               href="/app/groups"
@@ -120,6 +130,15 @@ export function Header({
                 {link.label}
               </Link>
             ))}
+            {variant === "app" && isAdmin && (
+              <Link
+                href="/app/admin"
+                className="block rounded-md px-3 py-2 text-base font-medium text-accent-300 hover:bg-white/10"
+                onClick={() => setMobileOpen(false)}
+              >
+                {t("nav.admin")}
+              </Link>
+            )}
             {variant === "app" && (
               <>
                 <Link

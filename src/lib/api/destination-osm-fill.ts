@@ -24,6 +24,8 @@ const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
   rocky_beaches: ["beach"],
   hiking_trails: ["hiking"],
   bike_rental: ["bicycle_rental"],
+  ebike_rental: ["bicycle_rental"],
+  mountain_biking: ["bicycle_rental", "hiking"],
   national_parks: ["hiking", "tourism_attraction"],
   kayaking: ["tourism_attraction"],
   snorkeling: ["tourism_attraction"],
@@ -160,6 +162,9 @@ const ACTIVITY_QUICK_CATEGORIES: Partial<Record<string, OsmCategory[]>> = {
   zoo: ["zoo"],
   aquarium: ["aquarium"],
   theme_parks: ["theme_park"],
+  bike_rental: ["bicycle_rental"],
+  ebike_rental: ["bicycle_rental"],
+  mountain_biking: ["bicycle_rental"],
 };
 
 /** Szybki scrape — 6–8 kategorii zamiast pełnej listy (timeout na wyspach). */

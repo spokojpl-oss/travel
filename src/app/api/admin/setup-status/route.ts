@@ -104,6 +104,7 @@ export async function GET() {
     service_role_ok: serviceRoleOk,
     service_role_error: serviceRoleError,
     admin_emails_configured: adminEmails.length > 0,
+    google_places_configured: Boolean(process.env.GOOGLE_PLACES_API_KEY?.trim()),
     counts: {
       activities,
       attractions,

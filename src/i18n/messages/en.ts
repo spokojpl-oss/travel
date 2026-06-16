@@ -7,6 +7,7 @@ export const en: Messages = {
     compare: "Compare",
     howItWorks: "How it works",
     groups: "Groups",
+    admin: "Admin",
     profile: "Profile",
     logout: "Log out",
     login: "Sign in",

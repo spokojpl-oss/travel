@@ -5,6 +5,7 @@ export const pl = {
     compare: "Porównaj",
     howItWorks: "Jak to działa?",
     groups: "Grupy",
+    admin: "Admin",
     profile: "Profil",
     logout: "Wyloguj",
     login: "Zaloguj się",

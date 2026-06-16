@@ -6,6 +6,7 @@ import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-goog
 import {
   ensureDestinationActivities,
   fillRadiusKm,
+  isCommercialActivity,
 } from "@/lib/api/destination-activity-prefill";
 import { findAirportsForDestination } from "@/lib/flights/airport-finder";
 import {
@@ -33,7 +34,7 @@ const MAX_ATTRACTIONS_TO_CLUSTER = 1200;
 const ID_CHUNK_SIZE = 200;
 const ID_CHUNK_PARALLEL = 8;
 /** Budżet czasu na uzupełnianie OSM/Google w trakcie wyszukiwania (ms). */
-const SUPPLEMENT_BUDGET_MS = 12_000;
+const SUPPLEMENT_BUDGET_MS = 22_000;
 /** Gdy baza pusta — pełniejsze uzupełnienie z OSM (cała wyspa / region). */
 const EMPTY_DB_FILL_BUDGET_MS = 12_000;
 const SEARCH_TIME_BUDGET_MS = 48_000;
@@ -460,34 +461,38 @@ async function supplementMissingActivities(
       let osmFilled = false;
       let googleFilled = false;
 
-      try {
-        const osm = await fillDestinationAttractionsQuick({
-          lat: center.lat,
-          lon: center.lon,
-          radiusKm: fillRadius,
-          activitySlugs: missing,
-          searchBbox,
-        });
-        osmFilled = osm.persisted > 0;
-      } catch {
-        /* optional */
-      }
+      const osmSlugs = missing.filter((slug) => !isCommercialActivity(slug));
+      const googleSlugs = missing.filter(isCommercialActivity);
 
-      try {
-        const result = await fillDestinationAttractionsFromGoogle({
-          lat: center.lat,
-          lon: center.lon,
-          radiusKm: fillRadius,
-          activitySlugs: query.activities,
-          destinationLabel: query.destination_label,
-          onlySlugs: missing,
-          islandBbox: island?.bbox,
-          searchBbox,
-        });
-        if (result.persisted > 0) googleFilled = true;
-      } catch {
-        /* optional */
-      }
+      const googlePromise =
+        googleSlugs.length > 0
+          ? fillDestinationAttractionsFromGoogle({
+              lat: center.lat,
+              lon: center.lon,
+              radiusKm: fillRadius,
+              activitySlugs: query.activities,
+              destinationLabel: query.destination_label,
+              onlySlugs: googleSlugs,
+              islandBbox: island?.bbox,
+              searchBbox,
+              maxConcurrent: 6,
+            }).catch(() => ({ persisted: 0, tagged: 0 }))
+          : Promise.resolve({ persisted: 0, tagged: 0 });
+
+      const osmPromise =
+        osmSlugs.length > 0
+          ? fillDestinationAttractionsQuick({
+              lat: center.lat,
+              lon: center.lon,
+              radiusKm: fillRadius,
+              activitySlugs: osmSlugs,
+              searchBbox,
+            }).catch(() => ({ persisted: 0, tagged: 0 }))
+          : Promise.resolve({ persisted: 0, tagged: 0 });
+
+      const [google, osm] = await Promise.all([googlePromise, osmPromise]);
+      googleFilled = google.persisted > 0;
+      osmFilled = osm.persisted > 0;
 
       return { osmFilled, googleFilled };
     })(),
