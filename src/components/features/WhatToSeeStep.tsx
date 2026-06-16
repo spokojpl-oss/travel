@@ -7,7 +7,6 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
 import type { PlaceCard } from "@/lib/plan/build-discover-places";
 import type { DestinationStory } from "@/lib/plan/destination-story";
-import { DestinationStoryHero } from "@/components/features/DestinationStoryHero";
 import type { TripDayTheme } from "@/lib/search/trip-rhythm";
 import { THEME_META } from "@/lib/search/trip-rhythm";
 import { useT } from "@/i18n/locale-provider";
@@ -70,31 +69,46 @@ export function WhatToSeeStep({
     );
   }, [displayCards]);
 
+  const placeLabel = story.placeName || (pl ? "regionie" : "this area");
+
   return (
     <div className="space-y-8">
-      <DestinationStoryHero
-        story={story}
-        tripDays={tripDays}
-        badges={[
-          {
-            label: `${placeCards.length} ${pl ? "miejsc w katalogu" : "places curated"}`,
-          },
-          {
-            label: `${selectedIds.size} ${pl ? "wybrane" : "selected"}`,
-          },
-        ]}
-      />
+      <div className="space-y-3">
+        <div>
+          <h2 className="font-display text-2xl font-bold text-text-primary">
+            {pl ? "Co wpisać w plan?" : "What goes on your itinerary?"}
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+            {pl
+              ? `Zaznacz miejsca na ${tripDays} ${tripDays === 1 ? "dzień" : "dni"} wyjazdu — bazę noclegową wybierzesz w następnym kroku.`
+              : `Pick places for your ${tripDays}-day trip — you'll choose where to stay next.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
+            {tripDays} {pl ? "dni wyjazdu" : "trip days"}
+          </span>
+          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
+            {placeCards.length} {pl ? "miejsc w katalogu" : "places curated"}
+          </span>
+          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
+            {selectedIds.size} {pl ? "wybrane" : "selected"}
+          </span>
+        </div>
+      </div>
 
       {recommended.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold text-text-primary">
-              {pl ? "Nasze propozycje na początek" : "Our picks to start with"}
+              {pl
+                ? `TOP w ${placeLabel} — tego nie pomiń`
+                : `Must-see in ${placeLabel}`}
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
               {pl
-                ? "Możesz je od razu zaznaczyć i potem doprecyzować."
-                : "Select them now and refine later."}
+                ? "Najczęściej wybierane miejsca pod Twój typ wyjazdu — zaznacz, co chcesz mieć w planie."
+                : "Most picked spots for trips like yours — select what you want on your itinerary."}
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={onSelectRecommended}>

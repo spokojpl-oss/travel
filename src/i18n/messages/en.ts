@@ -441,7 +441,7 @@ export const en: Messages = {
   lodgingBase: {
     mapTitle: "On the map",
     mapHint:
-      "Click a circle or number to pick a lodging area. Green dots are your attractions, orange is the airport.",
+      "Click a number to pick a lodging area. Green dots are your attractions, blue is the airport.",
     legendAttractions: "Your attractions",
   },
   localServices: {

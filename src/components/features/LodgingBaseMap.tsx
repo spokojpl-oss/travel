@@ -41,7 +41,7 @@ export function LodgingBaseMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapsApiRef = useRef<typeof google.maps | null>(null);
-  const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Circle>>([]);
+  const overlaysRef = useRef<google.maps.Marker[]>([]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const [mapReady, setMapReady] = useState(false);
@@ -118,7 +118,7 @@ export function LodgingBaseMap({
         icon: {
           path: maps.SymbolPath.CIRCLE,
           scale: 8,
-          fillColor: "#ea580c",
+          fillColor: "#003faa",
           fillOpacity: 1,
           strokeColor: "#ffffff",
           strokeWeight: 2,
@@ -153,22 +153,6 @@ export function LodgingBaseMap({
 
       bounds.extend(center);
 
-      const circle = new maps.Circle({
-        map,
-        center,
-        radius: option.radiusKm * 1000,
-        strokeColor: color,
-        strokeOpacity: isSelected ? 1 : 0.7,
-        strokeWeight: isSelected ? 4 : 2,
-        fillColor: color,
-        fillOpacity: isSelected ? 0.3 : 0.1,
-        clickable: true,
-      });
-
-      circle.addListener("click", () => {
-        onSelectRef.current(option.id);
-      });
-
       const marker = new maps.Marker({
         map,
         position: center,
@@ -193,7 +177,7 @@ export function LodgingBaseMap({
         onSelectRef.current(option.id);
       });
 
-      overlaysRef.current.push(circle, marker);
+      overlaysRef.current.push(marker);
     });
 
     map.fitBounds(bounds, 64);
@@ -225,7 +209,7 @@ export function LodgingBaseMap({
           ))}
           {airports.length > 0 && (
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-600" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand-700" />
               {t("map.legendAirport")}
             </span>
           )}

@@ -442,7 +442,7 @@ export const pl = {
   lodgingBase: {
     mapTitle: "Gdzie na mapie?",
     mapHint:
-      "Kliknij okrąg lub numer — wybierz rejon noclegowy. Zielone punkty to Twoje atrakcje, pomarańczowy to lotnisko.",
+      "Kliknij numer — wybierz rejon noclegowy. Zielone punkty to Twoje atrakcje, niebieski to lotnisko.",
     legendAttractions: "Twoje atrakcje",
   },
   localServices: {
