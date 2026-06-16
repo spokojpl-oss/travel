@@ -20,6 +20,7 @@ import {
   applyExplorationScopeToQuery,
   explorationScopeFromString,
 } from "./exploration-scope";
+import { sanitizeClusterForDestination, settlementCoordsOnWrongIsland } from "@/lib/plan/cluster-island-guard";
 import { enrichClustersWithSettlements } from "./settlement-resolver";
 import type {
   ActivitySearchQuery,
@@ -700,7 +701,7 @@ export async function searchActivities(
 
   const enrichBudget = remainingMs(startTime, SEARCH_TIME_BUDGET_MS);
   const enrichedClusters = await withTimeout(
-    enrichClustersWithSettlements(topClusters),
+    enrichClustersWithSettlements(topClusters, effectiveQuery.destination_label),
     Math.max(enrichBudget, 8_000),
     topClusters,
   );
@@ -725,7 +726,12 @@ export async function searchActivities(
         }
         if (
           island &&
-          settlementConflictsWithIsland(x.cluster.settlement?.name, island)
+          x.cluster.settlement &&
+          (settlementConflictsWithIsland(x.cluster.settlement.name, island) ||
+            settlementCoordsOnWrongIsland(
+              x.cluster.settlement,
+              effectiveQuery.destination_label,
+            ))
         ) {
           return false;
         }
@@ -734,7 +740,12 @@ export async function searchActivities(
       .sort((a, b) =>
         isIslandView ? b.cluster.score - a.cluster.score : a.dist - b.dist,
       )
-      .map((x) => x.cluster);
+      .map((x) =>
+        sanitizeClusterForDestination(
+          x.cluster,
+          effectiveQuery.destination_label,
+        ),
+      );
   }
 
   const islandActivityCounts: Record<string, number> = {};

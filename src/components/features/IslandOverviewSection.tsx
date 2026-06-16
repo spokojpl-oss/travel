@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { RegionMap } from "@/components/features/RegionMap";
 import { cn } from "@/lib/utils/cn";
 import { buildIslandMapData } from "@/lib/maps/build-island-map";
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import type { IslandFeasibilityAdvice } from "@/lib/search/island-feasibility";
-import type { ActivitySearchResult } from "@/types/domain";
+import type { ActivitySearchResult, AttractionWithActivities } from "@/types/domain";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
 type TaxonomyActivity = { slug: string; name_pl: string; name_en: string };
@@ -19,6 +20,7 @@ export function IslandOverviewSection({
   feasibility,
   onNarrowScope,
   onExtendTrip,
+  onPlanTrip,
 }: {
   results: ActivitySearchResult;
   activityNames: Record<string, string>;
@@ -26,6 +28,7 @@ export function IslandOverviewSection({
   feasibility: IslandFeasibilityAdvice | null;
   onNarrowScope?: () => void;
   onExtendTrip?: () => void;
+  onPlanTrip?: (selectedIds: string[], pool: AttractionWithActivities[]) => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -158,7 +161,7 @@ export function IslandOverviewSection({
           <CardBody className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="font-semibold text-text-primary">
-                {selectedAttraction.name}
+                {toPolishAttractionName(selectedAttraction.name, locale)}
               </p>
               <p className="mt-1 text-sm text-text-secondary">
                 {selectedAttraction.activity_tags
@@ -231,9 +234,23 @@ export function IslandOverviewSection({
             <p className="mt-3 text-sm text-amber-800">{t("island.noFilters")}</p>
           )}
           {planIds.size > 0 && (
-            <p className="mt-3 text-sm text-text-secondary">
-              {t("island.planSelected", { n: planIds.size })}
-            </p>
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-text-secondary">
+                {t("island.planSelected", { n: planIds.size })}
+              </p>
+              {onPlanTrip && (
+                <Button
+                  size="lg"
+                  onClick={() =>
+                    onPlanTrip([...planIds], filteredAttractions)
+                  }
+                >
+                  {locale === "en"
+                    ? "Plan trip with selected places →"
+                    : "Zaplanuj wyjazd z wybranymi miejscami →"}
+                </Button>
+              )}
+            </div>
           )}
         </CardBody>
       </Card>

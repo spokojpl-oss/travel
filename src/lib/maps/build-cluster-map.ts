@@ -1,5 +1,5 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
-import { clusterDisplayName } from "@/lib/search/settlement-resolver";
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import type { GeoCluster } from "@/types/domain";
 import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
 import type { IslandMapAirport } from "@/lib/maps/build-island-map";
@@ -7,17 +7,33 @@ import type { IslandMapAirport } from "@/lib/maps/build-island-map";
 export function buildClusterMapData(
   cluster: GeoCluster,
   airports: IslandMapAirport[] = [],
+  options?: {
+    selectedIds?: Set<string>;
+    locale?: "pl" | "en";
+    maxAttractions?: number;
+  },
 ): {
   points: MapPoint[];
   segments: MapRouteSegment[];
 } {
   const center = cluster.center;
-  const labelName = clusterDisplayName(cluster);
-  const attractions = cluster.attractions.slice(0, 8);
+  const locale = options?.locale ?? "pl";
+  const baseName =
+    cluster.settlement?.name ??
+    (locale === "en" ? "Lodging base" : "Baza noclegowa");
+
+  let attractions = cluster.attractions;
+  if (options?.selectedIds && options.selectedIds.size > 0) {
+    attractions = attractions.filter((a) => options.selectedIds!.has(a.id));
+  }
+
+  const limit = options?.maxAttractions ?? attractions.length;
+  const plotted = attractions.slice(0, limit);
+
   const maxDistKm =
-    attractions.length > 0
+    plotted.length > 0
       ? Math.max(
-          ...attractions.map((a) =>
+          ...plotted.map((a) =>
             distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }),
           ),
         )
@@ -27,27 +43,30 @@ export function buildClusterMapData(
     {
       id: "centroid",
       type: "centroid",
-      label: cluster.settlement?.name
-        ? `Baza pobytu: ${cluster.settlement.name}`
-        : `Baza: ${labelName}`,
+      label:
+        locale === "en"
+          ? `Lodging base: ${baseName}`
+          : `Baza noclegowa: ${baseName}`,
       lat: center.lat,
       lon: center.lon,
       badge:
         maxDistKm > 0
-          ? `Rozpiętość: ${maxDistKm.toFixed(1)} km (linia prosta)`
+          ? locale === "en"
+            ? `Spread: ${maxDistKm.toFixed(1)} km (straight line)`
+            : `Rozpiętość: ${maxDistKm.toFixed(1)} km (linia prosta)`
           : undefined,
     },
-    ...attractions.map((a) => ({
+    ...plotted.map((a) => ({
       id: a.id,
       type: "attraction" as const,
-      label: a.name.length > 28 ? `${a.name.slice(0, 28)}…` : a.name,
+      label: toPolishAttractionName(a.name, locale),
       lat: Number(a.lat),
       lon: Number(a.lon),
-      badge: `${distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }).toFixed(1)} km (linia prosta)`,
+      badge: `${distanceKm(center, { lat: Number(a.lat), lon: Number(a.lon) }).toFixed(1)} km`,
     })),
   ];
 
-  const segments: MapRouteSegment[] = attractions.map((a) => ({
+  const segments: MapRouteSegment[] = plotted.map((a) => ({
     id: `centroid-${a.id}`,
     from: "centroid",
     to: a.id,

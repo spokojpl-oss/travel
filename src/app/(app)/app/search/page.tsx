@@ -25,7 +25,12 @@ import {
 } from "@/lib/search/trip-rhythm";
 import { adviseExplorationScope } from "@/lib/search/scope-advisor";
 import { assessIslandFeasibility } from "@/lib/search/island-feasibility";
-import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
+import { storeDestinationBuildPayload, type PlanRegionContext } from "@/lib/search/destination-build-payload";
+import {
+  buildClusterFromAttractions,
+  sanitizeClusterForDestination,
+  filterAttractionsToDestinationIsland,
+} from "@/lib/plan/cluster-island-guard";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -52,6 +57,7 @@ import type {
   Activity,
   ActivityGroup,
   ActivitySearchResult,
+  AttractionWithActivities,
   GeoCluster,
 } from "@/types/domain";
 
@@ -853,14 +859,66 @@ function SearchPageContent() {
     }
   }
 
-  function openDestination(cluster: GeoCluster) {
-    storeDestinationBuildPayload(cluster.id, {
+  function regionContextFromTrip(): PlanRegionContext | undefined {
+    const region = scoredRegions.find((r) => r.id === trip.tourist_region_id);
+    if (!region) return undefined;
+    return {
+      id: region.id,
+      name_pl: region.name_pl,
+      name_en: region.name_en,
+      overview_pl: region.overview_pl,
+      overview_en: region.overview_en,
+      stay_hint_pl: region.stay_hint_pl,
+      stay_hint_en: region.stay_hint_en,
+    };
+  }
+
+  function storeAndGoToPlan(
+    buildId: string,
+    cluster: GeoCluster,
+    pool: AttractionWithActivities[],
+  ) {
+    storeDestinationBuildPayload(buildId, {
       cluster,
       activities: Array.from(selectedActivities),
+      destinationLabel: trip.destination_label ?? trip.destination ?? undefined,
+      region: regionContextFromTrip(),
+      attractionPool: pool,
+      planComplete: false,
     });
     const tripParams = tripContextToParams(trip);
-    tripParams.set("build_id", cluster.id);
+    tripParams.set("build_id", buildId);
     router.push(`/app/destination?${tripParams.toString()}`);
+  }
+
+  function openDestination(cluster: GeoCluster) {
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const sanitized = sanitizeClusterForDestination(cluster, label);
+    const pool = filterAttractionsToDestinationIsland(
+      sanitized.attractions.length > 0
+        ? sanitized.attractions
+        : cluster.attractions,
+      label,
+      sanitized.center,
+    );
+    storeAndGoToPlan(sanitized.id, { ...sanitized, attractions: pool }, pool);
+  }
+
+  function openIslandPlan(
+    selectedIds: string[],
+    pool: AttractionWithActivities[],
+  ) {
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const selected = pool.filter((a) => selectedIds.includes(a.id));
+    const cluster =
+      buildClusterFromAttractions({
+        attractions: selected.length > 0 ? selected : pool,
+        destinationLabel: label,
+        id: `island-${Date.now()}`,
+      }) ?? null;
+    if (!cluster) return;
+    const fullPool = filterAttractionsToDestinationIsland(pool, label, cluster.center);
+    storeAndGoToPlan(cluster.id, cluster, fullPool);
   }
 
   const dbReady = dataStatus?.search_ready ?? false;
@@ -1321,6 +1379,7 @@ function SearchPageContent() {
               feasibility={islandFeasibility}
               onNarrowScope={narrowScopeToRegion}
               onExtendTrip={extendTripOnHome}
+              onPlanTrip={openIslandPlan}
             />
           ) : (
             <>
@@ -1355,7 +1414,7 @@ function SearchPageContent() {
                   activityNames={activityNames}
                   locale={locale}
                   onOpen={() => openDestination(cluster)}
-                  ctaLabel="Zobacz szczegóły regionu →"
+                  ctaLabel="Zaplanuj wyjazd w tym rejonie →"
                 />
               ))}
             </>

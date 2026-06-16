@@ -1,3 +1,4 @@
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import type { AttractionWithActivities } from "@/types/domain";
 import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
 
@@ -35,10 +36,11 @@ export function buildIslandMapData({
   const plotted = attractions.slice(0, MAX_MAP_ATTRACTIONS);
   for (const a of plotted) {
     const slugs = a.activity_tags.map((t) => t.activity_slug);
+    const label = toPolishAttractionName(a.name);
     points.push({
       id: a.id,
       type: "attraction",
-      label: a.name.length > 32 ? `${a.name.slice(0, 32)}…` : a.name,
+      label: label.length > 32 ? `${label.slice(0, 32)}…` : label,
       lat: Number(a.lat),
       lon: Number(a.lon),
       activitySlugs: slugs,

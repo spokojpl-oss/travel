@@ -1,4 +1,8 @@
 import { toPolishPlaceName } from "@/lib/destinations/polish-names";
+import {
+  resolveIslandBoundaryAtPoint,
+  resolveIslandBoundaryForSearch,
+} from "@/lib/destinations/island-boundary";
 import { distanceKm } from "@/lib/search/geo-clustering";
 import {
   forwardGeocodeSettlementName,
@@ -161,6 +165,39 @@ function voteFromAttraction(
   weight: number,
 ): SettlementVote | null {
   const tags = parseTagsRecord(attraction.tags);
+
+  const weightedCandidates: Array<{ name: string; country_code?: string; w: number }> = [];
+
+  const push = (raw: string | undefined, w: number) => {
+    if (!raw || isRegionLabel(raw)) return;
+    weightedCandidates.push({
+      name: toPolishPlaceName(raw),
+      country_code: extractCountryFromTags(tags),
+      w,
+    });
+  };
+
+  push(tags["addr:suburb"], 2);
+  push(tags["addr:city"], 1.8);
+  push(tags["addr:town"], 1.8);
+  push(tags["addr:village"], 1.5);
+  push(tags["addr:hamlet"], 1.2);
+  push(tags["is_in:suburb"], 1.5);
+  push(tags["is_in:city"], 1);
+  push(tags["is_in:town"], 1);
+  push(tags["is_in:village"], 1);
+  push(tags["is_in:municipality"], 0.35);
+
+  if (weightedCandidates.length > 0) {
+    const best = weightedCandidates.sort((a, b) => b.w - a.w)[0];
+    return {
+      name: best.name,
+      country_code: best.country_code,
+      point: { lat: Number(attraction.lat), lon: Number(attraction.lon) },
+      weight: weight * best.w,
+    };
+  }
+
   const fromTags = extractSettlementFromTags(tags);
   if (fromTags) {
     return {
@@ -288,21 +325,50 @@ export async function resolveClusterSettlement(
 
 export async function enrichClusterWithSettlement(
   cluster: GeoCluster,
+  destinationLabel?: string | null,
 ): Promise<GeoCluster> {
   if (cluster.settlement?.name) {
-    return applySettlementToCluster(cluster, cluster.settlement);
+    return applySettlementToCluster(cluster, cluster.settlement, destinationLabel);
   }
 
   const settlement = await resolveClusterSettlement(cluster);
   if (!settlement) return cluster;
 
-  return applySettlementToCluster(cluster, settlement);
+  return applySettlementToCluster(cluster, settlement, destinationLabel);
+}
+
+function settlementIsPlausible(
+  settlement: ClusterSettlement,
+  cluster: GeoCluster,
+  destinationLabel?: string | null,
+): boolean {
+  const centroid = cluster.center;
+  if (distanceKm(settlement, centroid) > Math.max(cluster.radius_km * 1.5, 35)) {
+    return false;
+  }
+
+  if (destinationLabel) {
+    const target = resolveIslandBoundaryForSearch(destinationLabel, centroid);
+    const atSettlement = resolveIslandBoundaryAtPoint(settlement.lat, settlement.lon);
+    if (target && atSettlement) {
+      const a = target.name.trim().toLowerCase();
+      const b = atSettlement.name.trim().toLowerCase();
+      if (a !== b) return false;
+    }
+  }
+
+  return true;
 }
 
 function applySettlementToCluster(
   cluster: GeoCluster,
   settlement: ClusterSettlement,
+  destinationLabel?: string | null,
 ): GeoCluster {
+  if (!settlementIsPlausible(settlement, cluster, destinationLabel)) {
+    return cluster;
+  }
+
   const center = { lat: settlement.lat, lon: settlement.lon };
   const radius_km = Math.max(
     ...cluster.attractions.map((a) =>
@@ -343,10 +409,11 @@ export function clusterDisplayName(cluster: GeoCluster): string {
 
 export async function enrichClustersWithSettlements(
   clusters: GeoCluster[],
+  destinationLabel?: string | null,
 ): Promise<GeoCluster[]> {
   const out: GeoCluster[] = [];
   for (const cluster of clusters) {
-    out.push(await enrichClusterWithSettlement(cluster));
+    out.push(await enrichClusterWithSettlement(cluster, destinationLabel));
   }
   return out;
 }

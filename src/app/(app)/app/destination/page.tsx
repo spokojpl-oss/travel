@@ -22,7 +22,10 @@ import {
   mergeTripContext,
   tripContextFromParams,
 } from "@/lib/search/trip-context";
-import { loadDestinationBuildPayload } from "@/lib/search/destination-build-payload";
+import { loadDestinationBuildPayload, applyPlanToCluster, storeDestinationBuildPayload, type DestinationBuildPayload } from "@/lib/search/destination-build-payload";
+import { DestinationPlanWizard } from "@/components/features/DestinationPlanWizard";
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
+import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 
@@ -78,6 +81,10 @@ export default function DestinationPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [buildWarnings, setBuildWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [planPayload, setPlanPayload] = useState<DestinationBuildPayload | null>(
+    null,
+  );
+  const [planComplete, setPlanComplete] = useState(false);
   const startedRef = useRef(false);
 
   const buildId = searchParams.get("build_id");
@@ -103,7 +110,10 @@ export default function DestinationPage() {
 
   const clusterAttractions = useMemo(
     () =>
-      cluster?.attractions.map((a) => ({ id: a.id, name: a.name })) ?? [],
+      cluster?.attractions.map((a) => ({
+        id: a.id,
+        name: toPolishAttractionName(a.name),
+      })) ?? [],
     [cluster],
   );
   const hotelsAttractions =
@@ -114,12 +124,13 @@ export default function DestinationPage() {
 
     let parsedCluster: GeoCluster | null = null;
     let activities: string[] | null = null;
+    let storedPayload: DestinationBuildPayload | null = null;
 
     if (buildId) {
-      const stored = loadDestinationBuildPayload(buildId);
-      if (stored) {
-        parsedCluster = stored.cluster;
-        activities = stored.activities;
+      storedPayload = loadDestinationBuildPayload(buildId);
+      if (storedPayload) {
+        parsedCluster = storedPayload.cluster;
+        activities = storedPayload.activities;
       }
     }
 
@@ -129,6 +140,11 @@ export default function DestinationPage() {
           decodeURIComponent(clusterData),
         ) as GeoCluster;
         activities = JSON.parse(decodeURIComponent(activitiesParam)) as string[];
+        storedPayload = {
+          cluster: parsedCluster,
+          activities,
+          attractionPool: parsedCluster.attractions,
+        };
       } catch {
         setError("Nieprawidłowe dane URL");
         return;
@@ -143,10 +159,37 @@ export default function DestinationPage() {
     }
 
     startedRef.current = true;
-    setCluster(parsedCluster);
     setSelectedActivities(activities);
-    void startBuild(parsedCluster, activities);
+
+    if (storedPayload?.planComplete) {
+      const finalCluster = applyPlanToCluster(storedPayload);
+      setPlanPayload(storedPayload);
+      setPlanComplete(true);
+      setCluster(finalCluster);
+      void startBuild(finalCluster, activities);
+      return;
+    }
+
+    setPlanPayload(
+      storedPayload ?? {
+        cluster: parsedCluster,
+        activities,
+        attractionPool: parsedCluster.attractions,
+      },
+    );
+    setCluster(parsedCluster);
   }, [buildId, clusterData, activitiesParam]);
+
+  function handlePlanComplete(updated: DestinationBuildPayload) {
+    const finalCluster = applyPlanToCluster(updated);
+    if (buildId) {
+      storeDestinationBuildPayload(buildId, updated);
+    }
+    setPlanPayload(updated);
+    setPlanComplete(true);
+    setCluster(finalCluster);
+    void startBuild(finalCluster, updated.activities);
+  }
 
   useEffect(() => {
     if (!destination) return;
@@ -261,12 +304,15 @@ export default function DestinationPage() {
     );
   }
 
-  const mapData = cluster ? buildClusterMapData(cluster) : null;
+  const mapData =
+    cluster && planComplete ? buildClusterMapData(cluster) : null;
   const pageTitle =
     destination?.name ??
     buildTitle ??
+    planPayload?.lodgingBase?.name ??
+    planPayload?.region?.name_pl ??
     cluster?.settlement?.name ??
-    "Buduję destynację...";
+    (planComplete ? "Przygotowujemy ofertę…" : "Zaplanuj wyjazd");
 
   return (
     <PageContainer>
@@ -295,14 +341,23 @@ export default function DestinationPage() {
             {destination.timezone}
           </p>
         )}
-        {isBuilding && !destination && (
+        {isBuilding && !destination && planComplete && (
           <p className="mt-2 text-sm text-text-secondary">
             Przygotowujemy opis, pogodę i oferty podróży…
           </p>
         )}
       </header>
 
-      {mapData && (
+      {!planComplete && planPayload && (
+        <DestinationPlanWizard
+          payload={planPayload}
+          withKids={hasChildrenInPassengers(trip.passengers)}
+          onComplete={handlePlanComplete}
+          onCancel={() => router.push("/app/search")}
+        />
+      )}
+
+      {planComplete && mapData && (
         <section className="mb-8">
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
@@ -311,7 +366,7 @@ export default function DestinationPage() {
         </section>
       )}
 
-      {buildWarnings.length > 0 && (
+      {planComplete && buildWarnings.length > 0 && (
         <Card className="mb-8 border-warning/40 bg-orange-50/60">
           <CardBody className="text-sm text-text-secondary">
             <p className="font-medium text-text-primary">
@@ -326,7 +381,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {summary && (
+      {planComplete && summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -402,7 +457,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {isBuilding && !summary && (
+      {planComplete && isBuilding && !summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -411,7 +466,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {googlePlaces.length > 0 && (
+      {planComplete && googlePlaces.length > 0 && (
         <Card className="mb-8">
           <CardHeader title={`Lokalne usługi (${googlePlaces.length})`} />
           <CardBody>
@@ -428,7 +483,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {destination && trip.travel_mode === "flight" && (
+      {planComplete && destination && trip.travel_mode === "flight" && (
         <ErrorBoundary>
           <FlightsSection
             destinationId={destination.id}
@@ -441,7 +496,7 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {isBuilding && !destination && trip.travel_mode === "flight" && (
+      {planComplete && isBuilding && !destination && trip.travel_mode === "flight" && (
         <Card className="mb-8">
           <CardHeader title="Loty" />
           <CardBody>
@@ -450,7 +505,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {destination && hotelsAttractions.length > 0 && (
+      {planComplete && destination && hotelsAttractions.length > 0 && (
         <ErrorBoundary>
           <HotelsSection
             destinationId={destination.id}
@@ -463,7 +518,8 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {destination &&
+      {planComplete &&
+        destination &&
         (trip.travel_mode === "flight" ||
           (trip.travel_mode === "car" && trip.vehicle_source === "rental")) && (
           <ErrorBoundary>
@@ -480,7 +536,7 @@ export default function DestinationPage() {
           </ErrorBoundary>
         )}
 
-      {destination && hotelsAttractions.length > 0 && (
+      {planComplete && destination && hotelsAttractions.length > 0 && (
         <ErrorBoundary>
           <SaveTripSection
             destinationId={destination.id}
@@ -490,14 +546,14 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {isComplete && destination && (
+      {planComplete && isComplete && destination && (
         <p className="flex items-center gap-2 text-sm text-success">
           <Icon name="check" size={16} />
           Strona kompletna. Następnym razem załaduje się szybciej z cache.
         </p>
       )}
 
-      {isComplete && !destination && (
+      {planComplete && isComplete && !destination && (
         <Card className="border-danger/30 bg-orange-50/60">
           <CardBody className="text-sm text-text-secondary">
             <p className="font-medium text-text-primary">
