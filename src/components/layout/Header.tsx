@@ -41,14 +41,6 @@ export function Header({
               {link.label}
             </Link>
           ))}
-          {variant === "app" && isAdmin && (
-            <Link
-              href="/app/admin"
-              className="rounded-md px-3.5 py-2 text-sm font-medium text-accent-300 transition-colors hover:bg-white/5 hover:text-accent-200"
-            >
-              {t("nav.admin")}
-            </Link>
-          )}
           {variant === "app" && (
             <Link
               href="/app/groups"
@@ -81,6 +73,14 @@ export function Header({
                   {t("nav.logout")}
                 </button>
               </form>
+              {variant === "app" && isAdmin && (
+                <Link
+                  href="/app/admin"
+                  className="text-sm font-medium text-accent-300 transition-colors hover:text-accent-200"
+                >
+                  {t("nav.admin")}
+                </Link>
+              )}
             </div>
           ) : (
             <Link
@@ -130,15 +130,6 @@ export function Header({
                 {link.label}
               </Link>
             ))}
-            {variant === "app" && isAdmin && (
-              <Link
-                href="/app/admin"
-                className="block rounded-md px-3 py-2 text-base font-medium text-accent-300 hover:bg-white/10"
-                onClick={() => setMobileOpen(false)}
-              >
-                {t("nav.admin")}
-              </Link>
-            )}
             {variant === "app" && (
               <>
                 <Link
@@ -156,11 +147,22 @@ export function Header({
                   {t("nav.profile")}
                 </Link>
                 {userEmail && (
-                  <form action="/auth/logout" method="POST" className="px-3 py-2">
-                    <button type="submit" className="text-white/80">
-                      {t("nav.logout")}
-                    </button>
-                  </form>
+                  <>
+                    <form action="/auth/logout" method="POST" className="px-3 py-2">
+                      <button type="submit" className="text-white/80">
+                        {t("nav.logout")}
+                      </button>
+                    </form>
+                    {isAdmin && (
+                      <Link
+                        href="/app/admin"
+                        className="block rounded-md px-3 py-2 text-base font-medium text-accent-300 hover:bg-white/10"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        {t("nav.admin")}
+                      </Link>
+                    )}
+                  </>
                 )}
               </>
             )}

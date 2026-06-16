@@ -131,7 +131,7 @@ export function defaultTripContext(): TripContext {
   const { from, to } = defaultDateRangeFromToday(30, 7);
 
   return normalizeTripContext({
-    mode: "activities",
+    mode: "destination",
     interests: "",
     destination: null,
     destination_label: null,

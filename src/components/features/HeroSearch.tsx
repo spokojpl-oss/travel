@@ -184,16 +184,16 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         <div className="relative z-10 mx-auto max-w-4xl rounded-2xl bg-white p-1.5 shadow-hero">
           <div className="flex gap-1 border-b border-border-default px-3 pt-2">
             <TabButton
-              active={trip.mode === "activities"}
-              onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
-              label={t("hero.tabActivities")}
-              icon="target"
-            />
-            <TabButton
               active={trip.mode === "destination"}
               onClick={() => setTrip((t) => ({ ...t, mode: "destination" }))}
               label={t("hero.tabDestination")}
               icon="map-pin"
+            />
+            <TabButton
+              active={trip.mode === "activities"}
+              onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
+              label={t("hero.tabActivities")}
+              icon="target"
             />
           </div>
 
