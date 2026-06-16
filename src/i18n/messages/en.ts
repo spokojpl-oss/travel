@@ -184,6 +184,11 @@ export const en: Messages = {
     overviewUnderstand: "About the place",
     overviewWeather: "Weather for your trip",
     overviewWeatherHint: "Forecast for your dates (Open-Meteo). Full year climate below.",
+    overviewWeatherRefreshing: "Updating forecast for your new dates…",
+    overviewDateChangePrompt: "Want different dates? Weather not ideal?",
+    overviewDateCurrent: "Currently",
+    overviewDateChangeAction: "Change trip dates",
+    overviewDateChangeDone: "Done",
     overviewRainyDays: "rainy days",
     climateYearTitle: "When to go — climate all year",
     climateBestMonths: "Best months",
@@ -436,9 +441,8 @@ export const en: Messages = {
   lodgingBase: {
     mapTitle: "On the map",
     mapHint:
-      "Blue = city centre, teal = waterfront. Click a circle or number to pick your base.",
-    legendWaterfront: "By the beach",
-    legendCentre: "City centre",
+      "Click a circle or number to pick a lodging area. Green dots are your attractions, orange is the airport.",
+    legendAttractions: "Your attractions",
   },
   localServices: {
     title: "Rentals & services ({n})",

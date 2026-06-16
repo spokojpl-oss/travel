@@ -6,27 +6,33 @@ import { Icon } from "@/components/ui/Icon";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import { getGoogleMapsApiKey } from "@/lib/maps/google-maps-config";
-import type {
-  LodgingBaseChoice,
-  LodgingBaseOption,
-} from "@/lib/plan/lodging-base-options";
+import type { LodgingAreaOption } from "@/lib/plan/lodging-sub-areas";
+import type { IslandMapAirport } from "@/lib/maps/build-island-map";
 
-const BASE_COLORS: Record<LodgingBaseChoice, string> = {
-  tourist_center: "#0891b2",
-  quiet_area: "#003faa",
-};
+const AREA_COLORS = [
+  "#003faa",
+  "#0891b2",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#dc2626",
+];
 
 type LodgingBaseMapProps = {
-  options: LodgingBaseOption[];
-  selectedChoice: LodgingBaseChoice | null;
-  onSelect: (choice: LodgingBaseChoice) => void;
+  options: LodgingAreaOption[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  attractions?: Array<{ id: string; name: string; lat: number; lon: number }>;
+  airports?: IslandMapAirport[];
   className?: string;
 };
 
 export function LodgingBaseMap({
   options,
-  selectedChoice,
+  selectedId,
   onSelect,
+  attractions = [],
+  airports = [],
   className,
 }: LodgingBaseMapProps) {
   const apiKey = getGoogleMapsApiKey();
@@ -43,10 +49,12 @@ export function LodgingBaseMap({
 
   const optionsKey = useMemo(
     () =>
-      options
-        .map((o) => `${o.choice}:${o.lat},${o.lon}:${o.radiusKm}`)
-        .join("|"),
-    [options],
+      [
+        options.map((o) => `${o.id}:${o.lat},${o.lon}:${o.radiusKm}`).join("|"),
+        attractions.map((a) => `${a.id}:${a.lat},${a.lon}`).join("|"),
+        airports.map((a) => a.iata_code).join("|"),
+      ].join(";"),
+    [options, attractions, airports],
   );
 
   useEffect(() => {
@@ -100,10 +108,48 @@ export function LodgingBaseMap({
 
     const bounds = new maps.LatLngBounds();
 
+    for (const airport of airports) {
+      const pos = { lat: airport.lat, lng: airport.lon };
+      bounds.extend(pos);
+      const marker = new maps.Marker({
+        map,
+        position: pos,
+        title: `${airport.name} (${airport.iata_code})`,
+        icon: {
+          path: maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: "#ea580c",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+      });
+      overlaysRef.current.push(marker);
+    }
+
+    for (const attraction of attractions) {
+      const pos = { lat: attraction.lat, lng: attraction.lon };
+      bounds.extend(pos);
+      const marker = new maps.Marker({
+        map,
+        position: pos,
+        title: attraction.name,
+        icon: {
+          path: maps.SymbolPath.CIRCLE,
+          scale: 5,
+          fillColor: "#16a34a",
+          fillOpacity: 0.85,
+          strokeColor: "#ffffff",
+          strokeWeight: 1,
+        },
+      });
+      overlaysRef.current.push(marker);
+    }
+
     options.forEach((option, index) => {
       const center = { lat: option.lat, lng: option.lon };
-      const isSelected = selectedChoice === option.choice;
-      const color = BASE_COLORS[option.choice];
+      const isSelected = selectedId === option.id;
+      const color = AREA_COLORS[index % AREA_COLORS.length]!;
 
       bounds.extend(center);
 
@@ -112,21 +158,21 @@ export function LodgingBaseMap({
         center,
         radius: option.radiusKm * 1000,
         strokeColor: color,
-        strokeOpacity: isSelected ? 1 : 0.75,
+        strokeOpacity: isSelected ? 1 : 0.7,
         strokeWeight: isSelected ? 4 : 2,
         fillColor: color,
-        fillOpacity: isSelected ? 0.28 : 0.12,
+        fillOpacity: isSelected ? 0.3 : 0.1,
         clickable: true,
       });
 
       circle.addListener("click", () => {
-        onSelectRef.current(option.choice);
+        onSelectRef.current(option.id);
       });
 
       const marker = new maps.Marker({
         map,
         position: center,
-        title: option.label,
+        title: option.name,
         label: {
           text: String(index + 1),
           color: "#ffffff",
@@ -135,7 +181,7 @@ export function LodgingBaseMap({
         },
         icon: {
           path: maps.SymbolPath.CIRCLE,
-          scale: isSelected ? 14 : 12,
+          scale: isSelected ? 15 : 13,
           fillColor: color,
           fillOpacity: 1,
           strokeColor: isSelected ? "#1e293b" : "#ffffff",
@@ -144,14 +190,14 @@ export function LodgingBaseMap({
       });
 
       marker.addListener("click", () => {
-        onSelectRef.current(option.choice);
+        onSelectRef.current(option.id);
       });
 
       overlaysRef.current.push(circle, marker);
     });
 
-    map.fitBounds(bounds, 56);
-  }, [mapReady, options, optionsKey, selectedChoice]);
+    map.fitBounds(bounds, 64);
+  }, [mapReady, options, optionsKey, selectedId, attractions, airports]);
 
   if (options.length === 0) return null;
 
@@ -168,24 +214,34 @@ export function LodgingBaseMap({
           {t("lodgingBase.mapTitle")}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-          {options.map((option) => (
-            <span key={option.choice} className="inline-flex items-center gap-1.5">
+          {options.map((option, index) => (
+            <span key={option.id} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: BASE_COLORS[option.choice] }}
+                style={{ backgroundColor: AREA_COLORS[index % AREA_COLORS.length] }}
               />
-              {option.choice === "tourist_center"
-                ? t("lodgingBase.legendWaterfront")
-                : t("lodgingBase.legendCentre")}
+              {option.name}
             </span>
           ))}
+          {airports.length > 0 && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-600" />
+              {t("map.legendAirport")}
+            </span>
+          )}
+          {attractions.length > 0 && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-600" />
+              {t("lodgingBase.legendAttractions")}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="relative">
         <div
           ref={containerRef}
-          style={{ height: 360 }}
+          style={{ height: 420 }}
           className="z-0 w-full bg-bg-soft"
         />
         {mapError && (

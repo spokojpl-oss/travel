@@ -23,6 +23,9 @@ export function DestinationOverviewPanel({
   onRetry,
   waitingForCoords = false,
   tripDays,
+  departureDate,
+  returnDate,
+  onDatesChange,
   onChooseActivities,
 }: {
   destinationLabel: string;
@@ -34,6 +37,9 @@ export function DestinationOverviewPanel({
   onRetry?: () => void;
   waitingForCoords?: boolean;
   tripDays?: number;
+  departureDate?: string;
+  returnDate?: string | null;
+  onDatesChange?: (departure: string, returnDate: string | null) => void;
   onChooseActivities: () => void;
 }) {
   const t = useT();
@@ -51,7 +57,8 @@ export function DestinationOverviewPanel({
     });
   }, [destinationLabel, locale]);
 
-  const loading = waitingForCoords || discovering || !discovery;
+  const loading = waitingForCoords || (discovering && !discovery);
+  const refreshingWeather = discovering && discovery != null;
 
   if (loading) {
     return (
@@ -87,23 +94,35 @@ export function DestinationOverviewPanel({
 
       <DestinationStoryHero story={story} tripDays={tripDays} />
 
-      {discovery.weather && (
+      {(discovery?.weather || refreshingWeather) && (
         <Card className="mb-6 border-brand-100 bg-brand-50/40">
           <CardHeader title={t("search.overviewWeather")} />
           <CardBody className="text-sm text-text-secondary">
-            <p>
-              {discovery.weather.date_from} – {discovery.weather.date_to}:{" "}
-              <strong className="text-text-primary">
-                {discovery.weather.avg_temp_min}–{discovery.weather.avg_temp_max}°C
-              </strong>
-              {discovery.weather.rainy_days > 0 &&
-                ` · ${discovery.weather.rainy_days} ${t("search.overviewRainyDays")}`}
-              {discovery.weather.avg_uv_index > 5 &&
-                ` · UV ~${discovery.weather.avg_uv_index}`}
-            </p>
-            <p className="mt-1 text-xs text-text-tertiary">
-              {t("search.overviewWeatherHint")}
-            </p>
+            {refreshingWeather && !discovery?.weather ? (
+              <p>{t("search.overviewWeatherRefreshing")}</p>
+            ) : discovery?.weather ? (
+              <>
+                <p className={refreshingWeather ? "opacity-60" : undefined}>
+                  {discovery.weather.date_from} – {discovery.weather.date_to}:{" "}
+                  <strong className="text-text-primary">
+                    {discovery.weather.avg_temp_min}–
+                    {discovery.weather.avg_temp_max}°C
+                  </strong>
+                  {discovery.weather.rainy_days > 0 &&
+                    ` · ${discovery.weather.rainy_days} ${t("search.overviewRainyDays")}`}
+                  {discovery.weather.avg_uv_index > 5 &&
+                    ` · UV ~${discovery.weather.avg_uv_index}`}
+                </p>
+                {refreshingWeather && (
+                  <p className="mt-2 text-xs text-brand-700">
+                    {t("search.overviewWeatherRefreshing")}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-text-tertiary">
+                  {t("search.overviewWeatherHint")}
+                </p>
+              </>
+            ) : null}
           </CardBody>
         </Card>
       )}
@@ -112,9 +131,13 @@ export function DestinationOverviewPanel({
         destinationLabel={destinationLabel}
         lat={destinationLat}
         lon={destinationLon}
+        departureDate={departureDate}
+        returnDate={returnDate}
+        onDatesChange={onDatesChange}
       />
 
-      {!discovery.summary.includes("krótki przegląd przed wyborem") &&
+      {discovery &&
+        !discovery.summary.includes("krótki przegląd przed wyborem") &&
         !discovery.summary.includes("quick snapshot before") && (
           <Card className="mb-6">
             <CardHeader title={t("search.overviewUnderstand")} />

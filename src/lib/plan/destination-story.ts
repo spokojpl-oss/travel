@@ -155,9 +155,7 @@ export function resolveDestinationStory({
         ? `${place} — ${regionDisplayName(top, locale)} i okolice`
         : `${place} — ${regionDisplayName(top, locale)} and beyond`,
       phenomenon: pl ? top.overview_pl : top.overview_en,
-      intro: pl
-        ? "Wybierz miejsca, które chcesz zobaczyć — potem zaproponujemy bazę noclegową i trasy."
-        : "Pick the places you want to see — then we'll suggest a base and routes.",
+      intro: "",
       heroImageUrl: resolveCuratedHeroImageUrl(destinationLabel),
       regionHighlights,
     };

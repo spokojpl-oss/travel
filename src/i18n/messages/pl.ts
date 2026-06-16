@@ -182,6 +182,11 @@ export const pl = {
     overviewUnderstand: "O miejscu",
     overviewWeather: "Pogoda na wyjazd",
     overviewWeatherHint: "Prognoza na wybrane daty (Open-Meteo). Pełny klimat roczny poniżej.",
+    overviewWeatherRefreshing: "Aktualizujemy prognozę na nowe daty…",
+    overviewDateChangePrompt: "Chcesz zmienić datę? Pogoda nie sprzyja?",
+    overviewDateCurrent: "Obecnie",
+    overviewDateChangeAction: "Zmień daty wyjazdu",
+    overviewDateChangeDone: "Gotowe",
     overviewRainyDays: "dni z opadami",
     climateYearTitle: "Kiedy jechać — klimat przez cały rok",
     climateBestMonths: "Najlepsze miesiące",
@@ -437,9 +442,8 @@ export const pl = {
   lodgingBase: {
     mapTitle: "Gdzie na mapie?",
     mapHint:
-      "Niebieski = centrum, turkus = nabrzeże. Kliknij okrąg lub numer — wybierz bazę noclegową.",
-    legendWaterfront: "Przy plaży",
-    legendCentre: "Centrum miasta",
+      "Kliknij okrąg lub numer — wybierz rejon noclegowy. Zielone punkty to Twoje atrakcje, pomarańczowy to lotnisko.",
+    legendAttractions: "Twoje atrakcje",
   },
   localServices: {
     title: "Wypożyczalnie i usługi ({n})",

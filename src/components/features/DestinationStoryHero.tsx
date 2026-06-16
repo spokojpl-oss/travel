@@ -66,7 +66,9 @@ export function DestinationStoryHero({
 
       <div className="space-y-4 bg-white p-6 sm:p-8">
         <p className="text-lg leading-relaxed text-text-primary">{story.phenomenon}</p>
-        <p className="text-sm leading-relaxed text-text-secondary">{story.intro}</p>
+        {story.intro.trim() && (
+          <p className="text-sm leading-relaxed text-text-secondary">{story.intro}</p>
+        )}
 
         {(tripDays != null || (badges && badges.length > 0)) && (
           <div className="flex flex-wrap gap-2 pt-1">

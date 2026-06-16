@@ -19,9 +19,10 @@ import { centroidOfTouristRegions } from "@/lib/plan/tourist-region-anchor";
 import { matchingRegionsForDestination } from "@/lib/plan/destination-story";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 import {
-  computeLodgingBaseOptions,
-  type LodgingBaseChoice,
-} from "@/lib/plan/lodging-base-options";
+  computeLodgingAreaOptions,
+  lodgingDistancesFromArea,
+  type LodgingAreaOption,
+} from "@/lib/plan/lodging-sub-areas";
 import { LodgingBaseMap } from "@/components/features/LodgingBaseMap";
 import {
   defaultExplorationScope,
@@ -103,8 +104,8 @@ export function DestinationPlanWizard({
   const tripDays = payload.tripDays ?? 5;
 
   const [step, setStep] = useState<WizardStep>("discover");
-  const [baseChoice, setBaseChoice] = useState<LodgingBaseChoice | null>(
-    payload.lodgingBase?.choice ?? null,
+  const [baseChoice, setBaseChoice] = useState<string | null>(
+    payload.lodgingBase?.areaId ?? payload.lodgingBase?.choice ?? null,
   );
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
@@ -143,33 +144,82 @@ export function DestinationPlanWizard({
     [rawPool, selectedPoolIds],
   );
 
-  const baseOptions = useMemo(
-    () =>
-      computeLodgingBaseOptions(selectedAttractions.length > 0 ? selectedAttractions : rawPool, {
-        withKids,
-        locale,
-        cluster: payload.cluster,
-        destinationLabel: payload.destinationLabel,
-        stayRadiusKm: payload.stayRadiusKm,
-      }),
-    [
-      selectedAttractions,
-      rawPool,
-      withKids,
+  const baseOptions = useMemo(() => {
+    const fromRegions = computeLodgingAreaOptions(matchedRegions, {
+      attractions:
+        selectedAttractions.length > 0 ? selectedAttractions : rawPool,
       locale,
-      payload.cluster,
-      payload.destinationLabel,
-      payload.stayRadiusKm,
-    ],
-  );
+      stayRadiusKm: payload.stayRadiusKm,
+    });
+    if (fromRegions.length > 0) return fromRegions;
 
-  useEffect(() => {
-    if (baseOptions.length === 1 && !baseChoice) {
-      setBaseChoice(baseOptions[0]!.choice);
+    if (payload.region) {
+      const r = payload.region;
+      return [
+        {
+          id: r.id ?? "custom-region",
+          lat: payload.cluster.center.lat,
+          lon: payload.cluster.center.lon,
+          name: pl ? r.name_pl : r.name_en,
+          description_pl: r.stay_hint_pl,
+          description_en: r.stay_hint_en,
+          radiusKm: payload.stayRadiusKm ?? 5,
+          parentRegion: {
+            id: r.id ?? "custom-region",
+            name_pl: r.name_pl,
+            name_en: r.name_en,
+            overview_pl: r.overview_pl,
+            overview_en: r.overview_en,
+            stay_hint_pl: r.stay_hint_pl,
+            stay_hint_en: r.stay_hint_en,
+          },
+        },
+      ];
     }
-  }, [baseOptions, baseChoice]);
 
-  const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
+    return [];
+  }, [
+    matchedRegions,
+    selectedAttractions,
+    rawPool,
+    locale,
+    payload.stayRadiusKm,
+    payload.region,
+    payload.cluster.center,
+    pl,
+  ]);
+
+  const selectedBase = baseOptions.find((o) => o.id === baseChoice);
+
+  const primaryRegionOverview = useMemo(() => {
+    if (matchedRegions.length === 0) return null;
+    const r = matchedRegions[0]!;
+    return {
+      name: pl ? r.name_pl : r.name_en,
+      overview: pl ? r.overview_pl : r.overview_en,
+      areaLabel: pl ? r.area_label_pl : r.area_label_en,
+    };
+  }, [matchedRegions, pl]);
+
+  const lodgingDistances = useMemo(() => {
+    if (!selectedBase) return null;
+    return lodgingDistancesFromArea(
+      selectedBase,
+      selectedAttractions,
+      payload.airports ?? [],
+    );
+  }, [selectedBase, selectedAttractions, payload.airports]);
+
+  const mapAttractions = useMemo(
+    () =>
+      selectedAttractions.map((a) => ({
+        id: a.id,
+        name: a.name,
+        lat: Number(a.lat),
+        lon: Number(a.lon),
+      })),
+    [selectedAttractions],
+  );
 
   const poolWithMeta = useMemo(() => {
     if (!selectedBase) return rawPool;
@@ -192,7 +242,7 @@ export function DestinationPlanWizard({
         ? { lat: base.lat, lon: base.lon }
         : payload.cluster.center,
       settlement: base
-        ? { name: base.label, lat: base.lat, lon: base.lon }
+        ? { name: base.name, lat: base.lat, lon: base.lon }
         : payload.cluster.settlement,
       attractions: selectedFromPool,
     };
@@ -232,8 +282,9 @@ export function DestinationPlanWizard({
       lodgingBase: {
         lat: selectedBase.lat,
         lon: selectedBase.lon,
-        name: selectedBase.label,
-        choice: selectedBase.choice,
+        name: selectedBase.name,
+        choice: selectedBase.id,
+        areaId: selectedBase.id,
       },
       selectedAttractionIds: selectedPoolIds,
       cluster: draftCluster,
@@ -298,66 +349,63 @@ export function DestinationPlanWizard({
 
       {step === "base" && (
         <>
-          {baseOptions.length > 1 && (
-            <LodgingBaseMap
-              options={baseOptions}
-              selectedChoice={baseChoice}
-              onSelect={setBaseChoice}
-            />
+          {primaryRegionOverview && (
+            <Card className="border-brand-100 bg-brand-50/30">
+              <CardHeader title={primaryRegionOverview.name} />
+              <CardBody className="space-y-2 text-sm text-text-secondary">
+                {primaryRegionOverview.areaLabel && (
+                  <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
+                    {primaryRegionOverview.areaLabel}
+                  </p>
+                )}
+                <p className="leading-relaxed text-text-primary">
+                  {primaryRegionOverview.overview}
+                </p>
+              </CardBody>
+            </Card>
           )}
+
+          <LodgingBaseMap
+            options={baseOptions}
+            selectedId={baseChoice}
+            onSelect={setBaseChoice}
+            attractions={mapAttractions}
+            airports={payload.airports ?? []}
+          />
 
           <Card>
             <CardHeader
-              title={pl ? "Gdzie się zatrzymać?" : "Where to stay?"}
+              title={pl ? "Gdzie szukać noclegu?" : "Where to look for a stay?"}
             />
             <CardBody className="space-y-4">
               <p className="text-sm leading-relaxed text-text-secondary">
                 {pl
-                  ? "Centrum miasta czy nabrzeże — wybierz bazę noclegową. Okręgi na mapie pokazują okolicę hoteli (~kilka km)."
-                  : "City centre or waterfront — pick your lodging base. Circles on the map show the hotel search area (~a few km)."}
+                  ? "Twój wybrany rejon podzielony na miejsca noclegowe — kliknij na mapie lub poniżej. Potem wyszukaj hotel na Booking w tej okolicy."
+                  : "Your region split into lodging areas — click on the map or below. Then search Booking in that area."}
               </p>
 
               {baseOptions.map((option, index) => (
-                <button
-                  key={option.choice}
-                  type="button"
-                  onClick={() => setBaseChoice(option.choice)}
-                  className={cn(
-                    "w-full rounded-xl border p-4 text-left transition-colors",
-                    baseChoice === option.choice
-                      ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
-                      : "border-border-default hover:border-brand-300",
-                  )}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    {baseOptions.length > 1 && (
-                      <span
-                        className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white",
-                          option.choice === "tourist_center"
-                            ? "bg-cyan-600"
-                            : "bg-brand-700",
-                        )}
-                      >
-                        {index + 1}
-                      </span>
-                    )}
-                    <p className="font-semibold text-text-primary">{option.label}</p>
-                  </div>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    {pl ? option.hint_pl : option.hint_en}
-                  </p>
-                </button>
+                <LodgingAreaCard
+                  key={option.id}
+                  option={option}
+                  index={index}
+                  selected={baseChoice === option.id}
+                  pl={pl}
+                  distances={
+                    baseChoice === option.id ? lodgingDistances : null
+                  }
+                  onSelect={() => setBaseChoice(option.id)}
+                />
               ))}
 
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button variant="ghost" onClick={() => setStep("discover")}>
-                {pl ? "← Zmień miejsca" : "← Change places"}
-              </Button>
-              <Button disabled={!baseChoice} onClick={() => setStep("plan")}>
-                {pl ? "Dalej — zobacz trasy" : "Next — see routes"}
-              </Button>
-            </div>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button variant="ghost" onClick={() => setStep("discover")}>
+                  {pl ? "← Zmień miejsca" : "← Change places"}
+                </Button>
+                <Button disabled={!baseChoice} onClick={() => setStep("plan")}>
+                  {pl ? "Dalej — zobacz trasy" : "Next — see routes"}
+                </Button>
+              </div>
             </CardBody>
           </Card>
         </>
@@ -403,6 +451,107 @@ export function DestinationPlanWizard({
         </>
       )}
     </div>
+  );
+}
+
+function LodgingAreaCard({
+  option,
+  index,
+  selected,
+  pl,
+  distances,
+  onSelect,
+}: {
+  option: LodgingAreaOption;
+  index: number;
+  selected: boolean;
+  pl: boolean;
+  distances: ReturnType<typeof lodgingDistancesFromArea> | null;
+  onSelect: () => void;
+}) {
+  const colors = ["bg-brand-700", "bg-cyan-600", "bg-violet-600", "bg-emerald-600"];
+  const description = pl ? option.description_pl : option.description_en;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full rounded-xl border p-4 text-left transition-colors",
+        selected
+          ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
+          : "border-border-default hover:border-brand-300",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white",
+            colors[index % colors.length],
+          )}
+        >
+          {index + 1}
+        </span>
+        <p className="font-semibold text-text-primary">{option.name}</p>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+        {description}
+      </p>
+
+      {selected && distances && (
+        <div className="mt-4 space-y-3 border-t border-brand-100 pt-3">
+          {distances.airports.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                {pl ? "Od lotniska" : "From airport"}
+              </p>
+              <ul className="mt-1 space-y-1">
+                {distances.airports.map((row) => (
+                  <li key={row.id} className="text-sm text-text-primary">
+                    <span className="font-medium">{row.label}</span>
+                    <span className="text-text-secondary">
+                      {" "}
+                      — {row.km.toFixed(1)} km
+                      {pl
+                        ? ` (~${row.driveMinutes} min jazdy)`
+                        : ` (~${row.driveMinutes} min drive)`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {distances.attractions.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                {pl ? "Do wybranych miejsc" : "To your selected places"}
+              </p>
+              <ul className="mt-1 max-h-48 space-y-1 overflow-y-auto">
+                {distances.attractions.map((row) => (
+                  <li key={row.id} className="text-sm text-text-primary">
+                    <span className="font-medium">{row.label}</span>
+                    <span className="text-text-secondary">
+                      {" "}
+                      — {row.km.toFixed(1)} km
+                      {pl
+                        ? ` (~${row.driveMinutes} min)`
+                        : ` (~${row.driveMinutes} min)`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="rounded-lg bg-white/80 px-3 py-2 text-xs text-brand-800">
+            {pl
+              ? `Szukaj noclegu na Booking: „${option.name}”`
+              : `Search Booking for: “${option.name}”`}
+          </p>
+        </div>
+      )}
+    </button>
   );
 }
 

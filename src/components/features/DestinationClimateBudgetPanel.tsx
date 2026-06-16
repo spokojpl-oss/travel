@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { OverviewInlineDateChange } from "@/components/features/OverviewInlineDateChange";
 import type { DestinationProfileResponse } from "@/lib/destinations/destination-profile";
+import { cn } from "@/lib/utils/cn";
 import { useT } from "@/i18n/locale-provider";
 
 const RATING_COLORS: Record<string, string> = {
@@ -18,14 +20,35 @@ function formatPln(value: number | null | undefined): string {
   return `${Math.round(value)} zł`;
 }
 
+function monthsInTripRange(
+  departureDate: string,
+  returnDate: string | null,
+): Set<number> {
+  const from = new Date(`${departureDate}T12:00:00`);
+  const to = new Date(`${returnDate ?? departureDate}T12:00:00`);
+  const months = new Set<number>();
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    months.add(cursor.getMonth() + 1);
+    cursor.setMonth(cursor.getMonth() + 1, 1);
+  }
+  return months;
+}
+
 export function DestinationClimateBudgetPanel({
   destinationLabel,
   lat,
   lon,
+  departureDate,
+  returnDate,
+  onDatesChange,
 }: {
   destinationLabel: string;
   lat?: number | null;
   lon?: number | null;
+  departureDate?: string;
+  returnDate?: string | null;
+  onDatesChange?: (departure: string, returnDate: string | null) => void;
 }) {
   const t = useT();
   const [profile, setProfile] = useState<DestinationProfileResponse | null>(
@@ -93,6 +116,9 @@ export function DestinationClimateBudgetPanel({
   }
 
   const { climate, budget } = profile;
+  const tripMonths = departureDate
+    ? monthsInTripRange(departureDate, returnDate ?? null)
+    : new Set<number>();
 
   return (
     <div className="mb-6 space-y-6">
@@ -131,7 +157,11 @@ export function DestinationClimateBudgetPanel({
                   {climate.monthly.map((row) => (
                     <tr
                       key={row.month}
-                      className="border-b border-border-default/60"
+                      className={cn(
+                        "border-b border-border-default/60",
+                        tripMonths.has(row.month) &&
+                          "bg-brand-50/70 font-medium",
+                      )}
                     >
                       <td className="py-2 pr-2 font-medium text-text-primary">
                         {row.month_name}
@@ -160,6 +190,14 @@ export function DestinationClimateBudgetPanel({
             </div>
           </CardBody>
         </Card>
+      )}
+
+      {departureDate && onDatesChange && (
+        <OverviewInlineDateChange
+          departureDate={departureDate}
+          returnDate={returnDate ?? null}
+          onDatesChange={onDatesChange}
+        />
       )}
 
       {budget && (

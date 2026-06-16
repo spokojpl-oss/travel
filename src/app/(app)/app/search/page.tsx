@@ -446,7 +446,6 @@ function SearchPageContent() {
     let cancelled = false;
     discoveryFetchInFlight.current = cacheKey;
     setDiscovering(true);
-    setDiscovery(null);
     setDiscoveryError(null);
 
     const controller = new AbortController();
@@ -719,6 +718,23 @@ function SearchPageContent() {
       return next;
     });
     setSelectedActivities(new Set());
+  }
+
+  function handleOverviewDatesChange(
+    departure: string,
+    returnDate: string | null,
+  ) {
+    discoveryCacheKey.current = null;
+    discoveryFailedKey.current = null;
+    setTrip((prev) => {
+      const next = {
+        ...prev,
+        departure_date: departure,
+        return_date: returnDate,
+      };
+      syncUrl(next, step);
+      return next;
+    });
   }
 
   function goToRhythmStep() {
@@ -1105,6 +1121,10 @@ function SearchPageContent() {
     selectedAttractionIds?: string[],
   ) {
     const searchRadii = getSearchParams();
+    const airports =
+      results?.airports ??
+      results?.island_overview?.airports ??
+      [];
     storeDestinationBuildPayload(buildId, {
       cluster,
       activities: Array.from(selectedActivities),
@@ -1126,6 +1146,7 @@ function SearchPageContent() {
         trip.departure_date,
         trip.return_date ?? trip.departure_date,
       ),
+      airports,
     });
     const tripParams = tripContextToParams(trip);
     tripParams.set("build_id", buildId);
@@ -1341,6 +1362,9 @@ function SearchPageContent() {
           discovery={discovery}
           discoveryError={discoveryError}
           tripDays={tripDays}
+          departureDate={trip.departure_date}
+          returnDate={trip.return_date}
+          onDatesChange={handleOverviewDatesChange}
           onRetry={() => {
             discoveryCacheKey.current = null;
             discoveryFailedKey.current = null;

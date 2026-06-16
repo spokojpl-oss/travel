@@ -28,7 +28,15 @@ export type DestinationBuildPayload = {
     lon: number;
     name: string;
     choice: LodgingBaseChoice;
+    areaId?: string;
   };
+  /** Lotniska destynacji — odległości na kroku bazy noclegowej */
+  airports?: Array<{
+    iata_code: string;
+    name: string;
+    lat: number;
+    lon: number;
+  }>;
   planComplete?: boolean;
   /** Po enrich z /api/search/plan-pool — surowy pool bez metadanych od bazy. */
   poolEnriched?: boolean;
