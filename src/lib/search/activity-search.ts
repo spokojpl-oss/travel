@@ -571,12 +571,7 @@ export async function searchActivities(
       SUPPLEMENT_BUDGET_MS,
       remainingMs(startTime, SEARCH_TIME_BUDGET_MS) - 8_000,
     );
-    if (
-      !attemptedEmptyFill &&
-      missing.length > 0 &&
-      supplementBudget > 2_000 &&
-      (tagRows.length === 0 || missing.length === effectiveQuery.activities.length)
-    ) {
+    if (missing.length > 0 && supplementBudget > 2_000) {
       const supplemented = await supplementMissingActivities(
         effectiveQuery,
         missing,

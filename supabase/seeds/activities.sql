@@ -76,6 +76,7 @@ insert into activity_osm_mappings (activity_slug, osm_query, priority) values
   ('surfing', '["sport"="surfing"]', 1),
   ('jet_ski', '["leisure"="marina"]', 1),
   ('boat_tour', '["tourism"="attraction"]["attraction"="boat_tour"]', 1),
+  ('quads', '["tourism"="attraction"]["name"~"quad|ATV|quadbike"]', 1),
   ('quads', '["sport"="motocross"]', 2),
   ('quads', '["leisure"="adventure_park"]', 2),
   ('buggies', '["sport"="motor"]', 2),

@@ -21,7 +21,7 @@ const GOOGLE_QUERIES_BY_ACTIVITY: Record<string, string[]> = {
   viewpoints: ["scenic viewpoint", "mirador"],
   caves: ["cave tour", "show cave"],
   waterfalls: ["waterfall"],
-  quads: ["ATV quad tour", "quad rental"],
+  quads: ["ATV quad tour", "quad rental", "alquiler quad"],
   buggies: ["buggy tour", "dune buggy"],
   kayaking: ["kayak rental", "kayak tour"],
   paddleboard: ["paddleboard rental SUP"],

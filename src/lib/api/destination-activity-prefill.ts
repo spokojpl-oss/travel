@@ -79,7 +79,10 @@ export async function ensureDestinationActivities({
       destinationLabel,
       searchBbox,
       islandBbox: island?.bbox,
-      onlySlugs: slugs.slice(0, 6),
+      onlySlugs:
+        activitySlugs.length > 0
+          ? activitySlugs
+          : slugs.slice(0, 6),
       maxConcurrent: 4,
     }).catch(() => ({ persisted: 0, tagged: 0 }));
   }
