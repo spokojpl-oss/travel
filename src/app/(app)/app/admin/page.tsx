@@ -40,11 +40,45 @@ type ScrapeResponse = {
   detail?: string;
 };
 
+type CoverageReport = {
+  totals: { attractions: number; tags: number };
+  destinations: Array<{
+    name: string;
+    country: string;
+    region: string | null;
+    attractions: number;
+    tags: number;
+    status: "ok" | "sparse" | "empty" | "untagged";
+  }>;
+  europeRegions: Array<{
+    name: string;
+    attractions: number;
+    taggedAttractions: number;
+    tags: number;
+    needsScrape: boolean;
+  }>;
+  emptyDestinations: string[];
+  regionsNeedingScrape: string[];
+};
+
+const EUROPE_SCRAPE_BUTTONS = [
+  { label: "Europa (wszystko)", param: "europe=true" },
+  { label: "Grecja + Cypr", bbox: "Greece + Cyprus" },
+  { label: "Bałkany (Chorwacja, Albania…)", bbox: "Balkans" },
+  { label: "Włochy + Malta", bbox: "Italy + Malta" },
+  { label: "Francja + Benelux", bbox: "France + Benelux" },
+  { label: "Hiszpania + Wyspy", bbox: "Iberia + Madeira + Canary" },
+  { label: "Turcja", bbox: "Turkey" },
+  { label: "Polska + sąsiedzi", bbox: "Poland + neighbors" },
+] as const;
+
 export default function AdminSetupPage() {
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<ScrapeResponse | null>(null);
+  const [coverage, setCoverage] = useState<CoverageReport | null>(null);
+  const [coverageLoading, setCoverageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadStatus() {
@@ -66,14 +100,30 @@ export default function AdminSetupPage() {
     loadStatus();
   }, []);
 
-  async function runScrape(bbox?: string) {
+  async function loadCoverage() {
+    setCoverageLoading(true);
+    try {
+      const r = await fetch("/api/admin/osm-audit");
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+      setCoverage(data as CoverageReport);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCoverageLoading(false);
+    }
+  }
+
+  async function runScrape(bbox?: string, europe = false) {
     setScraping(true);
     setScrapeResult(null);
     setError(null);
     try {
-      const url = bbox
-        ? `/api/admin/initial-scrape?bbox=${encodeURIComponent(bbox)}`
-        : "/api/admin/initial-scrape";
+      const url = europe
+        ? "/api/admin/initial-scrape?europe=true"
+        : bbox
+          ? `/api/admin/initial-scrape?bbox=${encodeURIComponent(bbox)}`
+          : "/api/admin/initial-scrape";
       const r = await fetch(url, { method: "POST" });
       const data = (await r.json()) as ScrapeResponse;
       setScrapeResult(data);
@@ -81,6 +131,7 @@ export default function AdminSetupPage() {
         setError(data.error ?? `HTTP ${r.status}`);
       }
       await loadStatus();
+      await loadCoverage();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -178,43 +229,124 @@ export default function AdminSetupPage() {
           </Card>
 
           {status.user.is_admin && status.service_role_ok && (
-            <Card className="mb-6">
-              <CardHeader title="Uruchom scrape" />
-              <CardBody className="space-y-4">
-                <p className="text-sm text-text-secondary">
-                  Najpierw test na Polsce (~3 min), potem pełny scrape (~15–20
-                  min). Nie zamykaj karty podczas działania.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    size="sm"
-                    disabled={scraping}
-                    onClick={() => runScrape("Poland + neighbors")}
-                  >
-                    {scraping ? "Trwa..." : "Scrape: Polska"}
-                  </Button>
+            <>
+              <Card className="mb-6">
+                <CardHeader title="Pokrycie OSM — destynacje europejskie" />
+                <CardBody className="space-y-4">
+                  <p className="text-sm text-text-secondary">
+                    Sprawdza każdą destynację z katalogu (Cypr, Chorwacja, Włochy,
+                    Francja…) i regiony scrape. Puste regiony trzeba uzupełnić
+                    przyciskiem poniżej.
+                  </p>
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={scraping}
-                    onClick={() => runScrape()}
+                    disabled={coverageLoading || scraping}
+                    onClick={loadCoverage}
                   >
-                    {scraping ? "Trwa..." : "Scrape: wszystkie regiony"}
+                    {coverageLoading ? "Sprawdzam..." : "Sprawdź pokrycie"}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={scraping}
-                    onClick={runTaggingOnly}
-                  >
-                    Tylko tagowanie
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={loadStatus}>
-                    Odśwież status
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
+
+                  {coverage && (
+                    <div className="space-y-4 text-sm">
+                      {coverage.emptyDestinations.length > 0 && (
+                        <p className="text-warning">
+                          <strong>Puste destynacje:</strong>{" "}
+                          {coverage.emptyDestinations.join(", ")}
+                        </p>
+                      )}
+                      {coverage.regionsNeedingScrape.length > 0 && (
+                        <p className="text-warning">
+                          <strong>Regiony do scrape:</strong>{" "}
+                          {coverage.regionsNeedingScrape.join(", ")}
+                        </p>
+                      )}
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[32rem] text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-border-default text-text-tertiary">
+                              <th className="py-2 pr-3">Destynacja</th>
+                              <th className="py-2 pr-3">Atrakcje</th>
+                              <th className="py-2 pr-3">Tagi</th>
+                              <th className="py-2">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {coverage.destinations.map((d) => (
+                              <tr
+                                key={d.name}
+                                className="border-b border-border-default/60"
+                              >
+                                <td className="py-1.5 pr-3">
+                                  {d.name}{" "}
+                                  <span className="text-text-tertiary">
+                                    ({d.country})
+                                  </span>
+                                </td>
+                                <td className="py-1.5 pr-3">{d.attractions}</td>
+                                <td className="py-1.5 pr-3">{d.tags}</td>
+                                <td className="py-1.5">
+                                  <CoverageBadge status={d.status} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+
+              <Card className="mb-6">
+                <CardHeader title="Uruchom scrape" />
+                <CardBody className="space-y-4">
+                  <p className="text-sm text-text-secondary">
+                    Scrape Europy trwa ok. 45–90 min — nie zamykaj karty. Po
+                    scrape uruchamiane jest automatyczne tagowanie aktywności.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {EUROPE_SCRAPE_BUTTONS.map((btn) => (
+                      <Button
+                        key={btn.label}
+                        size="sm"
+                        disabled={scraping}
+                        variant={
+                          btn.label.startsWith("Europa") ? "primary" : "secondary"
+                        }
+                        onClick={() =>
+                          "param" in btn
+                            ? runScrape(undefined, true)
+                            : runScrape(btn.bbox)
+                        }
+                      >
+                        {scraping ? "Trwa..." : btn.label}
+                      </Button>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={scraping}
+                      onClick={() => runScrape()}
+                    >
+                      Świat (wszystkie regiony)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={scraping}
+                      onClick={runTaggingOnly}
+                    >
+                      Tylko tagowanie
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={loadStatus}>
+                      Odśwież status
+                    </Button>
+                  </div>
+                </CardBody>
+              </Card>
+            </>
           )}
 
           {scrapeResult && (
@@ -272,4 +404,24 @@ function Stat({ label, value }: { label: string; value: number }) {
       </dd>
     </div>
   );
+}
+
+function CoverageBadge({
+  status,
+}: {
+  status: CoverageReport["destinations"][number]["status"];
+}) {
+  const styles = {
+    ok: "text-success",
+    sparse: "text-warning",
+    empty: "text-danger font-semibold",
+    untagged: "text-warning font-semibold",
+  };
+  const labels = {
+    ok: "OK",
+    sparse: "Mało",
+    empty: "Puste",
+    untagged: "Bez tagów",
+  };
+  return <span className={styles[status]}>{labels[status]}</span>;
 }

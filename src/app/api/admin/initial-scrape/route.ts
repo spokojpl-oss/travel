@@ -3,6 +3,7 @@ import {
   performGlobalOsmScrape,
   tagAttractionsWithActivities,
 } from "@/lib/api/osm-global-scrape";
+import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminEmails, isAdminEmail } from "@/lib/admin/auth";
@@ -58,7 +59,10 @@ export async function POST(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const bboxFilter = searchParams.get("bbox")?.split(",").map((s) => s.trim());
+  const europe = searchParams.get("europe") === "true";
+  const bboxFilter = europe
+    ? [...EUROPE_SCRAPE_REGIONS]
+    : searchParams.get("bbox")?.split(",").map((s) => s.trim());
   const skipScrape = searchParams.get("skipScrape") === "true";
   const skipTagging = searchParams.get("skipTagging") === "true";
 

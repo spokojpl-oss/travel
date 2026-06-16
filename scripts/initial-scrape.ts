@@ -8,6 +8,7 @@ import {
   performGlobalOsmScrape,
   tagAttractionsWithActivities,
 } from "../src/lib/api/osm-global-scrape";
+import { EUROPE_SCRAPE_REGIONS } from "../src/lib/api/osm-scrape-regions";
 
 async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,9 +33,12 @@ async function main() {
   }
 
   const bboxArg = process.argv.find((a) => a.startsWith("--bbox="));
+  const europe = process.argv.includes("--europe");
   const bboxFilter = bboxArg
     ? [bboxArg.replace("--bbox=", "").trim()]
-    : undefined;
+    : europe
+      ? [...EUROPE_SCRAPE_REGIONS]
+      : undefined;
 
   console.log(`Supabase: ${new URL(supabaseUrl).hostname}`);
   console.log(
