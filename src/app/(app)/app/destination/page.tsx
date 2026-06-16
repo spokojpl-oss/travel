@@ -17,10 +17,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
 import type { GooglePlace } from "@/lib/api/google-places";
+import { storeSearchRestoreState } from "@/lib/search/search-restore";
 import {
   defaultTripContext,
   mergeTripContext,
   tripContextFromParams,
+  tripContextToParams,
 } from "@/lib/search/trip-context";
 import { loadDestinationBuildPayload, applyPlanToCluster, storeDestinationBuildPayload, type DestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { DestinationPlanWizard } from "@/components/features/DestinationPlanWizard";
@@ -109,6 +111,26 @@ export default function DestinationPage() {
     () => resolveFlightOriginsFromTrip(trip),
     [trip.origin_iata, trip.origin_scope],
   );
+
+  function navigateToSearchStep(
+    targetStep: number,
+    options?: { rerunSearch?: boolean },
+  ) {
+    const activities = planPayload?.activities ?? [];
+    if (activities.length > 0) {
+      storeSearchRestoreState({
+        activities,
+        step: targetStep,
+        rerunSearch: options?.rerunSearch,
+      });
+    }
+    const params = tripContextToParams(trip);
+    params.set("step", String(targetStep));
+    if (buildId) params.set("build_id", buildId);
+    router.push(`/app/search?${params.toString()}`);
+  }
+
+  const skipRegionsStep = planPayload?.explorationScope === "island";
 
   const clusterAttractions = useMemo(
     () =>
@@ -405,10 +427,10 @@ export default function DestinationPage() {
       />
 
       <button
-        onClick={() => router.push("/app/search")}
+        onClick={() => navigateToSearchStep(7, { rerunSearch: true })}
         className="mb-4 text-sm text-brand-700 hover:underline"
       >
-        ← Wróć do wyszukiwarki
+        ← Wróć do wyników wyszukiwania
       </button>
 
       <header className="mb-8">
@@ -433,7 +455,12 @@ export default function DestinationPage() {
           payload={planPayload}
           withKids={hasChildrenInPassengers(trip.passengers)}
           onComplete={handlePlanComplete}
-          onCancel={() => router.push("/app/search")}
+          onCancel={() => navigateToSearchStep(7, { rerunSearch: true })}
+          onBackToActivities={() => navigateToSearchStep(6)}
+          onBackToRegions={
+            skipRegionsStep ? undefined : () => navigateToSearchStep(5)
+          }
+          onBackToResults={() => navigateToSearchStep(7, { rerunSearch: true })}
         />
       )}
 

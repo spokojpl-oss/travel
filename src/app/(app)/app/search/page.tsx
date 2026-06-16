@@ -59,6 +59,11 @@ import {
   type ExplorationScope,
   type TripContext,
 } from "@/lib/search/trip-context";
+import {
+  clearSearchRestoreState,
+  consumeSearchRerunFlag,
+  readSearchRestoreState,
+} from "@/lib/search/search-restore";
 import { DestinationOverviewPanel } from "@/components/features/DestinationOverviewPanel";
 import { scopeSearchRadii, explorationScopeFromString } from "@/lib/search/exploration-scope";
 import { resolveDestinationSizeProfile } from "@/lib/search/destination-size";
@@ -190,6 +195,7 @@ function SearchPageContent() {
   const discoveryFailedKey = useRef<string | null>(null);
   const discoveryFetchInFlight = useRef<string | null>(null);
   const searchTopRef = useRef<HTMLDivElement>(null);
+  const [pendingResultsRerun, setPendingResultsRerun] = useState(false);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
@@ -252,18 +258,10 @@ function SearchPageContent() {
       searchParams.get("exploration_scope"),
     );
 
-    const restored = sessionStorage.getItem("restore_search_activities");
+    const restored = readSearchRestoreState();
     if (restored) {
-      try {
-        const params = JSON.parse(restored) as { activities?: string[] };
-        if (params.activities?.length) {
-          setSelectedActivities(new Set(params.activities));
-          setStep(merged.mode === "destination" ? 6 : 2);
-        }
-        sessionStorage.removeItem("restore_search_activities");
-      } catch {
-        /* ignore */
-      }
+      setSelectedActivities(new Set(restored.activities));
+      clearSearchRestoreState();
     }
 
     if (Object.keys(fromUrl).length > 0) {
@@ -1013,6 +1011,21 @@ function SearchPageContent() {
       setIsSearching(false);
     }
   }
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (consumeSearchRerunFlag()) {
+      setPendingResultsRerun(true);
+    }
+  }, [initialized]);
+
+  useEffect(() => {
+    if (!pendingResultsRerun || step !== 7) return;
+    if (selectedActivities.size === 0 || !dataStatus?.search_ready || isSearching) return;
+    setPendingResultsRerun(false);
+    void handleSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rerun once when landing from plan wizard
+  }, [pendingResultsRerun, step, selectedActivities.size, dataStatus?.search_ready, isSearching]);
 
   function regionContextFromTrip(): PlanRegionContext | undefined {
     const ids =

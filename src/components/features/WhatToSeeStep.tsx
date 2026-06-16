@@ -34,6 +34,9 @@ export function WhatToSeeStep({
   onContinue,
   onSelectRecommended,
   locale = "pl",
+  onBackToActivities,
+  onBackToRegions,
+  onBackToResults,
 }: {
   story: DestinationStory;
   placeCards: PlaceCard[];
@@ -43,6 +46,9 @@ export function WhatToSeeStep({
   onContinue: () => void;
   onSelectRecommended: () => void;
   locale?: "pl" | "en";
+  onBackToActivities?: () => void;
+  onBackToRegions?: () => void;
+  onBackToResults?: () => void;
 }) {
   const t = useT();
   const pl = locale !== "en";
@@ -131,22 +137,44 @@ export function WhatToSeeStep({
       )}
 
       <Card className="sticky bottom-4 z-10 border-brand-200 bg-white/95 shadow-xl backdrop-blur">
-        <CardBody className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="font-semibold text-text-primary">
-              {pl
-                ? `${selectedIds.size} ${selectedIds.size === 1 ? "miejsce" : "miejsc"} w Twoim planie`
-                : `${selectedIds.size} place(s) in your plan`}
-            </p>
-            <p className="text-sm text-text-secondary">
-              {pl
-                ? "Potem wybierzesz bazę noclegową — trasy ułożymy na końcu."
-                : "Next you'll pick a base — routes come last."}
-            </p>
+        <CardBody className="space-y-4">
+          {(onBackToActivities || onBackToRegions || onBackToResults) && (
+            <div className="flex flex-wrap gap-2 border-b border-border-default pb-3">
+              {onBackToActivities && (
+                <Button variant="ghost" size="sm" onClick={onBackToActivities}>
+                  {pl ? "← Zmień aktywności" : "← Change activities"}
+                </Button>
+              )}
+              {onBackToRegions && (
+                <Button variant="ghost" size="sm" onClick={onBackToRegions}>
+                  {pl ? "← Zmień region" : "← Change region"}
+                </Button>
+              )}
+              {onBackToResults && (
+                <Button variant="ghost" size="sm" onClick={onBackToResults}>
+                  {pl ? "← Wyniki wyszukiwania" : "← Search results"}
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-text-primary">
+                {pl
+                  ? `${selectedIds.size} ${selectedIds.size === 1 ? "miejsce" : "miejsc"} w Twoim planie`
+                  : `${selectedIds.size} place(s) in your plan`}
+              </p>
+              <p className="text-sm text-text-secondary">
+                {pl
+                  ? "Potem wybierzesz bazę noclegową — trasy ułożymy na końcu."
+                  : "Next you'll pick a base — routes come last."}
+              </p>
+            </div>
+            <Button size="lg" disabled={selectedIds.size === 0} onClick={onContinue}>
+              {pl ? "Dalej — baza noclegowa →" : "Next — lodging base →"}
+            </Button>
           </div>
-          <Button size="lg" disabled={selectedIds.size === 0} onClick={onContinue}>
-            {pl ? "Dalej — baza noclegowa →" : "Next — lodging base →"}
-          </Button>
         </CardBody>
       </Card>
     </div>

@@ -40,12 +40,18 @@ export function DestinationPlanWizard({
   withKids,
   onComplete,
   onCancel,
+  onBackToActivities,
+  onBackToRegions,
+  onBackToResults,
 }: {
   payload: DestinationBuildPayload;
   withKids?: boolean;
   locale?: "pl" | "en";
   onComplete: (updated: DestinationBuildPayload) => void;
   onCancel?: () => void;
+  onBackToActivities?: () => void;
+  onBackToRegions?: () => void;
+  onBackToResults?: () => void;
 }) {
   const { locale } = useLocale();
   const pl = locale !== "en";
@@ -344,6 +350,9 @@ export function DestinationPlanWizard({
           onContinue={() => setStep("base")}
           onSelectRecommended={selectRecommended}
           locale={locale}
+          onBackToActivities={onBackToActivities}
+          onBackToRegions={onBackToRegions}
+          onBackToResults={onBackToResults}
         />
       )}
 
