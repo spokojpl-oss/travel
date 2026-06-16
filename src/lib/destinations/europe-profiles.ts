@@ -271,6 +271,25 @@ export function resolveCountryCode(countryLabel: string): string {
   return COUNTRY_CODES[countryLabel] ?? "XX";
 }
 
+function normalizeCountrySearchText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Dopasowanie nazwy kraju (PL/EN, bez względu na wielkość liter). */
+export function resolveCountryCodeFromLabel(label: string): string | null {
+  const direct = COUNTRY_CODES[label.trim()];
+  if (direct) return direct;
+  const normalized = normalizeCountrySearchText(label);
+  for (const [name, code] of Object.entries(COUNTRY_CODES)) {
+    if (normalizeCountrySearchText(name) === normalized) return code;
+  }
+  return null;
+}
+
 export function numbeoCountryName(countryCode: string): string {
   return NUMBEO_COUNTRY[countryCode] ?? countryCode;
 }

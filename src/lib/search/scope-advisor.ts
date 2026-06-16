@@ -349,11 +349,11 @@ export function adviseExplorationScope({
   const pl = locale !== "en";
 
   if (!profile) {
+    const name = destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
     const recommended: ExplorationScope = tripDays <= 4 ? "local" : "region";
-    const { label, description } = scopeLabels(recommended, locale);
     return {
       kind: "city",
-      destinationName: destinationLabel.split(",")[0]?.trim() ?? destinationLabel,
+      destinationName: name,
       tripDays,
       recommended,
       options: [
@@ -361,19 +361,23 @@ export function adviseExplorationScope({
           value: "local",
           label: scopeLabels("local", locale).label,
           description: scopeLabels("local", locale).description,
-          rationale: pl ? "Krótki pobyt — trzymaj się jednego rejonu." : "Short trip — stay in one area.",
+          rationale: pl
+            ? "Jedna baza — minimum dojazdów."
+            : "One base — minimal travel.",
         },
         {
           value: "region",
           label: scopeLabels("region", locale).label,
           description: scopeLabels("region", locale).description,
-          rationale: pl ? "Dłuższy pobyt — szerszy obszar." : "Longer trip — wider area.",
+          rationale: pl
+            ? `Przy ${tripDays} dniach szerszy rejon ma sens.`
+            : `A wider area fits ${tripDays} days well.`,
         },
       ],
-      headline: pl ? `${tripDays} dni` : `${tripDays} days`,
+      headline: pl ? `${name} · ${tripDays} dni` : `${name} · ${tripDays} days`,
       summary: pl
-        ? "Nie mamy profilu wielkości tego miejsca — wybierz zakres ręcznie."
-        : "No size profile for this place — pick scope manually.",
+        ? `Dopasowaliśmy zakres do ${tripDays}-dniowego pobytu.`
+        : `Scope matched to your ${tripDays}-day trip.`,
     };
   }
 
@@ -383,5 +387,78 @@ export function adviseExplorationScope({
   if (profile.kind === "city") {
     return buildCityAdvice({ profile, tripDays, withKids, locale });
   }
+  if (profile.kind === "country") {
+    return buildCountryAdvice({ profile, tripDays, withKids, locale });
+  }
   return buildRegionAdvice({ profile, tripDays, withKids, locale });
+}
+
+function buildCountryAdvice({
+  profile,
+  tripDays,
+  withKids,
+  locale,
+}: {
+  profile: NonNullable<ReturnType<typeof resolveDestinationSizeProfile>>;
+  tripDays: number;
+  withKids: boolean;
+  locale: Locale;
+}): ScopeAdvice {
+  const pl = locale !== "en";
+  const minWhole =
+    profile.wholeSightseeingDays + (withKids ? profile.kidsExtraDays : 0);
+
+  let recommended: ExplorationScope = "region";
+  if (tripDays <= 3) recommended = "local";
+  else if (tripDays >= minWhole + 2) recommended = "roadtrip";
+
+  const options: ScopeOption[] = [];
+  const add = (scope: ExplorationScope, rationale: string) => {
+    const { label, description } = scopeLabels(scope, locale);
+    options.push({ value: scope, label, description, rationale });
+  };
+
+  add(
+    "local",
+    pl
+      ? `Jedna miejscowość jako baza — sensowne przy ${tripDays <= 4 ? "krótkim" : "krótszym"} pobycie${withKids ? ", wygodne z dziećmi" : ""}.`
+      : `One town as base — good for a ${tripDays <= 4 ? "short" : "shorter"} stay${withKids ? ", kid-friendly" : ""}.`,
+  );
+
+  add(
+    "region",
+    pl
+      ? `${profile.name} ma ~${profile.areaKm2.toLocaleString("pl-PL")} km² — przy ${tripDays} dniach jeden rejon (np. wybrzeże, północ) to bezpieczny wybór.`
+      : `${profile.name} is ~${profile.areaKm2.toLocaleString("en-US")} km² — one region fits ${tripDays} days well.`,
+  );
+
+  if (tripDays >= minWhole) {
+    add(
+      "roadtrip",
+      pl
+        ? `${tripDays} dni pozwala objechać większość ${profile.name} z kilkoma bazami.`
+        : `${tripDays} days lets you tour most of ${profile.name} with several bases.`,
+    );
+  } else if (tripDays >= 8 && profile.areaKm2 <= 60000) {
+    add(
+      "roadtrip",
+      pl
+        ? `Objazd kraju z kilkoma bazami — więcej jazdy, ale ${profile.name} na tyle kompaktowa, że da się.`
+        : `Country loop with several bases — more driving, but ${profile.name} is compact enough.`,
+    );
+  }
+
+  return {
+    kind: "country",
+    destinationName: profile.name,
+    tripDays,
+    recommended,
+    options,
+    headline: pl
+      ? `${profile.name} · ${tripDays} dni${withKids ? " · z dziećmi" : ""}`
+      : `${profile.name} · ${tripDays} days${withKids ? " · with kids" : ""}`,
+    summary: pl
+      ? `${profile.name} to kraj kontynentalny (~${profile.areaKm2.toLocaleString("pl-PL")} km²) — dopasowaliśmy zakres do ${tripDays} dni.`
+      : `${profile.name} is a continental country (~${profile.areaKm2.toLocaleString("en-US")} km²) — scope matched to ${tripDays} days.`,
+  };
 }

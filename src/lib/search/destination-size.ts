@@ -4,6 +4,10 @@ import {
   type DestinationSuggestion,
 } from "@/lib/destinations/catalog";
 import { resolveIslandBoundary } from "@/lib/destinations/island-boundary";
+import {
+  countrySizeTier,
+  resolveCountryOnlyLabel,
+} from "@/lib/search/country-size";
 
 export type DestinationKind = "island" | "city" | "region" | "country";
 
@@ -157,7 +161,20 @@ export function resolveDestinationSizeProfile(
     };
   }
 
-  if (!entry) return null;
+  if (!entry) {
+    const country = resolveCountryOnlyLabel(destinationLabel);
+    if (country) {
+      const tier = countrySizeTier(country.areaKm2);
+      return {
+        kind: "country",
+        name: country.namePl,
+        areaKm2: country.areaKm2,
+        maxDriveKm: country.maxDriveKm,
+        ...tier,
+      };
+    }
+    return null;
+  }
 
   const key = normalizeSearchText(entry.name);
   const isLargeRegion = LARGE_REGION_NAMES.has(key);

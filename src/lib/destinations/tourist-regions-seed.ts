@@ -142,6 +142,78 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     ]
   },
   {
+    "id": "al-tirana",
+    "destination_keys": [
+      "tirana",
+      "tirane",
+      "berat",
+      "gjirokaster",
+      "gjirokastër",
+      "albania"
+    ],
+    "slug": "tirana-centrum",
+    "name_pl": "Tirana i centrum",
+    "name_en": "Tirana & central Albania",
+    "character": "historic",
+    "vibe": "balanced",
+    "overview_pl": "Stolica z kolorową architekturą, muzeami i bazą na wycieczki do Beratu i Gjirokastry (UNESCO).",
+    "overview_en": "Capital with colourful architecture, museums, and day trips to Berat and Gjirokastër (UNESCO).",
+    "stay_hint_pl": "Hotele w centrum Tirany — blisko restauracji i muzeów; samochód na wycieczki poza miasto.",
+    "stay_hint_en": "Hotels in central Tirana — close to restaurants and museums; car for trips outside the city.",
+    "center_lat": 41.3275,
+    "center_lon": 19.8187,
+    "picks": [
+      {
+        "day_theme": "city_culture",
+        "name_pl": "Tirana — Skanderbeg i Blloku",
+        "name_en": "Tirana — Skanderbeg & Blloku",
+        "why_pl": "Plac Skanderbega, muzea i modna dzielnica Blloku — dobry pierwszy dzień.",
+        "why_en": "Skanderbeg Square, museums and trendy Blloku — a solid first day.",
+        "activity_slugs": [
+          "old_towns",
+          "museums"
+        ],
+        "rank": 1
+      },
+      {
+        "day_theme": "city_culture",
+        "name_pl": "Berat (UNESCO)",
+        "name_en": "Berat (UNESCO)",
+        "why_pl": "„Miasto tysiąca okien” — ok. 2 h jazdy z Tirany.",
+        "why_en": "The \"city of a thousand windows\" — ~2 h drive from Tirana.",
+        "activity_slugs": [
+          "old_towns",
+          "museums"
+        ],
+        "rank": 2
+      },
+      {
+        "day_theme": "nature",
+        "name_pl": "Park Narodowy Llogara",
+        "name_en": "Llogara National Park",
+        "why_pl": "Przełęcz z widokiem na rivierę — po drodze na południe kraju.",
+        "why_en": "Mountain pass with Riviera views — en route to the south.",
+        "activity_slugs": [
+          "viewpoints",
+          "hiking_trails"
+        ],
+        "rank": 1
+      },
+      {
+        "day_theme": "active_outdoor",
+        "name_pl": "Gjirokastër (UNESCO)",
+        "name_en": "Gjirokastër (UNESCO)",
+        "why_pl": "Kamienne domy i twierdza — południowa Albania, ok. 3–4 h z Tirany.",
+        "why_en": "Stone houses and fortress — southern Albania, ~3–4 h from Tirana.",
+        "activity_slugs": [
+          "old_towns",
+          "viewpoints"
+        ],
+        "rank": 1
+      }
+    ]
+  },
+  {
     "id": "es-lanzarote-playa-blanca",
     "destination_keys": [
       "lanzarote",

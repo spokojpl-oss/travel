@@ -186,18 +186,42 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "cyclades",
 ]);
 
+function matchesDestinationKey(
+  norm: string,
+  head: string,
+  key: string,
+): boolean {
+  return norm.includes(key) || key.includes(head) || head.includes(key);
+}
+
+/** Destynacja to kraj (np. „Albania” lub „Albania, Albania”), nie konkretne miasto/wyspa. */
+function isCountryLevelDestinationLabel(label: string): boolean {
+  const norm = normalizeDestinationKey(label);
+  const parts = norm.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return false;
+  return parts.every((part) => GENERIC_DESTINATION_KEYS.has(part));
+}
+
 function regionMatchesDestination(region: TouristRegion, label: string): boolean {
   const norm = normalizeDestinationKey(label);
   const head = norm.split(/\s+/)[0]?.trim() ?? norm;
 
+  const genericKeys = region.destination_keys.filter((key) =>
+    GENERIC_DESTINATION_KEYS.has(key),
+  );
   const specificKeys = region.destination_keys.filter(
     (key) => !GENERIC_DESTINATION_KEYS.has(key),
   );
-  const keysToMatch = specificKeys.length > 0 ? specificKeys : region.destination_keys;
 
-  return keysToMatch.some(
-    (key) => norm.includes(key) || key.includes(head),
-  );
+  if (specificKeys.some((key) => matchesDestinationKey(norm, head, key))) {
+    return true;
+  }
+
+  if (isCountryLevelDestinationLabel(label)) {
+    return genericKeys.some((key) => matchesDestinationKey(norm, head, key));
+  }
+
+  return false;
 }
 
 function scoreRegionForRhythm(

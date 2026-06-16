@@ -164,9 +164,10 @@ export function TripSearchForm({
             onChange({
               ...trip,
               destination: opt.id,
-              destination_label: opt.sublabel
-                ? `${opt.label}, ${opt.sublabel}`
-                : opt.label,
+              destination_label:
+                opt.sublabel && opt.sublabel !== opt.label
+                  ? `${opt.label}, ${opt.sublabel}`
+                  : opt.label,
               destination_lat: opt.lat ?? null,
               destination_lon: opt.lon ?? null,
             })
