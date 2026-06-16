@@ -176,8 +176,6 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "albania",
   "hiszpania",
   "spain",
-  "cypr",
-  "cyprus",
   "chorwacja",
   "croatia",
   "hrvatska",

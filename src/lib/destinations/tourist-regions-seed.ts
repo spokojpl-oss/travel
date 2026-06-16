@@ -1,4 +1,5 @@
 import type { TouristRegion } from "./tourist-regions";
+import { SEED_TOURIST_REGIONS_EXTRA } from "./tourist-regions-seed-extra";
 
 export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   {
@@ -382,6 +383,7 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     "id": "hr-dubrovnik",
     "destination_keys": [
       "dubrovnik",
+      "dubrownik",
       "croatia",
       "chorwacja",
       "hrvatska"
@@ -819,4 +821,5 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
       },
     ],
   },
+  ...SEED_TOURIST_REGIONS_EXTRA,
 ] as TouristRegion[];

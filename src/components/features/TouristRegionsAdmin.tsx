@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import type { RegionCharacter, RegionVibe, TouristRegion } from "@/lib/destinations/tourist-regions";
 import { regionDisplayName } from "@/lib/destinations/tourist-regions";
+import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 
 type RegionFormState = {
   id: string;
@@ -193,7 +194,7 @@ export function TouristRegionsAdmin() {
             Odśwież listę
           </Button>
           <Button size="sm" disabled={seeding} onClick={seedDefaults}>
-            {seeding ? "Seeduję…" : "Seed z domyślnych (13 regionów)"}
+            {seeding ? "Seeduję…" : `Seed z domyślnych (${SEED_TOURIST_REGIONS.length} regionów)`}
           </Button>
         </div>
 
