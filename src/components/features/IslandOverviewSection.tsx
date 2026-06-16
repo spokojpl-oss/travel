@@ -210,6 +210,7 @@ export function IslandOverviewSection({
   onNarrowScope,
   onExtendTrip,
   onPlanTrip,
+  variant = "island",
 }: {
   results: ActivitySearchResult;
   activityNames: Record<string, string>;
@@ -218,18 +219,32 @@ export function IslandOverviewSection({
   onNarrowScope?: () => void;
   onExtendTrip?: () => void;
   onPlanTrip?: (selectedIds: string[], pool: AttractionWithActivities[]) => void;
+  variant?: "island" | "region";
 }) {
   const t = useT();
   const { locale } = useLocale();
   const overview = results.island_overview!;
+  const isRegion = variant === "region";
 
-  const slugsOnIsland = useMemo(
-    () =>
-      Object.keys(overview.activity_counts).sort(
-        (a, b) => overview.activity_counts[b] - overview.activity_counts[a],
-      ),
-    [overview.activity_counts],
-  );
+  const slugsOnIsland = useMemo(() => {
+    const counts = overview.activity_counts;
+    let slugs = Object.keys(counts).filter((k) => (counts[k] ?? 0) > 0);
+    if (slugs.length === 0) {
+      const selected = new Set(results.query.activities);
+      slugs = [
+        ...new Set(
+          overview.attractions.flatMap((a) =>
+            a.activity_tags
+              .map((t) => t.activity_slug)
+              .filter((s) => selected.has(s)),
+          ),
+        ),
+      ];
+    }
+    return slugs.sort(
+      (a, b) => (counts[b] ?? 0) - (counts[a] ?? 0),
+    );
+  }, [overview.activity_counts, overview.attractions, results.query.activities]);
 
   const [enabledSlugs, setEnabledSlugs] = useState<Set<string>>(
     () => new Set(slugsOnIsland),
@@ -302,7 +317,9 @@ export function IslandOverviewSection({
   return (
     <>
       <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-        {t("island.title", { name: overview.island_name })}
+        {isRegion
+          ? t("regionMap.title", { name: overview.island_name })
+          : t("island.title", { name: overview.island_name })}
       </h2>
       <p className="mb-2 text-sm text-text-secondary">
         {t("island.subtitle", {
@@ -311,9 +328,11 @@ export function IslandOverviewSection({
           selected: planIds.size,
         })}
       </p>
-      <p className="mb-6 text-sm text-text-secondary">{t("island.introDesktop")}</p>
+      <p className="mb-6 text-sm text-text-secondary">
+        {isRegion ? t("regionMap.introDesktop") : t("island.introDesktop")}
+      </p>
 
-      {feasibility && (
+      {feasibility && !isRegion && (
         <Card className={cn("mb-6", feasibilityBorder)}>
           <CardBody className="space-y-3">
             <p className="font-semibold text-text-primary">{feasibility.title}</p>

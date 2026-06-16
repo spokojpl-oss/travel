@@ -1,8 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import type { GooglePlace } from "@/lib/api/google-places";
-import { groupLocalServices } from "@/lib/places/google-place-display";
+import {
+  filterLocalServicesForActivities,
+  groupLocalServices,
+} from "@/lib/places/google-place-display";
 import { localizeGoogleMapsUrl } from "@/lib/maps/google-maps-config";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
@@ -16,7 +20,7 @@ const RATING_DOT: Record<string, string> = {
 export function LocalServicesSection({
   places,
   selectedActivities = [],
-  maxTotal = 12,
+  maxTotal = 8,
 }: {
   places: GooglePlace[];
   selectedActivities?: string[];
@@ -24,10 +28,21 @@ export function LocalServicesSection({
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const groups = groupLocalServices(places, {
-    selectedActivities,
-    limitPerGroup: 4,
-  });
+
+  const matchedPlaces = useMemo(
+    () => filterLocalServicesForActivities(places, selectedActivities),
+    [places, selectedActivities],
+  );
+
+  const groups = useMemo(
+    () =>
+      groupLocalServices(matchedPlaces, {
+        selectedActivities,
+        limitPerGroup: 3,
+        locale,
+      }),
+    [matchedPlaces, selectedActivities, locale],
+  );
 
   const visible = groups
     .flatMap((g) => g.places.map((p) => ({ group: g, place: p })))
@@ -45,10 +60,8 @@ export function LocalServicesSection({
 
   return (
     <Card className="mb-8">
-      <CardHeader title={t("localServices.title", { n: places.length })} />
+      <CardHeader title={t("localServices.title", { n: visible.length })} />
       <CardBody className="space-y-6">
-        <p className="text-sm text-text-secondary">{t("localServices.intro")}</p>
-
         {[...byGroup.entries()].map(([kind, items]) => {
           const { group } = items[0]!;
           return (
@@ -83,20 +96,7 @@ export function LocalServicesSection({
                           </p>
                         )}
                       </div>
-                      <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                        {p.kindLabel}
-                      </span>
                     </div>
-
-                    <p className="mt-2 text-sm text-text-secondary">
-                      {p.kindDescription}
-                    </p>
-
-                    {p.editorial_summary && (
-                      <p className="mt-2 text-xs italic text-text-tertiary">
-                        {p.editorial_summary}
-                      </p>
-                    )}
 
                     {p.shortAddress && (
                       <p className="mt-2 text-xs text-text-tertiary">
@@ -141,9 +141,9 @@ export function LocalServicesSection({
           );
         })}
 
-        {places.length > maxTotal && (
+        {matchedPlaces.length > visible.length && (
           <p className="text-xs text-text-tertiary">
-            {t("localServices.moreHint", { n: places.length - maxTotal })}
+            {t("localServices.moreHint", { n: matchedPlaces.length - visible.length })}
           </p>
         )}
       </CardBody>

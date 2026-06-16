@@ -290,6 +290,27 @@ export function inferServiceKind(
   return "other";
 }
 
+/** Tylko miejsca, których typ odpowiada wybranym aktywnościom (bez „other”). */
+export function filterLocalServicesForActivities(
+  places: GooglePlace[],
+  selectedActivities: string[] = [],
+): GooglePlace[] {
+  if (selectedActivities.length === 0) return [];
+
+  const relevantKinds = new Set(
+    selectedActivities
+      .map((a) => ACTIVITY_TO_KIND[a])
+      .filter((k): k is InferredServiceKind => k != null && k !== "other"),
+  );
+
+  if (relevantKinds.size === 0) return [];
+
+  return places.filter((place) => {
+    const kind = inferServiceKind(place, selectedActivities);
+    return relevantKinds.has(kind);
+  });
+}
+
 export function serviceKindMeta(
   kind: InferredServiceKind,
   locale: Locale = "pl",

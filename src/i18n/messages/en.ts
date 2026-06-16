@@ -290,6 +290,11 @@ export const en: Messages = {
   scope: {
     recommended: "Recommended",
   },
+  regionMap: {
+    title: "Selected regions — {name}",
+    introDesktop:
+      "Map of your chosen areas — click a marker, read the details and add places to your plan. Filter activity types below.",
+  },
   island: {
     title: "All of {name} — attraction map",
     subtitle:
@@ -445,9 +450,7 @@ export const en: Messages = {
     legendAttractions: "Your attractions",
   },
   localServices: {
-    title: "Rentals & services ({n})",
-    intro:
-      "Businesses from Google Maps matching your selected activities. Names stay original (how you'll find them locally) — we explain in plain language what each one offers.",
+    title: "Services for your activities ({n})",
     address: "Address",
     openMaps: "Open in Google Maps",
     website: "Website",

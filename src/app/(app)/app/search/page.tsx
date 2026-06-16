@@ -16,6 +16,7 @@ import { TouristRegionCards } from "@/components/features/TouristRegionCards";
 import { ExplorationScopeStep } from "@/components/features/ExplorationScopeStep";
 import { SearchScopeParamsPanel } from "@/components/features/SearchScopeParamsPanel";
 import { IslandOverviewSection } from "@/components/features/IslandOverviewSection";
+import { buildAttractionOverviewFromClusters } from "@/lib/maps/build-attraction-overview";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
   defaultRhythmForTrip,
@@ -1217,12 +1218,65 @@ function SearchPageContent() {
 
   const resultClusters = useMemo(() => {
     if (!results?.clusters.length) return [];
-    const regions = trip.tourist_region_ids
+    const regionIds =
+      trip.tourist_region_ids.length > 0
+        ? trip.tourist_region_ids
+        : trip.tourist_region_id
+          ? [trip.tourist_region_id]
+          : [];
+    const regions = regionIds
       .map((id) => scoredRegions.find((r) => r.id === id))
       .filter((r): r is ScoredTouristRegion => r != null);
     if (regions.length === 0) return results.clusters;
     return filterClustersToTouristRegions(results.clusters, regions);
-  }, [results, trip.tourist_region_ids, scoredRegions]);
+  }, [
+    results,
+    trip.tourist_region_ids,
+    trip.tourist_region_id,
+    scoredRegions,
+  ]);
+
+  const hasSelectedRegions =
+    trip.tourist_region_ids.length > 0 || Boolean(trip.tourist_region_id);
+
+  const selectedRegionLabel = useMemo(() => {
+    const ids =
+      trip.tourist_region_ids.length > 0
+        ? trip.tourist_region_ids
+        : trip.tourist_region_id
+          ? [trip.tourist_region_id]
+          : [];
+    const names = ids
+      .map((id) => scoredRegions.find((r) => r.id === id))
+      .filter((r): r is ScoredTouristRegion => r != null)
+      .map((r) => (locale === "en" ? r.name_en : r.name_pl));
+    if (names.length > 0) return names.join(" · ");
+    return trip.destination_label ?? trip.destination ?? "";
+  }, [
+    trip.tourist_region_ids,
+    trip.tourist_region_id,
+    trip.destination_label,
+    trip.destination,
+    scoredRegions,
+    locale,
+  ]);
+
+  const attractionMapOverview = useMemo(() => {
+    if (!results) return null;
+    if (results.island_overview) return results.island_overview;
+    if (!hasSelectedRegions || resultClusters.length === 0) return null;
+    return buildAttractionOverviewFromClusters(resultClusters, {
+      name: selectedRegionLabel,
+      selectedActivities: Array.from(selectedActivities),
+      airports: results.airports ?? [],
+    });
+  }, [
+    results,
+    hasSelectedRegions,
+    resultClusters,
+    selectedRegionLabel,
+    selectedActivities,
+  ]);
 
   const showDataInfo =
     dataStatus &&
@@ -1637,12 +1691,15 @@ function SearchPageContent() {
 
       {showResultsStep && results && !isSearching && (
         <section className="mt-8">
-          {results.view_mode === "island" && results.island_overview ? (
+          {attractionMapOverview ? (
             <IslandOverviewSection
-              results={results}
+              results={{ ...results, island_overview: attractionMapOverview }}
               activityNames={activityNames}
               taxonomyActivities={taxonomyActivities}
-              feasibility={islandFeasibility}
+              feasibility={
+                results.view_mode === "island" ? islandFeasibility : null
+              }
+              variant={results.view_mode === "island" ? "island" : "region"}
               onNarrowScope={narrowScopeToRegion}
               onExtendTrip={extendTripOnHome}
               onPlanTrip={openIslandPlan}

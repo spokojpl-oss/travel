@@ -584,7 +584,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && googlePlaces.length > 0 && (
+      {planComplete && googlePlaces.length > 0 && selectedActivities.length > 0 && (
         <LocalServicesSection
           places={googlePlaces}
           selectedActivities={selectedActivities}
