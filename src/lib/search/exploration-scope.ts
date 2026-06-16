@@ -85,18 +85,25 @@ export function scopeSearchRadii(scope: ExplorationScope): ScopeSearchRadii {
   }
 }
 
-/** Mapuje scope na pola zapytania wyszukiwania (z aliasami legacy). */
+/** Mapuje scope na pola zapytania — nie nadpisuje promieni podanych przez użytkownika. */
 export function applyExplorationScopeToQuery(
   query: ActivitySearchQuery,
   scope: ExplorationScope,
 ): ActivitySearchQuery {
   const radii = scopeSearchRadii(scope);
+  const stay =
+    query.stay_radius_km ?? query.max_radius_km ?? radii.stay_radius_km;
+  const explore =
+    query.explore_radius_km ??
+    query.near_radius_km ??
+    (query.near_lat != null ? radii.explore_radius_km : undefined);
+
   return {
     ...query,
-    stay_radius_km: radii.stay_radius_km,
-    explore_radius_km: query.near_lat != null ? radii.explore_radius_km : undefined,
-    max_radius_km: radii.stay_radius_km,
-    near_radius_km: query.near_lat != null ? radii.explore_radius_km : undefined,
+    stay_radius_km: stay,
+    explore_radius_km: explore,
+    max_radius_km: stay,
+    near_radius_km: explore,
   };
 }
 

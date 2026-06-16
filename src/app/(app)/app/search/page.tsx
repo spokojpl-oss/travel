@@ -14,6 +14,7 @@ import {
 import { TripRhythmStep } from "@/components/features/TripRhythmStep";
 import { TouristRegionCards } from "@/components/features/TouristRegionCards";
 import { ExplorationScopeStep } from "@/components/features/ExplorationScopeStep";
+import { SearchScopeParamsPanel } from "@/components/features/SearchScopeParamsPanel";
 import { IslandOverviewSection } from "@/components/features/IslandOverviewSection";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
@@ -534,6 +535,10 @@ function SearchPageContent() {
     });
   }
 
+  function handleMaxRadiusChange(km: number) {
+    setMaxRadius(Math.min(80, Math.max(3, km)));
+  }
+
   const isDestinationFlow = trip.mode === "destination";
   const skipRegionsStep = trip.exploration_scope === "island";
   const showScopeStep = isDestinationFlow && step === 2;
@@ -769,9 +774,11 @@ function SearchPageContent() {
     if (trip.exploration_scope) {
       params.exploration_scope = trip.exploration_scope;
       const radii = scopeSearchRadii(trip.exploration_scope);
-      params.stay_radius_km = radii.stay_radius_km;
       params.explore_radius_km = radii.explore_radius_km;
-      params.max_radius_km = radii.stay_radius_km;
+      params.stay_radius_km = maxRadius;
+      params.max_radius_km = maxRadius;
+    } else {
+      params.stay_radius_km = maxRadius;
     }
 
     if (
@@ -782,13 +789,11 @@ function SearchPageContent() {
     ) {
       params.near_lat = trip.destination_lat;
       params.near_lon = trip.destination_lon;
-      const exploreKm = trip.exploration_scope
-        ? scopeSearchRadii(trip.exploration_scope).explore_radius_km
-        : trip.mode === "destination"
-          ? 150
-          : 250;
-      params.explore_radius_km = exploreKm;
-      params.near_radius_km = exploreKm;
+      if (params.explore_radius_km == null) {
+        params.explore_radius_km =
+          trip.mode === "destination" ? 150 : 250;
+      }
+      params.near_radius_km = params.explore_radius_km;
     }
 
     if (trip.destination_label) {
@@ -1017,6 +1022,20 @@ function SearchPageContent() {
       />
 
       <TripContextBar trip={trip} onEdit={editTripOnHome} searchStep={step} />
+
+      {showActivitiesStep && (
+        <SearchScopeParamsPanel
+          explorationScope={trip.exploration_scope ?? "region"}
+          onScopeChange={setExplorationScope}
+          matchMode={matchMode}
+          onMatchModeChange={setMatchMode}
+          maxRadius={maxRadius}
+          onMaxRadiusChange={handleMaxRadiusChange}
+          minPerActivity={minPerActivity}
+          onMinPerActivityChange={setMinPerActivity}
+          showScope={isDestinationFlow}
+        />
+      )}
 
       {missingDestinationCoords && (
         <Card className="mb-6 border-warning/40 bg-orange-50/60">
@@ -1254,69 +1273,6 @@ function SearchPageContent() {
               )}
             </CardBody>
           </Card>
-
-          <details className="mb-8">
-            <summary className="cursor-pointer text-sm font-medium text-text-secondary hover:text-brand-700">
-              Zaawansowane parametry wyszukiwania
-            </summary>
-            <Card className="mt-3">
-            <CardBody className="space-y-4 text-sm">
-              <div>
-                <p className="mb-2 font-medium text-text-primary">
-                  Tryb dopasowania
-                </p>
-                <label className="mr-4">
-                  <input
-                    type="radio"
-                    checked={matchMode === "all"}
-                    onChange={() => setMatchMode("all")}
-                  />{" "}
-                  Wszystkie wybrane
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    checked={matchMode === "any"}
-                    onChange={() => setMatchMode("any")}
-                  />{" "}
-                  Dowolna z wybranych
-                </label>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="font-medium text-text-primary">
-                    Maks. promień (km)
-                  </span>
-                  <p className="mt-0.5 text-xs text-text-secondary">
-                    Atrakcje w jednym rejonie — np. 10–15 km na jeden dzień,
-                    nie cała wyspa.
-                  </p>
-                  <input
-                    type="number"
-                    min={3}
-                    max={80}
-                    value={maxRadius}
-                    onChange={(e) => setMaxRadius(Number(e.target.value))}
-                    className="mt-1 w-full rounded-md border border-border-default px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </label>
-                <label className="block">
-                  <span className="font-medium text-text-primary">
-                    Min. atrakcji / aktywność
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={minPerActivity}
-                    onChange={(e) => setMinPerActivity(Number(e.target.value))}
-                    className="mt-1 w-full rounded-md border border-border-default px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </label>
-              </div>
-            </CardBody>
-            </Card>
-          </details>
 
           <div className="mb-6 flex flex-wrap gap-3">
             <Button
