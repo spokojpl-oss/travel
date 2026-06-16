@@ -14,7 +14,7 @@ import {
 } from "@/components/features/TripContextBar";
 import { TripRhythmStep } from "@/components/features/TripRhythmStep";
 import { TouristRegionCards } from "@/components/features/TouristRegionCards";
-import { findTouristRegions, type ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
+import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
   defaultRhythmForTrip,
   formatRhythmSummary,
@@ -63,32 +63,6 @@ type DataStatus = {
   search_ready: boolean;
   message: string | null;
 };
-
-function debugLog(
-  location: string,
-  message: string,
-  data: Record<string, unknown>,
-  hypothesisId: string,
-) {
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "d6918b",
-    },
-    body: JSON.stringify({
-      sessionId: "d6918b",
-      location,
-      message,
-      data,
-      hypothesisId,
-      timestamp: Date.now(),
-      runId: "pre-fix",
-    }),
-  }).catch(() => {});
-  // #endregion
-}
 
 function EmptyResultsCard({
   results,
@@ -207,6 +181,8 @@ function SearchPageContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [scoredRegions, setScoredRegions] = useState<ScoredTouristRegion[]>([]);
+  const [regionsLoading, setRegionsLoading] = useState(false);
 
   const activityNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -297,7 +273,8 @@ function SearchPageContent() {
       if (
         merged.mode === "destination" &&
         !merged.trip_rhythm &&
-        merged.departure_date
+        merged.departure_date &&
+        resolvedStep >= 4
       ) {
         merged = mergeTripContext(merged, {
           trip_rhythm: defaultRhythmForTrip(
@@ -311,19 +288,6 @@ function SearchPageContent() {
 
     setTrip(merged);
     setInitialized(true);
-    debugLog(
-      "search/page.tsx:init",
-      "search init complete",
-      {
-        step: resolvedStep,
-        mode: merged.mode,
-        hasRhythm: Boolean(merged.trip_rhythm),
-        departureDate: merged.departure_date ?? null,
-        destinationLabel: merged.destination_label ?? merged.destination ?? null,
-        touristRegionId: merged.tourist_region_id ?? null,
-      },
-      "H1",
-    );
   }, [initialized, pageLoading, searchParams, taxonomy]);
 
   useEffect(() => {
@@ -536,64 +500,55 @@ function SearchPageContent() {
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
 
   useEffect(() => {
-    if (!initialized) return;
-    if (showRhythmStep && !trip.trip_rhythm) {
-      debugLog(
-        "search/page.tsx:blankRhythmStep",
-        "step 4 visible but trip_rhythm missing",
-        {
-          step,
-          departureDate: trip.departure_date ?? null,
-          destinationLabel: trip.destination_label ?? trip.destination ?? null,
-        },
-        "H1",
-      );
+    if (!initialized || !isDestinationFlow || step !== 5 || !trip.trip_rhythm) {
+      return;
     }
-    if (showRegionsStep && !trip.trip_rhythm) {
-      debugLog(
-        "search/page.tsx:blankRegionsStep",
-        "step 5 visible but trip_rhythm missing",
-        { step },
-        "H1",
-      );
-    }
+
+    const label = trip.destination_label ?? trip.destination ?? "";
+    if (!label || !trip.departure_date) return;
+
+    let cancelled = false;
+    setRegionsLoading(true);
+
+    fetch("/api/search/tourist-regions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destination_label: label,
+        from_date: trip.departure_date,
+        to_date: trip.return_date ?? trip.departure_date,
+        rhythm: trip.trip_rhythm,
+      }),
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          throw new Error(typeof data.error === "string" ? data.error : `HTTP ${r.status}`);
+        }
+        return data as { regions?: ScoredTouristRegion[] };
+      })
+      .then((data) => {
+        if (!cancelled) setScoredRegions(data.regions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setScoredRegions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRegionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     initialized,
-    showRhythmStep,
-    showRegionsStep,
-    trip.trip_rhythm,
-    trip.departure_date,
-    trip.destination_label,
-    trip.destination,
-    step,
-  ]);
-
-  const scoredRegions = useMemo(() => {
-    if (!isDestinationFlow || !trip.trip_rhythm) return [];
-    const label = trip.destination_label ?? trip.destination ?? "";
-    if (!label) return [];
-    const regions = findTouristRegions({
-      destinationLabel: label,
-      rhythm: trip.trip_rhythm,
-    });
-    debugLog(
-      "search/page.tsx:scoredRegions",
-      "tourist regions scored",
-      {
-        step,
-        label,
-        regionCount: regions.length,
-        regionIds: regions.map((r) => r.id),
-      },
-      "H2",
-    );
-    return regions;
-  }, [
     isDestinationFlow,
+    step,
     trip.trip_rhythm,
     trip.destination_label,
     trip.destination,
-    step,
+    trip.departure_date,
+    trip.return_date,
   ]);
 
   const { primaryGroups, optionalGroups } = useMemo(() => {
@@ -691,18 +646,6 @@ function SearchPageContent() {
       );
       setSelectedActivities(nextActivities);
     }
-    debugLog(
-      "search/page.tsx:goToActivitiesStep",
-      "navigate to activities step",
-      {
-        rhythmPresent: Boolean(trip.trip_rhythm),
-        activityCountsLoaded: Object.keys(activityCounts).length,
-        selectedCount: nextActivities.size,
-        selectedSlugs: [...nextActivities],
-        touristRegionId: trip.tourist_region_id ?? null,
-      },
-      "H3",
-    );
     scrollToActivitiesPending.current = true;
     setStep(6);
     syncUrl(trip, 6);
@@ -782,26 +725,7 @@ function SearchPageContent() {
     overrideParams?: ReturnType<typeof getSearchParams>,
   ) {
     const params = overrideParams ?? getSearchParams();
-    debugLog(
-      "search/page.tsx:handleSearch",
-      "search invoked",
-      {
-        step,
-        activityCount: params.activities.length,
-        activities: params.activities,
-        dbReady: Boolean(dataStatus?.search_ready),
-        nearLat: params.near_lat ?? null,
-        nearLon: params.near_lon ?? null,
-      },
-      "H5",
-    );
     if (params.activities.length === 0) {
-      debugLog(
-        "search/page.tsx:handleSearch",
-        "search aborted — no activities",
-        { step },
-        "H3",
-      );
       return;
     }
     if (!dataStatus?.search_ready) {
@@ -838,27 +762,7 @@ function SearchPageContent() {
         );
       }
       setResults(data as ActivitySearchResult);
-      const result = data as ActivitySearchResult;
-      debugLog(
-        "search/page.tsx:handleSearch",
-        "search success",
-        {
-          clusterCount: result.clusters?.length ?? 0,
-          viewMode: result.view_mode ?? null,
-          totalAttractions: result.total_attractions_considered ?? null,
-        },
-        "H5",
-      );
     } catch (e) {
-      debugLog(
-        "search/page.tsx:handleSearch",
-        "search failed",
-        {
-          error: e instanceof Error ? e.message : String(e),
-          aborted: e instanceof Error && e.name === "AbortError",
-        },
-        "H5",
-      );
       if (e instanceof Error && e.name === "AbortError") {
         setError(t("search.timeout"));
       } else {
@@ -932,23 +836,25 @@ function SearchPageContent() {
         tripMode={trip.mode}
         tripComplete
         onStep={(s) => {
-          debugLog(
-            "search/page.tsx:onStep",
-            "step indicator navigation",
-            {
-              from: step,
-              to: s,
-              hasRhythm: Boolean(trip.trip_rhythm),
-              mode: trip.mode,
-            },
-            "H4",
-          );
+          if ((s === 4 || s === 5) && !trip.trip_rhythm && trip.departure_date) {
+            setTrip((prev) => {
+              const next = {
+                ...prev,
+                trip_rhythm: defaultRhythmForTrip(prev.departure_date, prev.return_date, {
+                  includeKids: hasChildrenInPassengers(prev.passengers),
+                }),
+              };
+              syncUrl(next, s);
+              return next;
+            });
+          } else {
+            syncUrl(trip, s);
+          }
           setStep(s);
-          syncUrl(trip, s);
         }}
       />
 
-      <TripContextBar trip={trip} onEdit={editTripOnHome} />
+      <TripContextBar trip={trip} onEdit={editTripOnHome} searchStep={step} />
 
       {missingDestinationCoords && (
         <Card className="mb-6 border-warning/40 bg-orange-50/60">
@@ -1045,17 +951,22 @@ function SearchPageContent() {
       )}
 
       {showRegionsStep && trip.trip_rhythm && (
-        <TouristRegionCards
-          regions={scoredRegions}
-          rhythm={trip.trip_rhythm}
-          selectedId={trip.tourist_region_id}
-          onSelect={handleSelectRegion}
-          onContinue={goToActivitiesStep}
-          onBack={() => {
-            setStep(4);
-            syncUrl(trip, 4);
-          }}
-        />
+        <>
+          {regionsLoading && <SkeletonList count={2} />}
+          {!regionsLoading && (
+            <TouristRegionCards
+              regions={scoredRegions}
+              rhythm={trip.trip_rhythm}
+              selectedId={trip.tourist_region_id}
+              onSelect={handleSelectRegion}
+              onContinue={goToActivitiesStep}
+              onBack={() => {
+                setStep(4);
+                syncUrl(trip, 4);
+              }}
+            />
+          )}
+        </>
       )}
 
       {showActivitiesStep && (

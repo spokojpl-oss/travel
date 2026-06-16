@@ -1293,6 +1293,113 @@ export type Database = {
         };
         Relationships: [];
       };
+      region_picks: {
+        Row: {
+          id: string;
+          region_id: string;
+          day_theme: string;
+          name_pl: string;
+          name_en: string;
+          why_pl: string;
+          why_en: string;
+          activity_slugs: string[];
+          rank: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          region_id: string;
+          day_theme: string;
+          name_pl: string;
+          name_en: string;
+          why_pl: string;
+          why_en: string;
+          activity_slugs?: string[];
+          rank?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          region_id?: string;
+          day_theme?: string;
+          name_pl?: string;
+          name_en?: string;
+          why_pl?: string;
+          why_en?: string;
+          activity_slugs?: string[];
+          rank?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "region_picks_region_id_fkey";
+            columns: ["region_id"];
+            isOneToOne: false;
+            referencedRelation: "tourist_regions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tourist_regions: {
+        Row: {
+          id: string;
+          slug: string;
+          destination_keys: string[];
+          name_pl: string;
+          name_en: string;
+          character: Database["public"]["Enums"]["region_character"];
+          vibe: Database["public"]["Enums"]["region_vibe"];
+          overview_pl: string;
+          overview_en: string;
+          stay_hint_pl: string;
+          stay_hint_en: string;
+          center_lat: number;
+          center_lon: number;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          slug: string;
+          destination_keys?: string[];
+          name_pl: string;
+          name_en: string;
+          character?: Database["public"]["Enums"]["region_character"];
+          vibe?: Database["public"]["Enums"]["region_vibe"];
+          overview_pl: string;
+          overview_en: string;
+          stay_hint_pl: string;
+          stay_hint_en: string;
+          center_lat: number;
+          center_lon: number;
+          active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          destination_keys?: string[];
+          name_pl?: string;
+          name_en?: string;
+          character?: Database["public"]["Enums"]["region_character"];
+          vibe?: Database["public"]["Enums"]["region_vibe"];
+          overview_pl?: string;
+          overview_en?: string;
+          stay_hint_pl?: string;
+          stay_hint_en?: string;
+          center_lat?: number;
+          center_lon?: number;
+          active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       travel_groups: {
         Row: {
           created_at: string;
@@ -1457,6 +1564,8 @@ export type Database = {
       destination_type: "country" | "region" | "city" | "island" | "area";
       intensity_level: "low" | "medium" | "high";
       member_type: "adult" | "child" | "infant" | "senior";
+      region_character: "resort" | "historic" | "wild" | "mixed";
+      region_vibe: "popular" | "balanced" | "offbeat";
       travel_style: "active" | "relax" | "mixed";
       trip_status: "draft" | "active" | "completed";
       transport_type:

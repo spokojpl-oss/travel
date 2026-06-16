@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EUROPE_SCRAPE_REGIONS, scrapeRegionByName } from "@/lib/api/osm-scrape-regions";
 import { OSM_SCRAPE_CATEGORIES } from "@/lib/api/osm-scrape-categories";
+import { TouristRegionsAdmin } from "@/components/features/TouristRegionsAdmin";
 import {
   subdivideBbox,
   tileGridForScrape,
@@ -87,20 +88,6 @@ type ScrapeStepResult = ScrapeResponse & {
 async function postScrapeRequest(params: URLSearchParams): Promise<ScrapeStepResult> {
   const started = Date.now();
   const query = params.toString();
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-    body: JSON.stringify({
-      sessionId: "0c16de",
-      hypothesisId: "D",
-      location: "admin/page.tsx:postScrapeRequest",
-      message: "client fetch start",
-      data: { query },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   let httpOk = false;
   let httpStatus = 0;
@@ -122,29 +109,6 @@ async function postScrapeRequest(params: URLSearchParams): Promise<ScrapeStepRes
   }
 
   const durationMs = Date.now() - started;
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-    body: JSON.stringify({
-      sessionId: "0c16de",
-      hypothesisId: "D",
-      location: "admin/page.tsx:postScrapeRequest",
-      message: "client fetch done",
-      data: {
-        httpOk,
-        httpStatus,
-        durationMs,
-        persisted: data.summary?.persisted,
-        fetched: data.summary?.fetched,
-        scrapeErrors: data.summary?.scrape_errors,
-        error: data.error,
-        warnings: data.warnings,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return { ...data, httpOk, httpStatus, durationMs };
 }
@@ -552,6 +516,8 @@ export default function AdminSetupPage() {
 
           {status.user.is_admin && status.service_role_ok && (
             <>
+              <TouristRegionsAdmin />
+
               <Card className="mb-6">
                 <CardHeader title="Pokrycie OSM — destynacje europejskie" />
                 <CardBody className="space-y-4">

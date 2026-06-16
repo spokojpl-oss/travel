@@ -16,10 +16,13 @@ export function TripContextBar({
   trip,
   onEdit,
   compact,
+  searchStep,
 }: {
   trip: TripContext;
   onEdit?: () => void;
   compact?: boolean;
+  /** W trybie destination plan dni pokazujemy dopiero od kroku 4. */
+  searchStep?: SearchStep;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -68,11 +71,16 @@ export function TripContextBar({
     });
   }
 
-  if (trip.trip_rhythm && trip.mode === "destination") {
+  const showRhythmInBar =
+    trip.trip_rhythm &&
+    trip.mode === "destination" &&
+    (searchStep == null || searchStep >= 4);
+
+  if (showRhythmInBar) {
     items.push({
       icon: "route",
       label: t("context.rhythm"),
-      value: formatRhythmSummary(trip.trip_rhythm, locale),
+      value: formatRhythmSummary(trip.trip_rhythm!, locale),
     });
   }
 

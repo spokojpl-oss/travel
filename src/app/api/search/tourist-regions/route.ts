@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { findTouristRegions } from "@/lib/destinations/tourist-regions";
+import { findTouristRegionsAsync } from "@/lib/destinations/tourist-regions-store";
 import {
   defaultRhythmForTrip,
   tripRhythmFromParams,
@@ -49,9 +49,9 @@ export async function POST(request: Request) {
       parsed.data.to_date ?? parsed.data.from_date,
     );
 
-  const regions = findTouristRegions({
+  const regions = await findTouristRegionsAsync({
     destinationLabel: parsed.data.destination_label,
-    rhythm: rhythm as Parameters<typeof findTouristRegions>[0]["rhythm"],
+    rhythm: rhythm as Parameters<typeof findTouristRegionsAsync>[0]["rhythm"],
   });
 
   return Response.json({ regions, count: regions.length });
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     tripRhythmFromParams(url.searchParams) ??
     defaultRhythmForTrip(from, url.searchParams.get("to_date") ?? from);
 
-  const regions = findTouristRegions({
+  const regions = await findTouristRegionsAsync({
     destinationLabel: label,
     rhythm,
   });

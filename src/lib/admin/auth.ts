@@ -11,3 +11,17 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   if (admins.length === 0) return false;
   return admins.includes((email ?? "").toLowerCase());
 }
+
+export async function requireAdminUser() {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !isAdminEmail(user.email)) {
+    return null;
+  }
+
+  return user;
+}
