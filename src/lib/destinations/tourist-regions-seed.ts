@@ -1,5 +1,7 @@
 import type { TouristRegion } from "./tourist-regions";
 import { SEED_TOURIST_REGIONS_EXTRA } from "./tourist-regions-seed-extra";
+import { SEED_TOURIST_REGIONS_COASTAL } from "./tourist-regions-seed-coastal";
+import { SEED_TOURIST_REGIONS_COASTAL_2 } from "./tourist-regions-seed-coastal-2";
 
 export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   {
@@ -894,4 +896,6 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
     ],
   },
   ...SEED_TOURIST_REGIONS_EXTRA,
+  ...SEED_TOURIST_REGIONS_COASTAL,
+  ...SEED_TOURIST_REGIONS_COASTAL_2,
 ] as TouristRegion[];

@@ -116,6 +116,9 @@ function transliterateGreek(text: string): string {
 
 function normalizeDestinationKey(label: string): string {
   return transliterateGreek(label.toLowerCase())
+    .replace(/ł/g, "l")
+    .replace(/ø/g, "o")
+    .replace(/đ/g, "d")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[,]/g, " ")
@@ -179,6 +182,15 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "chorwacja",
   "croatia",
   "hrvatska",
+  "wlochy",
+  "italy",
+  "italia",
+  "francja",
+  "france",
+  "portugalia",
+  "portugal",
+  "turcja",
+  "turkey",
   "ionian",
   "wyspy jonskie",
   "baleares",
