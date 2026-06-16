@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fillDestinationAttractionsFromOsm } from "@/lib/api/destination-osm-fill";
 import { fillDestinationAttractionsFromGoogle } from "@/lib/api/destination-google-fill";
 import { fillRadiusKm } from "@/lib/api/destination-activity-prefill";
+import { findAirportsForDestination } from "@/lib/flights/airport-finder";
 import {
   pointInIslandBbox,
   resolveIslandBoundaryForSearch,
@@ -529,6 +530,7 @@ export async function searchActivities(
     return {
       query: effectiveQuery,
       clusters: [],
+      view_mode: "regions",
       total_attractions_considered: 0,
       duration_ms: Date.now() - startTime,
       meta: {
@@ -544,8 +546,13 @@ export async function searchActivities(
   let attractions = buildAttractionMap(tagRows);
   attractions = filterAttractionsToIsland(attractions, island);
 
+  const isIslandView =
+    effectiveQuery.exploration_scope === "island" && island != null;
+
   if (attractions.length > MAX_ATTRACTIONS_TO_CLUSTER) {
-    if (hasNearPoint(effectiveQuery)) {
+    if (isIslandView) {
+      attractions = attractions.slice(0, MAX_ATTRACTIONS_TO_CLUSTER);
+    } else if (hasNearPoint(effectiveQuery)) {
       const center = {
         lat: effectiveQuery.near_lat,
         lon: effectiveQuery.near_lon,
@@ -566,6 +573,7 @@ export async function searchActivities(
     return {
       query: effectiveQuery,
       clusters: [],
+      view_mode: "regions",
       total_attractions_considered: 0,
       duration_ms: Date.now() - startTime,
       meta: {
@@ -576,6 +584,33 @@ export async function searchActivities(
         google_filled: googleFilled,
       },
     };
+  }
+
+  let searchAirports: Array<{
+    iata_code: string;
+    name: string;
+    lat: number;
+    lon: number;
+  }> = [];
+
+  if (island && hasNearPoint(effectiveQuery)) {
+    try {
+      const found = await findAirportsForDestination({
+        center: { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon },
+        bbox: island.bbox,
+        destinationLabel: effectiveQuery.destination_label,
+        maxDistanceKm: island.maxRadiusKm,
+        maxResults: Math.max(3, island.primaryAirports.length),
+      });
+      searchAirports = found.map((a) => ({
+        iata_code: a.iata_code,
+        name: a.name,
+        lat: a.lat,
+        lon: a.lon,
+      }));
+    } catch {
+      /* lotniska opcjonalne */
+    }
   }
 
   const clusters = clusterAttractions({
@@ -605,16 +640,18 @@ export async function searchActivities(
   let filtered = enrichedClusters;
   if (hasNearPoint(effectiveQuery)) {
     const center = { lat: effectiveQuery.near_lat, lon: effectiveQuery.near_lon };
-    const radius = island
-      ? island.maxRadiusKm
-      : (effectiveQuery.near_radius_km ?? geoRadiusUsed ?? 90);
+    const radius = isIslandView
+      ? island!.maxRadiusKm
+      : island
+        ? island.maxRadiusKm
+        : (effectiveQuery.near_radius_km ?? geoRadiusUsed ?? 90);
     filtered = enrichedClusters
       .map((cluster) => ({
         cluster,
         dist: distanceKm(cluster.center, center),
       }))
       .filter((x) => {
-        if (x.dist > radius) return false;
+        if (!isIslandView && x.dist > radius) return false;
         if (island && !pointInIslandBbox(x.cluster.center, island.bbox)) {
           return false;
         }
@@ -626,13 +663,38 @@ export async function searchActivities(
         }
         return true;
       })
-      .sort((a, b) => a.dist - b.dist)
+      .sort((a, b) =>
+        isIslandView ? b.cluster.score - a.cluster.score : a.dist - b.dist,
+      )
       .map((x) => x.cluster);
+  }
+
+  const islandActivityCounts: Record<string, number> = {};
+  if (isIslandView) {
+    for (const a of attractions) {
+      for (const tag of a.activity_tags) {
+        if (effectiveQuery.activities.includes(tag.activity_slug)) {
+          islandActivityCounts[tag.activity_slug] =
+            (islandActivityCounts[tag.activity_slug] ?? 0) + 1;
+        }
+      }
+    }
   }
 
   return {
     query: effectiveQuery,
     clusters: filtered,
+    view_mode: isIslandView ? "island" : "regions",
+    island_overview: isIslandView
+      ? {
+          island_name: island!.name,
+          attractions,
+          activity_counts: islandActivityCounts,
+          airports: searchAirports,
+          bbox: island!.bbox,
+        }
+      : undefined,
+    airports: searchAirports.length > 0 ? searchAirports : undefined,
     total_attractions_considered: attractions.length,
     duration_ms: Date.now() - startTime,
     meta: {

@@ -23,18 +23,18 @@ export const EXPLORATION_SCOPE_OPTIONS: Array<{
     label_pl: "Część wyspy / regionu",
     label_en: "Part of the island",
     description_pl:
-      "Kilka miejscowości w jednym rejonie — do ~50 km między atrakcjami.",
+      "Opis regionów z mapą atrakcji — wybierz rejon, w którym chcesz się zatrzymać.",
     description_en:
-      "Several towns in one area — up to ~50 km between attractions.",
+      "Region overviews with attraction maps — pick the area where you want to stay.",
   },
   {
     value: "island",
     label_pl: "Cała wyspa / destynacja",
     label_en: "Whole island",
     description_pl:
-      "Zwiedzanie całego obszaru — pokażemy kilka regionów do wyboru na wyspie.",
+      "Najpierw mapa całej wyspy ze wszystkimi atrakcjami — potem wybierzesz rejon na nocleg.",
     description_en:
-      "Explore the whole area — we'll suggest several regions across the island.",
+      "First a map of the whole island with all attractions — then pick where to stay.",
   },
   {
     value: "roadtrip",

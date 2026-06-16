@@ -109,11 +109,16 @@ export function RegionMap({
             title: point.label,
             icon: {
               path: maps.SymbolPath.CIRCLE,
-              scale: point.type === "centroid" ? 11 : 9,
+              scale:
+                point.type === "airport"
+                  ? 13
+                  : point.type === "centroid"
+                    ? 11
+                    : 8,
               fillColor: POINT_COLORS[point.type],
               fillOpacity: 1,
               strokeColor: "#ffffff",
-              strokeWeight: 2,
+              strokeWeight: point.type === "airport" ? 3 : 2,
             },
           });
 

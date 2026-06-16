@@ -4,64 +4,15 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
 import { useT } from "@/i18n/locale-provider";
+import {
+  defaultPassengers,
+  formatPassengers,
+  parsePassengers,
+  type PassengerBreakdown,
+} from "@/lib/passengers/format";
 
-export type PassengerBreakdown = {
-  adults: number;
-  children: number;
-  childAges: number[];
-};
-
-export function defaultPassengers(): PassengerBreakdown {
-  return { adults: 2, children: 0, childAges: [] };
-}
-
-export function formatPassengers(p: PassengerBreakdown): string {
-  const parts: string[] = [];
-  if (p.adults === 1) parts.push("1 dorosły");
-  else parts.push(`${p.adults} dorosłych`);
-
-  if (p.children === 1) {
-    const age = p.childAges[0];
-    parts.push(
-      age != null && age > 0
-        ? `1 dziecko (${age} lat)`
-        : "1 dziecko",
-    );
-  } else if (p.children > 1) {
-    const ages = p.childAges
-      .slice(0, p.children)
-      .filter((a) => a > 0)
-      .map((a) => `${a} lat`);
-    parts.push(
-      ages.length > 0
-        ? `${p.children} dzieci (${ages.join(", ")})`
-        : `${p.children} dzieci`,
-    );
-  }
-
-  return parts.join(", ");
-}
-
-export function parsePassengers(text: string): PassengerBreakdown {
-  const fallback = defaultPassengers();
-  if (!text.trim()) return fallback;
-
-  const adultsMatch = text.match(/(\d+)\s+dorosł/);
-  const childrenMatch = text.match(/(\d+)\s+dziec/);
-  const ageMatches = [...text.matchAll(/\((\d+)\s*lat/g)];
-
-  const adults = adultsMatch ? Number(adultsMatch[1]) : fallback.adults;
-  const children = childrenMatch ? Number(childrenMatch[1]) : 0;
-  const childAges = ageMatches.map((m) => Number(m[1]));
-
-  while (childAges.length < children) childAges.push(8);
-
-  return {
-    adults: Math.min(Math.max(adults, 1), 9),
-    children: Math.min(Math.max(children, 0), 6),
-    childAges: childAges.slice(0, children),
-  };
-}
+export type { PassengerBreakdown };
+export { defaultPassengers, formatPassengers, parsePassengers };
 
 function Stepper({
   label,

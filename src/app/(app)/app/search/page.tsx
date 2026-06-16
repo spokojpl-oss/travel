@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
-import { RegionMapMini } from "@/components/features/RegionMap";
+import { RegionMap, RegionMapMini } from "@/components/features/RegionMap";
 import {
   SearchStepIndicator,
   TripContextBar,
 } from "@/components/features/TripContextBar";
 import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
+import { buildIslandMapData } from "@/lib/maps/build-island-map";
 import { clusterDisplayName } from "@/lib/search/settlement-resolver";
 import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -51,6 +52,104 @@ type DataStatus = {
   message: string | null;
 };
 
+function IslandRegionCard({
+  cluster,
+  idx,
+  airports,
+  onOpen,
+}: {
+  cluster: GeoCluster;
+  idx: number;
+  airports: Array<{ iata_code: string; name: string; lat: number; lon: number }>;
+  onOpen: () => void;
+}) {
+  const mapData = buildClusterMapData(cluster, airports);
+  return (
+    <Card className="card-hover mb-4 overflow-hidden">
+      <RegionMapMini points={mapData.points} segments={mapData.segments} />
+      <CardBody>
+        <h3 className="font-display text-lg font-bold text-text-primary">
+          #{idx + 1} – {clusterDisplayName(cluster)}
+        </h3>
+        <p className="mt-1 text-sm text-text-secondary">
+          {cluster.settlement?.name
+            ? `Proponowana baza: ${cluster.settlement.name} · `
+            : ""}
+          {cluster.attractions.length} atrakcji w rejonie
+        </p>
+        <Button size="sm" className="mt-4" onClick={onOpen}>
+          Planuj pobyt w tym regionie →
+        </Button>
+      </CardBody>
+    </Card>
+  );
+}
+
+function EmptyResultsCard({
+  results,
+  trip,
+  dataStatus,
+  selectedActivities,
+  t,
+}: {
+  results: ActivitySearchResult;
+  trip: TripContext;
+  dataStatus: DataStatus | null;
+  selectedActivities: Set<string>;
+  t: (key: string) => string;
+}) {
+  return (
+    <Card>
+      <CardBody>
+        <p className="text-text-secondary">
+          Nie znaleziono regionów
+          {trip.destination_label ? ` w okolicy ${trip.destination_label}` : ""}{" "}
+          dla wybranych aktywności.
+        </p>
+        {results.total_attractions_considered === 0 && (
+          <p className="mt-3 text-sm text-text-secondary">
+            Brak atrakcji w bazie dla wybranych aktywności
+            {trip.destination_label ? ` w okolicy ${trip.destination_label}` : ""}
+            . Przy wyszukiwaniu próbujemy uzupełnić dane z OpenStreetMap.
+            {dataStatus && dataStatus.attractions === 0 && (
+              <span className="mt-2 block text-amber-800">
+                {t("search.attractionsEmptyHint")} (w bazie:{" "}
+                {dataStatus.attractions} atrakcji, {dataStatus.tags} tagów)
+              </span>
+            )}
+            {selectedActivities.has("zoo") &&
+              !selectedActivities.has("aquarium") && (
+                <>
+                  {" "}
+                  Delfinaria często są oznaczone jako akwaria — spróbuj też
+                  zaznaczyć „Akwaria”.
+                </>
+              )}
+            {results.meta && (
+              <>
+                {" "}
+                (w promieniu: {results.meta.attractions_in_bbox} miejsc OSM,{" "}
+                {results.meta.tag_rows_fetched} tagów
+                {results.meta.geo_radius_km_used
+                  ? `, szukano do ${results.meta.geo_radius_km_used} km`
+                  : ""}
+                )
+              </>
+            )}
+          </p>
+        )}
+        {results.total_attractions_considered > 0 && (
+          <p className="mt-3 text-sm text-text-secondary">
+            Znaleziono {results.total_attractions_considered} atrakcji, ale żaden
+            klaster nie spełnia kryteriów — spróbuj trybu „dowolna z wybranych”
+            lub zwiększ promień w ustawieniach zaawansowanych.
+          </p>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 function SearchPageContent() {
   const t = useT();
   const { locale } = useLocale();
@@ -77,6 +176,7 @@ function SearchPageContent() {
   const [maxRadius, setMaxRadius] = useState(15);
   const [minPerActivity, setMinPerActivity] = useState(1);
   const [results, setResults] = useState<ActivitySearchResult | null>(null);
+  const [showIslandRegions, setShowIslandRegions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -445,6 +545,7 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
+    setShowIslandRegions(false);
     setStep(isDestinationFlow ? 5 : 3);
     syncUrl(trip, isDestinationFlow ? 5 : 3);
 
@@ -846,108 +947,196 @@ function SearchPageContent() {
 
       {showResultsStep && results && !isSearching && (
         <section className="mt-8">
-          <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-            {isDestinationFlow ? "4" : "3"}. Wyniki ({results.clusters.length}{" "}
-            regionów)
-          </h2>
-          <p className="mb-6 text-sm text-text-secondary">
-            {formatTravelSummary(trip)} ·{" "}
-            {formatTripDateRange(trip)} · Czas wyszukiwania:{" "}
-            {results.duration_ms}ms
-          </p>
+          {results.view_mode === "island" && results.island_overview ? (
+            <>
+              <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
+                Cała {results.island_overview.island_name} — przegląd atrakcji
+              </h2>
+              <p className="mb-6 text-sm text-text-secondary">
+                {formatTravelSummary(trip)} · {formatTripDateRange(trip)} ·{" "}
+                {results.total_attractions_considered} miejsc na wyspie · nie
+                wybieramy jeszcze bazy noclegowej
+              </p>
 
-          {results.clusters.length === 0 && (
-            <Card>
-              <CardBody>
-                <p className="text-text-secondary">
-                  Nie znaleziono regionów
-                  {trip.destination_label
-                    ? ` w okolicy ${trip.destination_label}`
-                    : ""}{" "}
-                  dla wybranych aktywności.
-                </p>
-                {results.total_attractions_considered === 0 && (
-                  <p className="mt-3 text-sm text-text-secondary">
-                    Brak atrakcji w bazie dla wybranych aktywności
-                    {trip.destination_label
-                      ? ` w okolicy ${trip.destination_label}`
-                      : ""}
-                    . Przy wyszukiwaniu próbujemy uzupełnić dane z OpenStreetMap.
-                    {dataStatus && dataStatus.attractions === 0 && (
-                      <span className="mt-2 block text-amber-800">
-                        {t("search.attractionsEmptyHint")} (w bazie:{" "}
-                        {dataStatus.attractions} atrakcji, {dataStatus.tags}{" "}
-                        tagów)
-                      </span>
-                    )}
-                    {selectedActivities.has("zoo") &&
-                      !selectedActivities.has("aquarium") && (
-                        <>
-                          {" "}
-                          Delfinaria często są oznaczone jako akwaria — spróbuj
-                          też zaznaczyć „Akwaria”.
-                        </>
-                      )}
-                    {results.meta && (
-                      <>
-                        {" "}
-                        (w promieniu: {results.meta.attractions_in_bbox} miejsc
-                        OSM, {results.meta.tag_rows_fetched} tagów
-                        {results.meta.geo_radius_km_used
-                          ? `, szukano do ${results.meta.geo_radius_km_used} km`
-                          : ""}
-                        )
-                      </>
-                    )}
-                  </p>
-                )}
-                {results.total_attractions_considered > 0 && (
-                  <p className="mt-3 text-sm text-text-secondary">
-                    Znaleziono {results.total_attractions_considered} atrakcji, ale
-                    żaden klaster nie spełnia kryteriów — spróbuj trybu „dowolna z
-                    wybranych” lub zwiększ promień w ustawieniach zaawansowanych.
-                  </p>
-                )}
-              </CardBody>
-            </Card>
-          )}
-
-          {results.clusters.map((cluster, idx) => {
-            const mapData = buildClusterMapData(cluster);
-            return (
-            <Card key={cluster.id} className="card-hover mb-4 overflow-hidden">
-              <RegionMapMini
-                points={mapData.points}
-                segments={mapData.segments}
-              />
-              <CardBody>
-                <h3 className="font-display text-lg font-bold text-text-primary">
-                  #{idx + 1} – {clusterDisplayName(cluster)}
-                </h3>
-                <p className="mt-1 text-sm text-text-secondary">
-                  {cluster.settlement?.name
-                    ? `Baza pobytu: ${cluster.settlement.name} · `
-                    : ""}
-                  Score: {cluster.score} · Rozpiętość: {cluster.radius_km} km ·
-                  Atrakcji: {cluster.attractions.length}
-                  {cluster.radius_km > 25 && (
-                    <span className="text-amber-700">
-                      {" "}
-                      · Duży region — rozważ mniejszy promień w ustawieniach
+              <Card className="mb-6 overflow-hidden">
+                <RegionMap
+                  points={
+                    buildIslandMapData({
+                      attractions: results.island_overview.attractions,
+                      airports: results.island_overview.airports,
+                    }).points
+                  }
+                  segments={[]}
+                  height={520}
+                  showRouteList={false}
+                />
+                <CardBody className="text-sm text-text-secondary">
+                  <p>
+                    <span className="mr-4 inline-flex items-center gap-1.5">
+                      <span className="inline-block h-3 w-3 rounded-full bg-[#003faa]" />
+                      Lotnisko
                     </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-block h-3 w-3 rounded-full bg-[#16a34a]" />
+                      Atrakcja
+                    </span>
+                  </p>
+                  {results.island_overview.airports.length > 0 && (
+                    <p className="mt-2">
+                      Lotniska:{" "}
+                      {results.island_overview.airports
+                        .map((a) => `${a.name} (${a.iata_code})`)
+                        .join(" · ")}
+                    </p>
                   )}
-                </p>
-                <Button
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => openDestination(cluster)}
-                >
-                  Zobacz szczegóły regionu →
-                </Button>
-              </CardBody>
-            </Card>
-            );
-          })}
+                  {results.total_attractions_considered >
+                    results.island_overview.attractions.length && (
+                    <p className="mt-1 text-xs text-text-tertiary">
+                      Na mapie pierwsze 300 punktów z{" "}
+                      {results.total_attractions_considered} znalezionych.
+                    </p>
+                  )}
+                </CardBody>
+              </Card>
+
+              <Card className="mb-8">
+                <CardHeader title="Co znaleźliśmy na wyspie" />
+                <CardBody>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(results.island_overview.activity_counts)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([slug, count]) => (
+                        <span
+                          key={slug}
+                          className="rounded-full bg-brand-50 px-3 py-1.5 text-sm text-brand-800"
+                        >
+                          {taxonomy
+                            .flatMap((g) => g.activities)
+                            .find((a) => a.slug === slug)
+                            ? locale === "en"
+                              ? taxonomy
+                                  .flatMap((g) => g.activities)
+                                  .find((a) => a.slug === slug)!.name_en
+                              : taxonomy
+                                  .flatMap((g) => g.activities)
+                                  .find((a) => a.slug === slug)!.name_pl
+                            : slug}
+                          : {count}
+                        </span>
+                      ))}
+                  </div>
+                </CardBody>
+              </Card>
+
+              {!showIslandRegions ? (
+                <div className="mb-8 text-center">
+                  <p className="mb-4 text-sm text-text-secondary">
+                    Po przeglądzie wybierz rejon, w którym chcesz się zatrzymać.
+                  </p>
+                  <Button
+                    size="lg"
+                    onClick={() => setShowIslandRegions(true)}
+                    disabled={results.clusters.length === 0}
+                  >
+                    Wybierz region na nocleg →
+                  </Button>
+                  {results.clusters.length === 0 && (
+                    <p className="mt-3 text-sm text-text-tertiary">
+                      Brak wyodrębnionych regionów — spróbuj mniej aktywności
+                      lub trybu „dowolna z wybranych”.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <h3 className="font-display mb-4 text-lg font-bold text-text-primary">
+                    Wybierz region na nocleg ({results.clusters.length})
+                  </h3>
+                  {results.clusters.map((cluster, idx) => (
+                    <IslandRegionCard
+                      key={cluster.id}
+                      cluster={cluster}
+                      idx={idx}
+                      airports={results.airports ?? []}
+                      onOpen={() => openDestination(cluster)}
+                    />
+                  ))}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
+                Regiony ({results.clusters.length})
+              </h2>
+              <p className="mb-6 text-sm text-text-secondary">
+                {formatTravelSummary(trip)} · {formatTripDateRange(trip)} ·
+                Wybierz rejon — poniżej mapa atrakcji w okolicy
+              </p>
+
+              {results.clusters.length === 0 && (
+                <EmptyResultsCard
+                  results={results}
+                  trip={trip}
+                  dataStatus={dataStatus}
+                  selectedActivities={selectedActivities}
+                  t={t}
+                />
+              )}
+
+              {results.clusters.map((cluster, idx) => {
+                const mapData = buildClusterMapData(
+                  cluster,
+                  results.airports ?? [],
+                );
+                return (
+                  <Card
+                    key={cluster.id}
+                    className="card-hover mb-4 overflow-hidden"
+                  >
+                    <RegionMapMini
+                      points={mapData.points}
+                      segments={mapData.segments}
+                    />
+                    <CardBody>
+                      <h3 className="font-display text-lg font-bold text-text-primary">
+                        #{idx + 1} – {clusterDisplayName(cluster)}
+                      </h3>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {cluster.settlement?.name
+                          ? `Baza pobytu: ${cluster.settlement.name} · `
+                          : ""}
+                        Atrakcji: {cluster.attractions.length} · Aktywności:{" "}
+                        {cluster.covered_activities.length}/
+                        {selectedActivities.size}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {cluster.covered_activities
+                          .map((slug) => {
+                            const act = taxonomy
+                              .flatMap((g) => g.activities)
+                              .find((a) => a.slug === slug);
+                            return act
+                              ? locale === "en"
+                                ? act.name_en
+                                : act.name_pl
+                              : slug;
+                          })
+                          .join(" · ")}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => openDestination(cluster)}
+                      >
+                        Zobacz szczegóły regionu →
+                      </Button>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </>
+          )}
         </section>
       )}
     </PageContainer>

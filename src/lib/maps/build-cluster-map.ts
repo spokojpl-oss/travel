@@ -1,8 +1,12 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
 import type { GeoCluster } from "@/types/domain";
 import type { MapPoint, MapRouteSegment } from "@/lib/maps/types";
+import type { IslandMapAirport } from "@/lib/maps/build-island-map";
 
-export function buildClusterMapData(cluster: GeoCluster): {
+export function buildClusterMapData(
+  cluster: GeoCluster,
+  airports: IslandMapAirport[] = [],
+): {
   points: MapPoint[];
   segments: MapRouteSegment[];
 } {
@@ -51,5 +55,13 @@ export function buildClusterMapData(cluster: GeoCluster): {
     toLon: Number(a.lon),
   }));
 
-  return { points, segments };
+  const airportPoints: MapPoint[] = airports.map((airport) => ({
+    id: `airport-${airport.iata_code}`,
+    type: "airport" as const,
+    label: `${airport.name} (${airport.iata_code})`,
+    lat: airport.lat,
+    lon: airport.lon,
+  }));
+
+  return { points: [...airportPoints, ...points], segments };
 }

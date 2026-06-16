@@ -155,6 +155,27 @@ export type ActivitySearchResult = {
   clusters: GeoCluster[];
   total_attractions_considered: number;
   duration_ms: number;
+  /** island = jedna mapa całej wyspy; regions = lista regionów do wyboru */
+  view_mode: "island" | "regions";
+  island_overview?: {
+    island_name: string;
+    attractions: AttractionWithActivities[];
+    activity_counts: Record<string, number>;
+    airports: Array<{
+      iata_code: string;
+      name: string;
+      lat: number;
+      lon: number;
+    }>;
+    bbox: BoundingBox;
+  };
+  /** Lotniska destynacji (np. HER, CHQ na Krecie) — do map regionów */
+  airports?: Array<{
+    iata_code: string;
+    name: string;
+    lat: number;
+    lon: number;
+  }>;
   meta?: {
     tag_rows_fetched: number;
     geo_radius_km_used: number | null;

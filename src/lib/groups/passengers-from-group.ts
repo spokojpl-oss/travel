@@ -1,10 +1,10 @@
 import type { GroupMember } from "@/types/domain";
+import {
+  formatPassengers,
+  type PassengerBreakdown,
+} from "@/lib/passengers/format";
 
-export type PassengerBreakdown = {
-  adults: number;
-  children: number;
-  childAges: number[];
-};
+export type { PassengerBreakdown };
 
 export function passengersFromGroupMembers(
   members: Pick<GroupMember, "member_type" | "age">[],
@@ -32,26 +32,5 @@ export function passengersFromGroupMembers(
 }
 
 export function formatPassengerBreakdown(p: PassengerBreakdown): string {
-  const parts: string[] = [];
-  if (p.adults === 1) parts.push("1 dorosły");
-  else parts.push(`${p.adults} dorosłych`);
-
-  if (p.children === 1) {
-    const age = p.childAges[0];
-    parts.push(
-      age != null && age > 0 ? `1 dziecko (${age} lat)` : "1 dziecko",
-    );
-  } else if (p.children > 1) {
-    const ages = p.childAges
-      .slice(0, p.children)
-      .filter((a) => a > 0)
-      .map((a) => `${a} lat`);
-    parts.push(
-      ages.length > 0
-        ? `${p.children} dzieci (${ages.join(", ")})`
-        : `${p.children} dzieci`,
-    );
-  }
-
-  return parts.join(", ");
+  return formatPassengers(p);
 }
