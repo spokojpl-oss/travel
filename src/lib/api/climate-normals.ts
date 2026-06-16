@@ -4,7 +4,7 @@ import type { GeoPoint } from "@/types/domain";
 const ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive";
 
 /** Lata używane do obliczenia norm klimatycznych (średnie miesięczne). */
-export const CLIMATE_SAMPLE_START_YEAR = 2010;
+export const CLIMATE_SAMPLE_START_YEAR = 2020;
 export const CLIMATE_SAMPLE_END_YEAR = 2023;
 
 export type ClimateRating =

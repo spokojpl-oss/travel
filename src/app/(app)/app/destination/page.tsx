@@ -11,6 +11,7 @@ import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
@@ -22,6 +23,7 @@ import {
   mergeTripContext,
   tripContextFromParams,
 } from "@/lib/search/trip-context";
+import { loadDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 
@@ -30,11 +32,43 @@ type BuildEvent = {
   [key: string]: unknown;
 };
 
+function parseSseEvents(buffer: string): {
+  events: BuildEvent[];
+  rest: string;
+} {
+  const parts = buffer.split("\n\n");
+  const rest = parts.pop() ?? "";
+  const events: BuildEvent[] = [];
+
+  for (const part of parts) {
+    const line = part.trim();
+    if (!line.startsWith("data: ")) continue;
+    try {
+      events.push(JSON.parse(line.substring(6)) as BuildEvent);
+    } catch {
+      console.error("Failed to parse SSE event:", line);
+    }
+  }
+
+  return { events, rest };
+}
+
+function parseTrailingSseEvent(buffer: string): BuildEvent | null {
+  const line = buffer.trim();
+  if (!line.startsWith("data: ")) return null;
+  try {
+    return JSON.parse(line.substring(6)) as BuildEvent;
+  } catch {
+    return null;
+  }
+}
+
 export default function DestinationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [cluster, setCluster] = useState<GeoCluster | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
+  const [buildTitle, setBuildTitle] = useState<string | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
   const [weather, setWeather] = useState<object | null>(null);
   const [wikivoyage, setWikivoyage] =
@@ -44,10 +78,14 @@ export default function DestinationPage() {
   const [attractions, setAttractions] = useState<
     Pick<Attraction, "id" | "name">[]
   >([]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [isBuilding, setIsBuilding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [buildWarnings, setBuildWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
+  const buildId = searchParams.get("build_id");
   const clusterData = searchParams.get("cluster");
   const activitiesParam = searchParams.get("activities");
 
@@ -68,27 +106,52 @@ export default function DestinationPage() {
     [trip.origin_iata, trip.origin_scope],
   );
 
+  const clusterAttractions = useMemo(
+    () =>
+      cluster?.attractions.map((a) => ({ id: a.id, name: a.name })) ?? [],
+    [cluster],
+  );
+  const hotelsAttractions =
+    attractions.length > 0 ? attractions : clusterAttractions;
+
   useEffect(() => {
     if (startedRef.current) return;
-    if (!clusterData || !activitiesParam) {
-      setError("Brak danych klastra – wróć do wyszukiwarki");
+
+    let parsedCluster: GeoCluster | null = null;
+    let activities: string[] | null = null;
+
+    if (buildId) {
+      const stored = loadDestinationBuildPayload(buildId);
+      if (stored) {
+        parsedCluster = stored.cluster;
+        activities = stored.activities;
+      }
+    }
+
+    if (!parsedCluster && clusterData && activitiesParam) {
+      try {
+        parsedCluster = JSON.parse(
+          decodeURIComponent(clusterData),
+        ) as GeoCluster;
+        activities = JSON.parse(decodeURIComponent(activitiesParam)) as string[];
+      } catch {
+        setError("Nieprawidłowe dane URL");
+        return;
+      }
+    }
+
+    if (!parsedCluster || !activities?.length) {
+      setError(
+        "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
+      );
       return;
     }
+
     startedRef.current = true;
-
-    let parsedCluster: GeoCluster;
-    let activities: string[];
-    try {
-      parsedCluster = JSON.parse(decodeURIComponent(clusterData)) as GeoCluster;
-      activities = JSON.parse(decodeURIComponent(activitiesParam));
-      setCluster(parsedCluster);
-    } catch {
-      setError("Nieprawidłowe dane URL");
-      return;
-    }
-
-    startBuild(parsedCluster, activities);
-  }, [clusterData, activitiesParam]);
+    setCluster(parsedCluster);
+    setSelectedActivities(activities);
+    void startBuild(parsedCluster, activities);
+  }, [buildId, clusterData, activitiesParam]);
 
   useEffect(() => {
     if (!destination) return;
@@ -110,8 +173,41 @@ export default function DestinationPage() {
       });
   }, [destination?.id]);
 
-  async function startBuild(cluster: unknown, activities: string[]) {
+  function handleEvent(event: BuildEvent) {
+    if (event.type === "started") {
+      setBuildTitle(String(event.destination_name ?? ""));
+    } else if (event.type === "destination_ready") {
+      setDestination(event.destination as Destination);
+    } else if (event.type === "weather_loaded") {
+      setWeather((event.weather as object | null) ?? null);
+    } else if (event.type === "wikivoyage_loaded") {
+      setWikivoyage(
+        (event.wikivoyage as WikivoyageDestinationContent | null) ?? null,
+      );
+    } else if (event.type === "attractions_loaded") {
+      setAttractionCount((event.count as number) ?? 0);
+    } else if (event.type === "google_places_loaded") {
+      setGooglePlaces((event.places as GooglePlace[]) ?? []);
+    } else if (event.type === "ai_synthesis_loaded") {
+      setSummary(event.summary as DestinationSummary);
+    } else if (event.type === "error") {
+      const step = String(event.step ?? "");
+      const message = String(event.message ?? "Błąd budowania");
+      if (
+        step === "destination_create" ||
+        step === "cache_miss" ||
+        step === "pipeline"
+      ) {
+        setError(message);
+      } else {
+        setBuildWarnings((prev) => [...prev, message]);
+      }
+    }
+  }
+
+  async function startBuild(cluster: GeoCluster, activities: string[]) {
     setError(null);
+    setIsBuilding(true);
 
     try {
       const response = await fetch("/api/destination/build", {
@@ -120,6 +216,12 @@ export default function DestinationPage() {
         body: JSON.stringify({
           cluster,
           selected_activities: activities,
+          trip: {
+            date_from: trip.departure_date,
+            date_to: trip.return_date ?? trip.departure_date,
+            adults: passengers.adults,
+            children_ages: passengers.childAges,
+          },
         }),
       });
 
@@ -139,41 +241,22 @@ export default function DestinationPage() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.substring(6)) as BuildEvent;
-            handleEvent(event);
-          } catch {
-            console.error("Failed to parse SSE event:", line);
-          }
+        const parsed = parseSseEvents(buffer);
+        buffer = parsed.rest;
+        for (const event of parsed.events) {
+          handleEvent(event);
         }
       }
+
+      buffer += decoder.decode();
+      const tail = parseTrailingSseEvent(buffer);
+      if (tail) handleEvent(tail);
 
       setIsComplete(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
-    }
-  }
-
-  function handleEvent(event: BuildEvent) {
-    if (event.type === "destination_ready") {
-      setDestination(event.destination as Destination);
-    } else if (event.type === "weather_loaded") {
-      setWeather((event.weather as object | null) ?? null);
-    } else if (event.type === "wikivoyage_loaded") {
-      setWikivoyage(
-        (event.wikivoyage as WikivoyageDestinationContent | null) ?? null,
-      );
-    } else if (event.type === "attractions_loaded") {
-      setAttractionCount((event.count as number) ?? 0);
-    } else if (event.type === "google_places_loaded") {
-      setGooglePlaces((event.places as GooglePlace[]) ?? []);
-    } else if (event.type === "ai_synthesis_loaded") {
-      setSummary(event.summary as DestinationSummary);
+    } finally {
+      setIsBuilding(false);
     }
   }
 
@@ -192,6 +275,11 @@ export default function DestinationPage() {
   }
 
   const mapData = cluster ? buildClusterMapData(cluster) : null;
+  const pageTitle =
+    destination?.name ??
+    buildTitle ??
+    cluster?.settlement?.name ??
+    "Buduję destynację...";
 
   return (
     <PageContainer>
@@ -199,7 +287,7 @@ export default function DestinationPage() {
         items={[
           { label: "Start", href: "/app" },
           { label: "Wyszukiwarka", href: "/app/search" },
-          { label: destination?.name ?? "Destynacja" },
+          { label: pageTitle },
         ]}
       />
 
@@ -212,12 +300,17 @@ export default function DestinationPage() {
 
       <header className="mb-8">
         <h1 className="font-display text-3xl font-bold text-text-primary">
-          {destination?.name ?? "Buduję destynację..."}
+          {pageTitle}
         </h1>
         {destination && (
           <p className="mt-2 text-sm text-text-secondary">
             {destination.country_code} · {destination.destination_type} ·{" "}
             {destination.timezone}
+          </p>
+        )}
+        {isBuilding && !destination && (
+          <p className="mt-2 text-sm text-text-secondary">
+            Przygotowujemy opis, pogodę i oferty podróży…
           </p>
         )}
       </header>
@@ -227,80 +320,107 @@ export default function DestinationPage() {
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
           </h2>
-          <RegionMap
-            points={mapData.points}
-            segments={mapData.segments}
-          />
+          <RegionMap points={mapData.points} segments={mapData.segments} />
         </section>
+      )}
+
+      {buildWarnings.length > 0 && (
+        <Card className="mb-8 border-warning/40 bg-orange-50/60">
+          <CardBody className="text-sm text-text-secondary">
+            <p className="font-medium text-text-primary">
+              Część danych niedostępna
+            </p>
+            <ul className="mt-2 list-disc pl-5">
+              {buildWarnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
       )}
 
       {summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
-          <p className="mb-4 text-text-secondary">{summary.overview}</p>
-          <p className="mb-4">
-            <strong>Dlaczego pasuje:</strong> {summary.why_matches_query}
-          </p>
+            <p className="mb-4 text-text-secondary">{summary.overview}</p>
+            <p className="mb-4">
+              <strong>Dlaczego pasuje:</strong> {summary.why_matches_query}
+            </p>
 
-          {summary.highlights?.length > 0 && (
-            <>
-              <h3 className="font-medium mb-2">Highlights</h3>
-              <ul className="space-y-2 mb-4">
-                {summary.highlights.map((h, i) => (
-                  <li key={i}>
-                    <strong>{h.title}</strong> – {h.description}{" "}
-                    <em className="text-gray-500">[{h.source}]</em>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+            {summary.highlights?.length > 0 && (
+              <>
+                <h3 className="mb-2 font-medium">Highlights</h3>
+                <ul className="mb-4 space-y-2">
+                  {summary.highlights.map((h, i) => (
+                    <li key={i}>
+                      <strong>{h.title}</strong> – {h.description}{" "}
+                      <em className="text-gray-500">[{h.source}]</em>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-          {summary.transport_summary && (
-            <>
-              <h3 className="font-medium mb-2">Transport</h3>
-              <p className="mb-4">{summary.transport_summary}</p>
-            </>
-          )}
+            {summary.transport_summary && (
+              <>
+                <h3 className="mb-2 font-medium">Transport</h3>
+                <p className="mb-4">{summary.transport_summary}</p>
+              </>
+            )}
 
-          {summary.local_tips?.length > 0 && (
-            <>
-              <h3 className="font-medium mb-2">Lokalne wskazówki</h3>
-              <ul className="list-disc pl-5 mb-4">
-                {summary.local_tips.map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
-            </>
-          )}
+            {summary.local_tips?.length > 0 && (
+              <>
+                <h3 className="mb-2 font-medium">Lokalne wskazówki</h3>
+                <ul className="mb-4 list-disc pl-5">
+                  {summary.local_tips.map((tip, i) => (
+                    <li key={i}>{tip}</li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-          {summary.warnings?.length > 0 && (
-            <>
-              <h3 className="font-medium mb-2">Ostrzeżenia</h3>
-              <ul className="list-disc pl-5 mb-4">
-                {summary.warnings.map((w, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <Icon name="alert-triangle" size={14} className="mt-0.5 shrink-0 text-warning" />
-                    {w}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+            {summary.warnings?.length > 0 && (
+              <>
+                <h3 className="mb-2 font-medium">Ostrzeżenia</h3>
+                <ul className="mb-4 list-disc pl-5">
+                  {summary.warnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <Icon
+                        name="alert-triangle"
+                        size={14}
+                        className="mt-0.5 shrink-0 text-warning"
+                      />
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-          {summary.best_areas_to_stay?.length > 0 && (
-            <>
-              <h3 className="mb-2 font-medium text-text-primary">Gdzie się zatrzymać</h3>
-              <ul className="space-y-2">
-                {summary.best_areas_to_stay.map((a, i) => (
-                  <li key={i}>
-                    <strong>{a.area_name}</strong> – {a.reasoning}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+            {summary.best_areas_to_stay?.length > 0 && (
+              <>
+                <h3 className="mb-2 font-medium text-text-primary">
+                  Gdzie się zatrzymać
+                </h3>
+                <ul className="space-y-2">
+                  {summary.best_areas_to_stay.map((a, i) => (
+                    <li key={i}>
+                      <strong>{a.area_name}</strong> – {a.reasoning}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {isBuilding && !summary && (
+        <Card className="mb-8">
+          <CardHeader title="Podsumowanie" />
+          <CardBody>
+            <SkeletonList count={4} />
           </CardBody>
         </Card>
       )}
@@ -310,8 +430,8 @@ export default function DestinationPage() {
           <CardHeader title={`Atrakcje (${attractionCount})`} />
           <CardBody>
             <p className="text-sm text-text-secondary">
-              Atrakcje powiązane z wybranymi aktywnościami zostały przypisane do
-              destynacji.
+              Atrakcje powiązane z wybranymi aktywnościami zostały przypisane
+              do destynacji.
             </p>
           </CardBody>
         </Card>
@@ -322,30 +442,30 @@ export default function DestinationPage() {
           <CardHeader title="Wikivoyage" />
           <CardBody>
             <p className="mb-4 text-text-secondary">{wikivoyage.intro}</p>
-          {wikivoyage.sections.getIn && (
-            <>
-              <h3 className="font-medium mt-3">Dojazd</h3>
-              <p className="text-sm whitespace-pre-wrap">
-                {wikivoyage.sections.getIn}
-              </p>
-            </>
-          )}
-          {wikivoyage.sections.getAround && (
-            <>
-              <h3 className="font-medium mt-3">Poruszanie się</h3>
-              <p className="text-sm whitespace-pre-wrap">
-                {wikivoyage.sections.getAround}
-              </p>
-            </>
-          )}
-          {wikivoyage.sections.stayHealthy && (
-            <>
-              <h3 className="mt-3 font-medium text-text-primary">Zdrowie</h3>
-              <p className="text-sm whitespace-pre-wrap text-text-secondary">
-                {wikivoyage.sections.stayHealthy}
-              </p>
-            </>
-          )}
+            {wikivoyage.sections.getIn && (
+              <>
+                <h3 className="mt-3 font-medium">Dojazd</h3>
+                <p className="whitespace-pre-wrap text-sm">
+                  {wikivoyage.sections.getIn}
+                </p>
+              </>
+            )}
+            {wikivoyage.sections.getAround && (
+              <>
+                <h3 className="mt-3 font-medium">Poruszanie się</h3>
+                <p className="whitespace-pre-wrap text-sm">
+                  {wikivoyage.sections.getAround}
+                </p>
+              </>
+            )}
+            {wikivoyage.sections.stayHealthy && (
+              <>
+                <h3 className="mt-3 font-medium text-text-primary">Zdrowie</h3>
+                <p className="whitespace-pre-wrap text-sm text-text-secondary">
+                  {wikivoyage.sections.stayHealthy}
+                </p>
+              </>
+            )}
           </CardBody>
         </Card>
       )}
@@ -355,13 +475,13 @@ export default function DestinationPage() {
           <CardHeader title={`Lokalne usługi (${googlePlaces.length})`} />
           <CardBody>
             <ul className="space-y-2 text-sm text-text-secondary">
-            {googlePlaces.slice(0, 10).map((p) => (
-              <li key={p.place_id}>
-                <strong>{p.name}</strong>
-                {p.rating != null && ` ★ ${p.rating}`}
-                {p.address && ` – ${p.address}`}
-              </li>
-            ))}
+              {googlePlaces.slice(0, 10).map((p) => (
+                <li key={p.place_id}>
+                  <strong>{p.name}</strong>
+                  {p.rating != null && ` ★ ${p.rating}`}
+                  {p.address && ` – ${p.address}`}
+                </li>
+              ))}
             </ul>
           </CardBody>
         </Card>
@@ -369,9 +489,9 @@ export default function DestinationPage() {
 
       {weather && (
         <Card className="mb-8">
-          <CardHeader title="Pogoda" />
-          <CardBody>
-            <pre className="overflow-auto text-xs text-text-secondary">
+          <CardHeader title="Pogoda na wyjazd" />
+          <CardBody className="text-sm text-text-secondary">
+            <pre className="overflow-auto text-xs">
               {JSON.stringify(weather, null, 2)}
             </pre>
           </CardBody>
@@ -391,11 +511,20 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {destination && attractions.length > 0 && (
+      {isBuilding && !destination && trip.travel_mode === "flight" && (
+        <Card className="mb-8">
+          <CardHeader title="Loty" />
+          <CardBody>
+            <SkeletonList count={3} />
+          </CardBody>
+        </Card>
+      )}
+
+      {destination && hotelsAttractions.length > 0 && (
         <ErrorBoundary>
           <HotelsSection
             destinationId={destination.id}
-            attractions={attractions}
+            attractions={hotelsAttractions}
             checkIn={trip.departure_date}
             checkOut={trip.return_date ?? undefined}
             adults={passengers.adults}
@@ -407,37 +536,64 @@ export default function DestinationPage() {
       {destination &&
         (trip.travel_mode === "flight" ||
           (trip.travel_mode === "car" && trip.vehicle_source === "rental")) && (
-        <ErrorBoundary>
-          <TransportSection
-            destinationId={destination.id}
-            destinationLat={Number(destination.center_lat)}
-            destinationLon={Number(destination.center_lon)}
-            destinationName={destination.name}
-            pickupDate={trip.departure_date}
-            returnDate={trip.return_date ?? undefined}
-            adults={passengers.adults}
-            childrenAges={passengers.childAges}
-          />
-        </ErrorBoundary>
-      )}
+          <ErrorBoundary>
+            <TransportSection
+              destinationId={destination.id}
+              destinationLat={Number(destination.center_lat)}
+              destinationLon={Number(destination.center_lon)}
+              destinationName={destination.name}
+              pickupDate={trip.departure_date}
+              returnDate={trip.return_date ?? undefined}
+              adults={passengers.adults}
+              childrenAges={passengers.childAges}
+            />
+          </ErrorBoundary>
+        )}
 
-      {destination && attractions.length > 0 && (
+      {destination && hotelsAttractions.length > 0 && (
         <ErrorBoundary>
           <SaveTripSection
             destinationId={destination.id}
             destinationName={destination.name}
-            attractions={attractions}
+            attractions={hotelsAttractions}
           />
         </ErrorBoundary>
       )}
 
-      {isComplete && (
+      {isComplete && destination && (
         <p className="flex items-center gap-2 text-sm text-success">
           <Icon name="check" size={16} />
           Strona kompletna. Następnym razem załaduje się szybciej z cache.
         </p>
       )}
+
+      {isComplete && !destination && (
+        <Card className="border-danger/30 bg-orange-50/60">
+          <CardBody className="text-sm text-text-secondary">
+            <p className="font-medium text-text-primary">
+              Nie udało się utworzyć destynacji
+            </p>
+            <p className="mt-2">
+              Mapa regionu jest dostępna, ale loty i hotele wymagają zapisu
+              destynacji w bazie. Spróbuj odświeżyć stronę lub wróć do
+              wyszukiwarki.
+            </p>
+            <Button
+              className="mt-4"
+              variant="secondary"
+              onClick={() => {
+                startedRef.current = false;
+                setIsComplete(false);
+                if (cluster && selectedActivities.length > 0) {
+                  void startBuild(cluster, selectedActivities);
+                }
+              }}
+            >
+              Spróbuj ponownie
+            </Button>
+          </CardBody>
+        </Card>
+      )}
     </PageContainer>
   );
 }
-

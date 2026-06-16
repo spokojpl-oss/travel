@@ -59,7 +59,9 @@ export async function* buildDestinationPage(
   const supabase = createAdminClient();
   const buildId = crypto.randomUUID();
 
-  const cluster = await enrichClusterWithSettlement(input.cluster);
+  const cluster = await enrichClusterWithSettlement(input.cluster, {
+    fastMode: true,
+  });
   const destinationName = generateDestinationName(cluster);
   const slug = generateSlug(cluster);
 

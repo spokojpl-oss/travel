@@ -12,6 +12,7 @@ import {
 } from "@/components/features/TripContextBar";
 import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
 import { clusterDisplayName } from "@/lib/search/settlement-resolver";
+import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -482,14 +483,13 @@ function SearchPageContent() {
   }
 
   function openDestination(cluster: GeoCluster) {
-    const clusterParam = encodeURIComponent(JSON.stringify(cluster));
-    const activitiesParam = encodeURIComponent(
-      JSON.stringify(Array.from(selectedActivities)),
-    );
+    storeDestinationBuildPayload(cluster.id, {
+      cluster,
+      activities: Array.from(selectedActivities),
+    });
     const tripParams = tripContextToParams(trip);
-    router.push(
-      `/app/destination?cluster=${clusterParam}&activities=${activitiesParam}&${tripParams.toString()}`,
-    );
+    tripParams.set("build_id", cluster.id);
+    router.push(`/app/destination?${tripParams.toString()}`);
   }
 
   const dbReady = dataStatus?.search_ready ?? false;
