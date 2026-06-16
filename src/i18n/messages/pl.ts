@@ -426,8 +426,17 @@ export const pl = {
     navigate: "Nawiguj w Google Maps",
     openInGoogleMaps: "Otwórz w Google Maps",
     noLocationData: "Brak danych lokalizacji",
+    missingApiKey: "Brak klucza Google Maps w konfiguracji.",
+    loadFailed: "Nie udało się wczytać mapy.",
     languageHint:
       "Etykiety mapy i nawigacja po polsku. Nazwy miejscowości na Cyprze często zostają w brzmieniu lokalnym (np. Agia Napa).",
+  },
+  lodgingBase: {
+    mapTitle: "Gdzie na mapie?",
+    mapHint:
+      "Niebieski = centrum, turkus = nabrzeże. Kliknij okrąg lub numer — wybierz bazę noclegową.",
+    legendWaterfront: "Przy plaży",
+    legendCentre: "Centrum miasta",
   },
   localServices: {
     title: "Wypożyczalnie i usługi ({n})",

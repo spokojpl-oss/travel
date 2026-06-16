@@ -22,6 +22,7 @@ import {
   computeLodgingBaseOptions,
   type LodgingBaseChoice,
 } from "@/lib/plan/lodging-base-options";
+import { LodgingBaseMap } from "@/components/features/LodgingBaseMap";
 import {
   defaultExplorationScope,
   explorationScopeFromString,
@@ -148,9 +149,25 @@ export function DestinationPlanWizard({
         withKids,
         locale,
         cluster: payload.cluster,
+        destinationLabel: payload.destinationLabel,
+        stayRadiusKm: payload.stayRadiusKm,
       }),
-    [selectedAttractions, rawPool, withKids, locale, payload.cluster],
+    [
+      selectedAttractions,
+      rawPool,
+      withKids,
+      locale,
+      payload.cluster,
+      payload.destinationLabel,
+      payload.stayRadiusKm,
+    ],
   );
+
+  useEffect(() => {
+    if (baseOptions.length === 1 && !baseChoice) {
+      setBaseChoice(baseOptions[0]!.choice);
+    }
+  }, [baseOptions, baseChoice]);
 
   const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
 
@@ -280,35 +297,58 @@ export function DestinationPlanWizard({
       )}
 
       {step === "base" && (
-        <Card>
-          <CardHeader
-            title={pl ? "Gdzie się zatrzymać?" : "Where to stay?"}
-          />
-          <CardBody className="space-y-4">
-            <p className="text-sm leading-relaxed text-text-secondary">
-              {pl
-                ? "Centrum miasta czy nabrzeże — wybierz bazę noclegową. To wpływa na sposób szukania hoteli (np. na Booking)."
-                : "City centre or waterfront — pick your lodging base. This affects how we search for hotels (e.g. on Booking)."}
-            </p>
+        <>
+          {baseOptions.length > 1 && (
+            <LodgingBaseMap
+              options={baseOptions}
+              selectedChoice={baseChoice}
+              onSelect={setBaseChoice}
+            />
+          )}
 
-            {baseOptions.map((option) => (
-              <button
-                key={option.choice}
-                type="button"
-                onClick={() => setBaseChoice(option.choice)}
-                className={cn(
-                  "w-full rounded-xl border p-4 text-left transition-colors",
-                  baseChoice === option.choice
-                    ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
-                    : "border-border-default hover:border-brand-300",
-                )}
-              >
-                <p className="font-semibold text-text-primary">{option.label}</p>
-                <p className="mt-1 text-sm text-text-secondary">
-                  {pl ? option.hint_pl : option.hint_en}
-                </p>
-              </button>
-            ))}
+          <Card>
+            <CardHeader
+              title={pl ? "Gdzie się zatrzymać?" : "Where to stay?"}
+            />
+            <CardBody className="space-y-4">
+              <p className="text-sm leading-relaxed text-text-secondary">
+                {pl
+                  ? "Centrum miasta czy nabrzeże — wybierz bazę noclegową. Okręgi na mapie pokazują okolicę hoteli (~kilka km)."
+                  : "City centre or waterfront — pick your lodging base. Circles on the map show the hotel search area (~a few km)."}
+              </p>
+
+              {baseOptions.map((option, index) => (
+                <button
+                  key={option.choice}
+                  type="button"
+                  onClick={() => setBaseChoice(option.choice)}
+                  className={cn(
+                    "w-full rounded-xl border p-4 text-left transition-colors",
+                    baseChoice === option.choice
+                      ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
+                      : "border-border-default hover:border-brand-300",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    {baseOptions.length > 1 && (
+                      <span
+                        className={cn(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white",
+                          option.choice === "tourist_center"
+                            ? "bg-cyan-600"
+                            : "bg-brand-700",
+                        )}
+                      >
+                        {index + 1}
+                      </span>
+                    )}
+                    <p className="font-semibold text-text-primary">{option.label}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {pl ? option.hint_pl : option.hint_en}
+                  </p>
+                </button>
+              ))}
 
             <div className="flex flex-wrap gap-3 pt-2">
               <Button variant="ghost" onClick={() => setStep("discover")}>
@@ -318,8 +358,9 @@ export function DestinationPlanWizard({
                 {pl ? "Dalej — zobacz trasy" : "Next — see routes"}
               </Button>
             </div>
-          </CardBody>
-        </Card>
+            </CardBody>
+          </Card>
+        </>
       )}
 
       {step === "plan" && (

@@ -425,8 +425,17 @@ export const en: Messages = {
     navigate: "Navigate in Google Maps",
     openInGoogleMaps: "Open in Google Maps",
     noLocationData: "No location data",
+    missingApiKey: "Google Maps API key is not configured.",
+    loadFailed: "Could not load the map.",
     languageHint:
       "Map labels and navigation follow your language. Local place names (e.g. Agia Napa) may stay in their local form.",
+  },
+  lodgingBase: {
+    mapTitle: "On the map",
+    mapHint:
+      "Blue = city centre, teal = waterfront. Click a circle or number to pick your base.",
+    legendWaterfront: "By the beach",
+    legendCentre: "City centre",
   },
   localServices: {
     title: "Rentals & services ({n})",
