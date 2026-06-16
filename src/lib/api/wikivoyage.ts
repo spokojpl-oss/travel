@@ -30,7 +30,7 @@ export async function fetchWikivoyageDestination({
   forceRefresh?: boolean;
 }): Promise<WikivoyageDestinationContent | null> {
   const { data } = await fetchWithCache<WikivoyageDestinationContent | null>({
-    source: "wikivoyage",
+    source: "wikivoyage-v2",
     cacheParams: { pageName },
     ttlSeconds: 60 * 24 * 60 * 60,
     forceRefresh,
@@ -77,52 +77,109 @@ export async function fetchWikivoyageDestination({
   return data;
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    );
+}
+
+function stripHtml(raw: string): string {
+  return decodeHtmlEntities(
+    raw
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+/** Usuwa śmieci z surowego HTML Wikivoyage (linki [edit], przypisy). */
+export function cleanWikivoyageText(text: string): string {
+  return stripHtml(text)
+    .replace(/\[\s*edit(?:\s*\|\s*edit source)?\s*\]/gi, "")
+    .replace(/\[\d+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function excerptSentences(text: string, maxSentences = 3, maxChars = 520): string {
+  const cleaned = cleanWikivoyageText(text);
+  if (!cleaned) return "";
+
+  const sentences =
+    cleaned.match(/[^.!?]+[.!?]+(?:\s|$)/g)?.map((s) => s.trim()) ?? [cleaned];
+  let result = "";
+  for (const sentence of sentences.slice(0, maxSentences)) {
+    const next = result ? `${result} ${sentence}` : sentence;
+    if (next.length > maxChars) break;
+    result = next;
+  }
+
+  if (result) return result;
+  return cleaned.length > maxChars ? `${cleaned.slice(0, maxChars - 1).trim()}…` : cleaned;
+}
+
+function excerptSection(text: string, maxChars = 900): string {
+  const cleaned = cleanWikivoyageText(text);
+  if (cleaned.length <= maxChars) return cleaned;
+  return `${cleaned.slice(0, maxChars - 1).trim()}…`;
+}
+
 function parseWikivoyageHtml(
   title: string,
   html: string,
   pageName: string,
 ): WikivoyageDestinationContent {
-  const stripHtml = (s: string) =>
-    s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-
   const sectionRegex =
     /<h2[^>]*>.*?<span[^>]*class="mw-headline"[^>]*>(.+?)<\/span>/gi;
   const sections: Record<string, string> = {};
 
-  const headings: { title: string; pos: number }[] = [];
+  const headings: { title: string; start: number; contentStart: number }[] = [];
   let match: RegExpExecArray | null;
   while ((match = sectionRegex.exec(html)) !== null) {
-    headings.push({ title: stripHtml(match[1]), pos: match.index });
+    headings.push({
+      title: cleanWikivoyageText(match[1]),
+      start: match.index,
+      contentStart: match.index + match[0].length,
+    });
   }
 
-  const intro =
+  const introRaw =
     headings.length > 0
-      ? stripHtml(html.substring(0, headings[0].pos))
-      : stripHtml(html);
+      ? html.substring(0, headings[0].start)
+      : html;
 
   for (let i = 0; i < headings.length; i++) {
-    const start = headings[i].pos;
-    const end = i + 1 < headings.length ? headings[i + 1].pos : html.length;
-    const content = stripHtml(html.substring(start, end));
-    sections[headings[i].title.toLowerCase()] = content;
+    const end =
+      i + 1 < headings.length ? headings[i + 1].start : html.length;
+    const content = html.substring(headings[i].contentStart, end);
+    sections[headings[i].title.toLowerCase()] = excerptSection(content);
   }
 
   return {
     title,
-    intro: intro.substring(0, 2000),
+    intro: excerptSentences(introRaw),
     sections: {
-      understand: sections["understand"]?.substring(0, 3000),
-      getIn: sections["get in"]?.substring(0, 3000),
-      getAround: sections["get around"]?.substring(0, 3000),
-      see: sections["see"]?.substring(0, 5000),
-      do: sections["do"]?.substring(0, 5000),
-      buy: sections["buy"]?.substring(0, 2000),
-      eat: sections["eat"]?.substring(0, 3000),
-      drink: sections["drink"]?.substring(0, 2000),
-      sleep: sections["sleep"]?.substring(0, 2000),
+      understand: sections["understand"],
+      getIn: sections["get in"],
+      getAround: sections["get around"],
+      see: sections["see"],
+      do: sections["do"],
+      buy: sections["buy"],
+      eat: sections["eat"],
+      drink: sections["drink"],
+      sleep: sections["sleep"],
       stayHealthy: sections["stay safe"] ?? sections["stay healthy"],
       stayConnected: sections["connect"] ?? sections["stay connected"],
-      goNext: sections["go next"]?.substring(0, 1500),
+      goNext: sections["go next"],
     },
     sourceUrl: `https://en.wikivoyage.org/wiki/${encodeURIComponent(pageName)}`,
   };

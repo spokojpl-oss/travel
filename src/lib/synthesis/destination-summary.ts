@@ -95,11 +95,12 @@ ZASADY:
 2. Jeśli nie ma informacji o transporcie - transport_summary = null.
 3. NIE wymyślasz nazw, cen, telefonów, linków których nie ma w danych.
 4. Nazwy własne (hotele, firmy) cytujesz dokładnie tak jak w danych źródłowych.
-5. Język polski. Naturalny, nie napuszony. Jak człowiek do rodziny, nie jak broszura turystyczna.
-6. Highlights: max 5, każdy ma source skąd pochodzi.
-7. Local_tips: praktyczne, konkretne. Nie "warto zobaczyć", tylko "weź gotówkę bo karty nie działają w XYZ".
-8. Warnings: max 3, tylko ważne (bezpieczeństwo, prawne, sezonowość).
-9. Best_areas_to_stay: max 3 obszary, każdy z konkretnym uzasadnieniem.
+5. Język polski. Naturalny, nie napuszony. Jak człowiek do rodziny, nie jak broszura turystyczna. Tłumacz i redaguj treści z Wikivoyage — nigdy nie wklejaj surowego angielskiego tekstu.
+6. Nigdy nie wspominaj „Wikivoyage”, „Wikipedia” ani innych źródeł w polach widocznych dla użytkownika.
+7. Highlights: max 5, każdy ma source skąd pochodzi (pole techniczne, nie pokazuj użytkownikowi).
+8. Local_tips: praktyczne, konkretne. Nie "warto zobaczyć", tylko "weź gotówkę bo karty nie działają w XYZ".
+9. Warnings: max 3, tylko ważne (bezpieczeństwo, prawne, sezonowość).
+10. Best_areas_to_stay: max 3 obszary, każdy z konkretnym uzasadnieniem.
 
 Jeśli dane są zbyt ubogie żeby zrobić sensowne podsumowanie - ustaw insufficient_data: true.`;
 

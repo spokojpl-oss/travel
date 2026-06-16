@@ -16,7 +16,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
-import type { WikivoyageDestinationContent } from "@/lib/api/wikivoyage";
 import type { GooglePlace } from "@/lib/api/google-places";
 import {
   defaultTripContext,
@@ -70,8 +69,6 @@ export default function DestinationPage() {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [buildTitle, setBuildTitle] = useState<string | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
-  const [wikivoyage, setWikivoyage] =
-    useState<WikivoyageDestinationContent | null>(null);
   const [googlePlaces, setGooglePlaces] = useState<GooglePlace[]>([]);
   const [attractions, setAttractions] = useState<
     Pick<Attraction, "id" | "name">[]
@@ -176,10 +173,6 @@ export default function DestinationPage() {
       setBuildTitle(String(event.destination_name ?? ""));
     } else if (event.type === "destination_ready") {
       setDestination(event.destination as Destination);
-    } else if (event.type === "wikivoyage_loaded") {
-      setWikivoyage(
-        (event.wikivoyage as WikivoyageDestinationContent | null) ?? null,
-      );
     } else if (event.type === "google_places_loaded") {
       setGooglePlaces((event.places as GooglePlace[]) ?? []);
     } else if (event.type === "ai_synthesis_loaded") {
@@ -348,8 +341,7 @@ export default function DestinationPage() {
                 <ul className="mb-4 space-y-2">
                   {summary.highlights.map((h, i) => (
                     <li key={i}>
-                      <strong>{h.title}</strong> – {h.description}{" "}
-                      <em className="text-gray-500">[{h.source}]</em>
+                      <strong>{h.title}</strong> – {h.description}
                     </li>
                   ))}
                 </ul>
@@ -415,39 +407,6 @@ export default function DestinationPage() {
           <CardHeader title="Podsumowanie" />
           <CardBody>
             <SkeletonList count={4} />
-          </CardBody>
-        </Card>
-      )}
-
-      {wikivoyage && (
-        <Card className="mb-8">
-          <CardHeader title="Wikivoyage" />
-          <CardBody>
-            <p className="mb-4 text-text-secondary">{wikivoyage.intro}</p>
-            {wikivoyage.sections.getIn && (
-              <>
-                <h3 className="mt-3 font-medium">Dojazd</h3>
-                <p className="whitespace-pre-wrap text-sm">
-                  {wikivoyage.sections.getIn}
-                </p>
-              </>
-            )}
-            {wikivoyage.sections.getAround && (
-              <>
-                <h3 className="mt-3 font-medium">Poruszanie się</h3>
-                <p className="whitespace-pre-wrap text-sm">
-                  {wikivoyage.sections.getAround}
-                </p>
-              </>
-            )}
-            {wikivoyage.sections.stayHealthy && (
-              <>
-                <h3 className="mt-3 font-medium text-text-primary">Zdrowie</h3>
-                <p className="whitespace-pre-wrap text-sm text-text-secondary">
-                  {wikivoyage.sections.stayHealthy}
-                </p>
-              </>
-            )}
           </CardBody>
         </Card>
       )}
