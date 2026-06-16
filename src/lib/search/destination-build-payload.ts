@@ -29,8 +29,9 @@ export type DestinationBuildPayload = {
     choice: LodgingBaseChoice;
   };
   planComplete?: boolean;
-  /** Po enrich z /api/search/plan-pool */
+  /** Po enrich z /api/search/plan-pool — surowy pool bez metadanych od bazy. */
   poolEnriched?: boolean;
+  /** @deprecated Sugestie liczone w wizardzie po wyborze bazy. */
   suggestedAttractionIds?: string[];
   touristRegionId?: string | null;
   explorationScope?: string | null;

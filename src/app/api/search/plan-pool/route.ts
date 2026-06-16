@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { loadTouristRegionsCatalog } from "@/lib/destinations/tourist-regions-store";
 import { enrichClusterWithSettlement } from "@/lib/search/settlement-resolver";
 import { searchActivities } from "@/lib/search/activity-search";
 import {
-  buildPlanAttractionPool,
+  buildRawPlanAttractionPool,
   tripDaysFromDates,
 } from "@/lib/plan/build-plan-pool";
-import { computeLodgingBaseOptions } from "@/lib/plan/lodging-base-options";
-import { dayTripRadiusKm, nearbyStayRadiusKm } from "@/lib/plan/day-trip-radius";
+import { exploreRadiusKm, stayRadiusKm } from "@/lib/plan/day-trip-radius";
 import {
   defaultExplorationScope,
   explorationScopeFromString,
@@ -82,16 +82,18 @@ export async function POST(request: Request) {
     label,
   );
 
-  const dayTripKm = dayTripRadiusKm(scope, tripDays);
-  const nearbyKm = nearbyStayRadiusKm(scope);
+  const exploreKm = exploreRadiusKm(scope, tripDays);
+  const stayKm = stayRadiusKm(scope);
 
   const searchResult = await searchActivities({
     activities: parsed.data.activities,
     destination_label: label,
     near_lat: enrichedCluster.center.lat,
     near_lon: enrichedCluster.center.lon,
-    near_radius_km: dayTripKm,
-    max_radius_km: nearbyKm,
+    stay_radius_km: stayKm,
+    explore_radius_km: exploreKm,
+    max_radius_km: stayKm,
+    near_radius_km: exploreKm,
     match_mode: "any",
     min_per_activity: 1,
     exploration_scope: scope,
@@ -100,37 +102,30 @@ export async function POST(request: Request) {
   const expanded = flattenSearchAttractions(
     searchResult.clusters,
     enrichedCluster.center,
-    dayTripKm,
+    exploreKm,
   );
 
-  const baseOptions = computeLodgingBaseOptions(enrichedCluster.attractions, {
-    withKids: parsed.data.with_kids,
-    locale: parsed.data.locale,
-    cluster: enrichedCluster,
-  });
+  const catalog = await loadTouristRegionsCatalog();
 
-  const defaultBase =
-    baseOptions.find((o) => o.choice === "quiet_area") ?? baseOptions[0];
-  const basePoint = defaultBase
-    ? { lat: defaultBase.lat, lon: defaultBase.lon }
-    : enrichedCluster.center;
-
-  const { pool, suggestedIds } = buildPlanAttractionPool({
+  const attractionPool = buildRawPlanAttractionPool({
     clusterAttractions: enrichedCluster.attractions,
     expandedAttractions: expanded,
     destinationLabel: label,
     touristRegionId: parsed.data.tourist_region_id,
     explorationScope: scope,
     tripDays,
-    basePoint,
+    referencePoint: enrichedCluster.center,
     locale: parsed.data.locale ?? "pl",
+    catalog,
+    preferredActivities: parsed.data.activities,
   });
 
   return Response.json({
     cluster: enrichedCluster,
-    attractionPool: pool,
-    suggestedAttractionIds: suggestedIds,
-    lodgingBaseOptions: baseOptions,
-    dayTripRadiusKm: dayTripKm,
+    attractionPool,
+    tripDays,
+    explorationScope: scope,
+    exploreRadiusKm: exploreKm,
+    stayRadiusKm: stayKm,
   });
 }

@@ -1,13 +1,16 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
 import {
-  SEED_TOURIST_REGIONS,
   regionMatchesDestination,
   type TouristRegion,
 } from "@/lib/destinations/tourist-regions";
-import { driveMinutesFromKm } from "@/lib/plan/day-trip-radius";
+import {
+  driveMinutesFromKm,
+  allowsDayTrips,
+} from "@/lib/plan/day-trip-radius";
 import { withPlanMeta, readPlanMeta } from "@/lib/plan/plan-attraction-meta";
 import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
+import type { ExplorationScope } from "@/lib/search/exploration-scope";
 
 function syntheticId(regionId: string, pickIndex: number): string {
   return `curated:${regionId}:${pickIndex}`;
@@ -20,7 +23,45 @@ function pickName(
   return locale === "en" ? pick.name_en : pick.name_pl;
 }
 
-/** Kuracja z innych regionów tej samej destynacji — wycieczki dojazdowe (Ksamil z Vlorë itd.). */
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9ąćęłńóśźż\s]/gi, " ")
+    .trim();
+}
+
+function namesOverlap(a: string, b: string): boolean {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (na.length < 4 || nb.length < 4) return na === nb;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const wordsA = na.split(/\s+/).filter((w) => w.length >= 4);
+  return wordsA.some((w) => nb.includes(w));
+}
+
+function point(a: AttractionWithActivities): GeoPoint {
+  return { lat: Number(a.lat), lon: Number(a.lon) };
+}
+
+/** Czy pick jest już pokryty przez atrakcję z OSM. */
+export function curatedPickCoveredByPool(
+  pickName: string,
+  pickPoint: GeoPoint,
+  pool: AttractionWithActivities[],
+  maxKm = 8,
+): boolean {
+  for (const a of pool) {
+    if (a.source === "curated") continue;
+    const km = distanceKm(pickPoint, point(a));
+    if (km <= 3) return true;
+    if (km <= maxKm && namesOverlap(pickName, a.name)) return true;
+  }
+  return false;
+}
+
+/** Kuracja z innych regionów tej samej destynacji — wycieczki dojazdowe. */
 export function buildCuratedDayTrips({
   basePoint,
   destinationLabel,
@@ -28,7 +69,9 @@ export function buildCuratedDayTrips({
   maxRadiusKm,
   minDistanceKm = 25,
   locale = "pl",
-  catalog = SEED_TOURIST_REGIONS,
+  catalog,
+  existingPool = [],
+  explorationScope = "region",
 }: {
   basePoint: GeoPoint;
   destinationLabel: string;
@@ -36,8 +79,12 @@ export function buildCuratedDayTrips({
   maxRadiusKm: number;
   minDistanceKm?: number;
   locale?: Locale;
-  catalog?: TouristRegion[];
+  catalog: TouristRegion[];
+  existingPool?: AttractionWithActivities[];
+  explorationScope?: ExplorationScope;
 }): AttractionWithActivities[] {
+  if (!allowsDayTrips(explorationScope)) return [];
+
   const matchingRegions = catalog.filter((r) =>
     regionMatchesDestination(r, destinationLabel),
   );
@@ -66,8 +113,11 @@ export function buildCuratedDayTrips({
     for (let i = 0; i < topPicks.length; i++) {
       const pick = topPicks[i]!;
       const name = pickName(pick, locale);
-      const key = name.toLowerCase();
+      const key = normalizeName(name);
       if (seenNames.has(key)) continue;
+
+      if (curatedPickCoveredByPool(name, regionPoint, existingPool)) continue;
+
       seenNames.add(key);
 
       const driveKm = Math.round(distKm * 10) / 10;

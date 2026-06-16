@@ -46,27 +46,27 @@ export async function POST(request: Request) {
 
   const scope =
     explorationScopeFromString(parsed.data.exploration_scope) ?? "region";
-  const { near_radius_km } = scopeSearchRadii(scope);
+  const { explore_radius_km } = scopeSearchRadii(scope);
 
   try {
     await ensureDestinationActivities({
       lat: parsed.data.near_lat,
       lon: parsed.data.near_lon,
-      radiusKm: near_radius_km,
+      radiusKm: explore_radius_km,
       destinationLabel: parsed.data.destination_label,
     });
 
     const counts = await countActivitiesNearPoint({
       lat: parsed.data.near_lat,
       lon: parsed.data.near_lon,
-      radiusKm: near_radius_km,
+      radiusKm: explore_radius_km,
       destinationLabel: parsed.data.destination_label,
     });
 
     return NextResponse.json({
       activity_counts: counts,
       exploration_scope: scope,
-      radius_km: near_radius_km,
+      radius_km: explore_radius_km,
     });
   } catch (error) {
     return NextResponse.json(

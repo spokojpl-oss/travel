@@ -284,7 +284,7 @@ function SearchPageContent() {
           });
         }
         const scope = merged.exploration_scope ?? "region";
-        setMaxRadius(scopeSearchRadii(scope).max_radius_km);
+        setMaxRadius(scopeSearchRadii(scope).stay_radius_km);
       }
 
       const stepParam = searchParams.get("step");
@@ -526,7 +526,7 @@ function SearchPageContent() {
 
   function setExplorationScope(scope: ExplorationScope) {
     const radii = scopeSearchRadii(scope);
-    setMaxRadius(radii.max_radius_km);
+    setMaxRadius(radii.stay_radius_km);
     setTrip((t) => {
       const next = { ...t, exploration_scope: scope };
       syncUrl(next, step);
@@ -750,6 +750,8 @@ function SearchPageContent() {
     const params: {
       activities: string[];
       match_mode: "all" | "any";
+      stay_radius_km?: number;
+      explore_radius_km?: number;
       max_radius_km: number;
       min_per_activity: number;
       near_lat?: number;
@@ -767,7 +769,9 @@ function SearchPageContent() {
     if (trip.exploration_scope) {
       params.exploration_scope = trip.exploration_scope;
       const radii = scopeSearchRadii(trip.exploration_scope);
-      params.max_radius_km = radii.max_radius_km;
+      params.stay_radius_km = radii.stay_radius_km;
+      params.explore_radius_km = radii.explore_radius_km;
+      params.max_radius_km = radii.stay_radius_km;
     }
 
     if (
@@ -778,11 +782,13 @@ function SearchPageContent() {
     ) {
       params.near_lat = trip.destination_lat;
       params.near_lon = trip.destination_lon;
-      params.near_radius_km = trip.exploration_scope
-        ? scopeSearchRadii(trip.exploration_scope).near_radius_km
+      const exploreKm = trip.exploration_scope
+        ? scopeSearchRadii(trip.exploration_scope).explore_radius_km
         : trip.mode === "destination"
           ? 150
           : 250;
+      params.explore_radius_km = exploreKm;
+      params.near_radius_km = exploreKm;
     }
 
     if (trip.destination_label) {

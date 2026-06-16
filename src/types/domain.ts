@@ -118,6 +118,8 @@ export type ActivityGroupWithActivities = ActivityGroup & {
 
 export type AttractionWithActivities = Attraction & {
   activity_tags: { activity_slug: string; confidence: number }[];
+  /** Meta planu podróży — odległość od bazy, typ wycieczki itd. */
+  plan_meta?: import("@/lib/plan/plan-attraction-meta").PlanAttractionMeta;
 };
 
 export type GeoCluster = {
@@ -141,10 +143,16 @@ export type GeoCluster = {
 export type ActivitySearchQuery = {
   activities: string[];
   match_mode: "all" | "any";
+  /** Promień klastrowania — atrakcje w okolicy bazy. */
+  stay_radius_km?: number;
+  /** Szerszy promień pobierania atrakcji z bazy. */
+  explore_radius_km?: number;
+  /** @deprecated Użyj stay_radius_km */
   max_radius_km: number;
   min_per_activity: number;
   near_lat?: number;
   near_lon?: number;
+  /** @deprecated Użyj explore_radius_km */
   near_radius_km?: number;
   exploration_scope?: "local" | "region" | "island" | "roadtrip";
   destination_label?: string;

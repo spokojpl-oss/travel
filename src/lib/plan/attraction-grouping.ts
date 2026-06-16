@@ -1,4 +1,5 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
+import { compareByScore } from "@/lib/plan/attraction-scoring";
 import {
   readPlanMeta,
   withPlanMeta,
@@ -21,15 +22,21 @@ export function isBeachAttraction(a: AttractionWithActivities): boolean {
 }
 
 function primaryActivitySlug(a: AttractionWithActivities): string {
-  return a.activity_tags[0]?.activity_slug ?? a.category ?? "other";
+  const sorted = [...a.activity_tags].sort(
+    (x, y) => (y.confidence ?? 0) - (x.confidence ?? 0),
+  );
+  return sorted[0]?.activity_slug ?? a.category ?? "other";
 }
 
 /** Scala plaże w promieniu mergeKm w jedną propozycję. */
 export function groupNearbyBeaches(
   attractions: AttractionWithActivities[],
   mergeKm = 2.5,
+  basePoint?: GeoPoint,
 ): AttractionWithActivities[] {
-  const beaches = attractions.filter(isBeachAttraction);
+  const beaches = attractions
+    .filter(isBeachAttraction)
+    .sort((a, b) => compareByScore(a, b, basePoint));
   const rest = attractions.filter((a) => !isBeachAttraction(a));
   if (beaches.length <= 1) return attractions;
 
@@ -56,9 +63,7 @@ export function groupNearbyBeaches(
       group.reduce((s, a) => s + Number(a.lat), 0) / group.length;
     const lon =
       group.reduce((s, a) => s + Number(a.lon), 0) / group.length;
-    const rep = group.sort(
-      (a, b) => (b.activity_tags.length ?? 0) - (a.activity_tags.length ?? 0),
-    )[0]!;
+    const rep = [...group].sort((a, b) => compareByScore(a, b, basePoint))[0]!;
     const locality = rep.name.split(/[-–—]/)[0]?.trim() ?? rep.name;
     const meta: PlanAttractionMeta = {
       kind: "grouped_beach",
@@ -87,10 +92,14 @@ export function groupNearbyBeaches(
 export function dedupeAttractionPool(
   attractions: AttractionWithActivities[],
   minSameCategoryKm = 1.2,
+  basePoint?: GeoPoint,
+  preferredActivities?: string[],
 ): AttractionWithActivities[] {
   const byId = new Map<string, AttractionWithActivities>();
   for (const a of attractions) byId.set(a.id, a);
-  const list = [...byId.values()];
+  const list = [...byId.values()].sort((a, b) =>
+    compareByScore(a, b, basePoint, preferredActivities),
+  );
 
   const kept: AttractionWithActivities[] = [];
   for (const a of list) {

@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { RegionMap } from "@/components/features/RegionMap";
 import { cn } from "@/lib/utils/cn";
 import { buildClusterMapData } from "@/lib/maps/build-cluster-map";
 import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
+import {
+  applyPlanMetaToPool,
+  computePlanSuggestions,
+} from "@/lib/plan/build-plan-pool";
 import {
   computeLodgingBaseOptions,
   type LodgingBaseChoice,
@@ -15,7 +19,11 @@ import {
   isDayTripAttraction,
   readPlanMeta,
 } from "@/lib/plan/plan-attraction-meta";
-import { selectDiverseAttractionIds } from "@/lib/plan/diverse-selection";
+import {
+  defaultExplorationScope,
+  explorationScopeFromString,
+  type ExplorationScope,
+} from "@/lib/search/exploration-scope";
 import type {
   DestinationBuildPayload,
   PlanRegionContext,
@@ -61,46 +69,102 @@ export function DestinationPlanWizard({
   const { locale } = useLocale();
   const pl = locale !== "en";
 
+  const rawPool = payload.attractionPool;
+  const explorationScope: ExplorationScope =
+    explorationScopeFromString(payload.explorationScope ?? null) ??
+    defaultExplorationScope();
+  const tripDays = payload.tripDays ?? 5;
+
   const [step, setStep] = useState<WizardStep>("base");
   const [baseChoice, setBaseChoice] = useState<LodgingBaseChoice | null>(
     payload.lodgingBase?.choice ?? null,
   );
 
-  const pool = payload.attractionPool;
-
   const baseOptions = useMemo(
     () =>
-      computeLodgingBaseOptions(pool, {
+      computeLodgingBaseOptions(rawPool, {
         withKids,
         locale,
         cluster: payload.cluster,
       }),
-    [pool, withKids, locale, payload.cluster],
+    [rawPool, withKids, locale, payload.cluster],
   );
 
-  const defaultBase =
-    baseOptions.find((o) => o.choice === "quiet_area") ?? baseOptions[0];
+  const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
+
+  const poolWithMeta = useMemo(() => {
+    if (!selectedBase) return rawPool;
+    return applyPlanMetaToPool(
+      rawPool,
+      { lat: selectedBase.lat, lon: selectedBase.lon },
+      explorationScope,
+      tripDays,
+    );
+  }, [rawPool, selectedBase, explorationScope, tripDays]);
+
+  const suggestionOptions = useMemo(
+    () => ({
+      explorationScope,
+      tripDays,
+      preferredActivities: payload.activities,
+      withKids,
+    }),
+    [explorationScope, tripDays, payload.activities, withKids],
+  );
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
     if (payload.selectedAttractionIds?.length) {
       return new Set(payload.selectedAttractionIds);
     }
-    if (payload.suggestedAttractionIds?.length) {
-      return new Set(payload.suggestedAttractionIds);
-    }
-    if (defaultBase) {
-      return new Set(
-        selectDiverseAttractionIds(
-          pool,
-          { lat: defaultBase.lat, lon: defaultBase.lon },
-          8,
-        ),
-      );
-    }
-    return new Set(pool.slice(0, 6).map((a) => a.id));
+    return new Set<string>();
   });
 
-  const selectedBase = baseOptions.find((o) => o.choice === baseChoice);
+  const userEditedSelection = useRef(
+    Boolean(payload.selectedAttractionIds?.length),
+  );
+
+  function applyDefaultSelection(base: { lat: number; lon: number }) {
+    const withMeta = applyPlanMetaToPool(
+      rawPool,
+      base,
+      explorationScope,
+      tripDays,
+    );
+    const ids = computePlanSuggestions(withMeta, base, suggestionOptions);
+    setSelectedIds(new Set(ids));
+  }
+
+  const recomputeIfNeeded = useCallback(() => {
+    if (!selectedBase || step === "base" || userEditedSelection.current) return;
+    applyDefaultSelection({
+      lat: selectedBase.lat,
+      lon: selectedBase.lon,
+    });
+  }, [selectedBase, step, rawPool, explorationScope, tripDays, suggestionOptions]);
+
+  useEffect(() => {
+    recomputeIfNeeded();
+  }, [recomputeIfNeeded]);
+
+  function goToPickStep() {
+    if (!selectedBase) return;
+    userEditedSelection.current = false;
+    applyDefaultSelection({
+      lat: selectedBase.lat,
+      lon: selectedBase.lon,
+    });
+    setStep("pick");
+  }
+
+  function toggleAttraction(id: string) {
+    userEditedSelection.current = true;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const draftCluster: GeoCluster = useMemo(() => {
     const base = selectedBase;
@@ -112,9 +176,9 @@ export function DestinationPlanWizard({
       settlement: base
         ? { name: base.label, lat: base.lat, lon: base.lon }
         : payload.cluster.settlement,
-      attractions: pool.filter((a) => selectedIds.has(a.id)),
+      attractions: poolWithMeta.filter((a) => selectedIds.has(a.id)),
     };
-  }, [payload.cluster, pool, selectedBase, selectedIds]);
+  }, [payload.cluster, poolWithMeta, selectedBase, selectedIds]);
 
   const mapData = useMemo(
     () =>
@@ -122,31 +186,22 @@ export function DestinationPlanWizard({
         selectedIds: step === "pick" ? undefined : selectedIds,
         locale,
         maxAttractions: step === "pick" ? 400 : undefined,
-        attractionPool: pool,
+        attractionPool: poolWithMeta,
       }),
-    [draftCluster, selectedIds, step, locale, pool],
+    [draftCluster, selectedIds, step, locale, poolWithMeta],
   );
 
   const pickMapData = useMemo(() => {
     const allPoints = buildClusterMapData(
-      { ...draftCluster, attractions: pool },
+      { ...draftCluster, attractions: poolWithMeta },
       [],
-      { locale, maxAttractions: 400, attractionPool: pool },
+      { locale, maxAttractions: 400, attractionPool: poolWithMeta },
     );
     return allPoints;
-  }, [draftCluster, pool, locale]);
+  }, [draftCluster, poolWithMeta, locale]);
 
-  const dayTrips = pool.filter(isDayTripAttraction);
-  const nearby = pool.filter((a) => !isDayTripAttraction(a));
-
-  function toggleAttraction(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const dayTrips = poolWithMeta.filter(isDayTripAttraction);
+  const nearby = poolWithMeta.filter((a) => !isDayTripAttraction(a));
 
   function confirmPlan() {
     if (!selectedBase || selectedIds.size === 0) return;
@@ -230,7 +285,10 @@ export function DestinationPlanWizard({
               <button
                 key={option.choice}
                 type="button"
-                onClick={() => setBaseChoice(option.choice)}
+                onClick={() => {
+                  setBaseChoice(option.choice);
+                  userEditedSelection.current = false;
+                }}
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   baseChoice === option.choice
@@ -247,7 +305,7 @@ export function DestinationPlanWizard({
             <Button
               className="mt-2"
               disabled={!baseChoice}
-              onClick={() => setStep("pick")}
+              onClick={goToPickStep}
             >
               {pl ? "Dalej — wybierz miejsca na mapie" : "Next — pick on map"}
             </Button>
@@ -271,8 +329,8 @@ export function DestinationPlanWizard({
             />
             <CardBody className="text-sm text-text-secondary">
               {pl
-                ? `Wybrane: ${selectedIds.size} z ${pool.length} (w tym ${dayTrips.length} propozycji wycieczek dojazdowych).`
-                : `Selected: ${selectedIds.size} of ${pool.length}.`}
+                ? `Wybrane: ${selectedIds.size} z ${poolWithMeta.length} (w tym ${dayTrips.length} propozycji wycieczek dojazdowych).`
+                : `Selected: ${selectedIds.size} of ${poolWithMeta.length}.`}
             </CardBody>
           </Card>
 
@@ -290,7 +348,7 @@ export function DestinationPlanWizard({
                         id={a.id}
                         name={toPolishAttractionName(a.name, locale)}
                         selected={selectedIds.has(a.id)}
-                        badge={attractionBadge(a.id, pool, pl)}
+                        badge={attractionBadge(a.id, poolWithMeta, pl)}
                         onToggle={() => toggleAttraction(a.id)}
                       />
                     ))}
@@ -309,7 +367,7 @@ export function DestinationPlanWizard({
                       id={a.id}
                       name={toPolishAttractionName(a.name, locale)}
                       selected={selectedIds.has(a.id)}
-                      badge={attractionBadge(a.id, pool, pl)}
+                      badge={attractionBadge(a.id, poolWithMeta, pl)}
                       onToggle={() => toggleAttraction(a.id)}
                     />
                   ))}
@@ -317,7 +375,13 @@ export function DestinationPlanWizard({
               </div>
 
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button variant="ghost" onClick={() => setStep("base")}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    userEditedSelection.current = false;
+                    setStep("base");
+                  }}
+                >
                   {pl ? "← Zmień bazę" : "← Change base"}
                 </Button>
                 <Button

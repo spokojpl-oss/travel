@@ -147,11 +147,11 @@ export async function discoverDestination({
   passengers?: string;
 }): Promise<DestinationDiscovery> {
   const { scopeSearchRadii } = await import("@/lib/search/exploration-scope");
-  const { near_radius_km } = scopeSearchRadii(explorationScope);
+  const { explore_radius_km } = scopeSearchRadii(explorationScope);
   const island = resolveIslandBoundary(destinationLabel);
   const searchRadius = island
-    ? Math.min(near_radius_km, island.maxRadiusKm)
-    : near_radius_km;
+    ? Math.min(explore_radius_km, island.maxRadiusKm)
+    : explore_radius_km;
 
   const overviewBase = buildInstantOverview({
     destinationLabel,

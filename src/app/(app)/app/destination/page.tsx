@@ -213,7 +213,8 @@ export default function DestinationPage() {
         const data = (await response.json()) as {
           cluster: GeoCluster;
           attractionPool: DestinationBuildPayload["attractionPool"];
-          suggestedAttractionIds: string[];
+          tripDays?: number;
+          explorationScope?: string;
         };
 
         if (cancelled) return;
@@ -222,7 +223,11 @@ export default function DestinationPage() {
           ...planPayload,
           cluster: data.cluster,
           attractionPool: data.attractionPool,
-          suggestedAttractionIds: data.suggestedAttractionIds,
+          tripDays: data.tripDays,
+          explorationScope:
+            data.explorationScope ??
+            planPayload.explorationScope ??
+            trip.exploration_scope,
           poolEnriched: true,
         };
 

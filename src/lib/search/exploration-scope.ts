@@ -2,6 +2,13 @@ import type { ActivitySearchQuery } from "@/types/domain";
 
 export type ExplorationScope = "local" | "region" | "island" | "roadtrip";
 
+export type ScopeSearchRadii = {
+  /** Promień atrakcji „w okolicy bazy” — jeden dzień bez dalekiego dojazdu. */
+  stay_radius_km: number;
+  /** Szerszy zasięg wyszukiwania / wycieczek dojazdowych. */
+  explore_radius_km: number;
+};
+
 export const EXPLORATION_SCOPE_OPTIONS: Array<{
   value: ExplorationScope;
   label_pl: string;
@@ -65,22 +72,20 @@ export function explorationScopeFromString(
   return null;
 }
 
-export function scopeSearchRadii(scope: ExplorationScope): {
-  max_radius_km: number;
-  near_radius_km: number;
-} {
+export function scopeSearchRadii(scope: ExplorationScope): ScopeSearchRadii {
   switch (scope) {
     case "local":
-      return { max_radius_km: 15, near_radius_km: 50 };
+      return { stay_radius_km: 15, explore_radius_km: 15 };
     case "region":
-      return { max_radius_km: 25, near_radius_km: 90 };
+      return { stay_radius_km: 25, explore_radius_km: 90 };
     case "island":
-      return { max_radius_km: 30, near_radius_km: 55 };
+      return { stay_radius_km: 30, explore_radius_km: 55 };
     case "roadtrip":
-      return { max_radius_km: 50, near_radius_km: 280 };
+      return { stay_radius_km: 50, explore_radius_km: 280 };
   }
 }
 
+/** Mapuje scope na pola zapytania wyszukiwania (z aliasami legacy). */
 export function applyExplorationScopeToQuery(
   query: ActivitySearchQuery,
   scope: ExplorationScope,
@@ -88,7 +93,21 @@ export function applyExplorationScopeToQuery(
   const radii = scopeSearchRadii(scope);
   return {
     ...query,
-    max_radius_km: radii.max_radius_km,
-    near_radius_km: query.near_lat != null ? radii.near_radius_km : undefined,
+    stay_radius_km: radii.stay_radius_km,
+    explore_radius_km: query.near_lat != null ? radii.explore_radius_km : undefined,
+    max_radius_km: radii.stay_radius_km,
+    near_radius_km: query.near_lat != null ? radii.explore_radius_km : undefined,
+  };
+}
+
+/** Rozwiązuje promienie z zapytania (nowe nazwy + legacy aliasy). */
+export function resolveQueryRadii(query: ActivitySearchQuery): {
+  stay_radius_km: number;
+  explore_radius_km: number;
+} {
+  return {
+    stay_radius_km: query.stay_radius_km ?? query.max_radius_km,
+    explore_radius_km:
+      query.explore_radius_km ?? query.near_radius_km ?? 150,
   };
 }

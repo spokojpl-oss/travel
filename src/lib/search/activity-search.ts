@@ -19,6 +19,7 @@ import { clusterAttractions, distanceKm } from "./geo-clustering";
 import {
   applyExplorationScopeToQuery,
   explorationScopeFromString,
+  resolveQueryRadii,
 } from "./exploration-scope";
 import { sanitizeClusterForDestination, settlementCoordsOnWrongIsland } from "@/lib/plan/cluster-island-guard";
 import { enrichClustersWithSettlements } from "./settlement-resolver";
@@ -315,7 +316,8 @@ function searchRadiiForQuery(
   query: ActivitySearchQuery,
   island: IslandBoundary | null,
 ): number[] {
-  const base = query.near_radius_km ?? 150;
+  const { explore_radius_km } = resolveQueryRadii(query);
+  const base = explore_radius_km;
 
   if (island) {
     if (query.exploration_scope === "island") {
@@ -447,7 +449,8 @@ async function supplementMissingActivities(
     query.destination_label,
     center,
   );
-  const radiusKm = fillRadiusKm(query.near_radius_km ?? 120);
+  const { explore_radius_km } = resolveQueryRadii(query);
+  const radiusKm = fillRadiusKm(explore_radius_km);
   const fillRadius = island
     ? Math.min(radiusKm, island.maxRadiusKm)
     : radiusKm;
@@ -508,10 +511,23 @@ export async function searchActivities(
   const startTime = Date.now();
   const supabase = createAdminClient();
 
-  const scope = explorationScopeFromString(query.exploration_scope);
+  const normalizedRadii = resolveQueryRadii(query);
+  const normalizedQuery: ActivitySearchQuery = {
+    ...query,
+    stay_radius_km: normalizedRadii.stay_radius_km,
+    explore_radius_km: normalizedRadii.explore_radius_km,
+    max_radius_km: normalizedRadii.stay_radius_km,
+    near_radius_km:
+      query.near_lat != null
+        ? normalizedRadii.explore_radius_km
+        : query.near_radius_km,
+  };
+
+  const scope = explorationScopeFromString(normalizedQuery.exploration_scope);
   const effectiveQuery = scope
-    ? applyExplorationScopeToQuery(query, scope)
-    : query;
+    ? applyExplorationScopeToQuery(normalizedQuery, scope)
+    : normalizedQuery;
+  const queryRadii = resolveQueryRadii(effectiveQuery);
   const island = resolveIslandBoundaryForSearch(
     effectiveQuery.destination_label,
     hasNearPoint(effectiveQuery)
@@ -544,7 +560,7 @@ export async function searchActivities(
             lat: effectiveQuery.near_lat,
             lon: effectiveQuery.near_lon,
             radiusKm:
-              effectiveQuery.near_radius_km ??
+              resolveQueryRadii(effectiveQuery).explore_radius_km ??
               island?.maxRadiusKm ??
               120,
             destinationLabel: effectiveQuery.destination_label,
@@ -690,7 +706,7 @@ export async function searchActivities(
     attractions,
     selectedActivities: effectiveQuery.activities,
     matchMode: effectiveQuery.match_mode,
-    maxRadiusKm: effectiveQuery.max_radius_km,
+    maxRadiusKm: queryRadii.stay_radius_km,
     minPerActivity: effectiveQuery.min_per_activity,
   });
 
@@ -713,7 +729,7 @@ export async function searchActivities(
       ? island!.maxRadiusKm
       : island
         ? island.maxRadiusKm
-        : (effectiveQuery.near_radius_km ?? geoRadiusUsed ?? 90);
+        : (queryRadii.explore_radius_km ?? geoRadiusUsed ?? 90);
     filtered = enrichedClusters
       .map((cluster) => ({
         cluster,
