@@ -63,10 +63,10 @@ export function HowItWorksGuide({
   return (
     <section id="guide" className={cn("scroll-mt-8", className)}>
       <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold text-text-primary">
-          {t("guide.title")}
-        </h2>
-        <p className="mt-2 max-w-2xl text-base text-text-secondary">
+        <p className="text-base leading-normal text-text-secondary">
+          <span className="font-display font-bold text-text-primary">
+            {t("guide.title")}
+          </span>{" "}
           {t("guide.intro")}
         </p>
       </div>
