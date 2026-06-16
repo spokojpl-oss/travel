@@ -176,6 +176,7 @@ export const en: Messages = {
     discoverFoundTitle: "What we found",
     discoverFoundEmpty: "Still gathering data — you can refine on the next step.",
     discoverFoundHint: "Click to add or remove a suggestion.",
+    chooseActivities: "Choose activities →",
     discoverContinue: "Continue with selection ({n}) →",
     overviewUnderstand: "About the place",
     overviewWeather: "Weather for your trip",

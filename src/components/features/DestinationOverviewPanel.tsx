@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { DestinationClimateBudgetPanel } from "@/components/features/DestinationClimateBudgetPanel";
 import { DestinationOverviewHero } from "@/components/features/DestinationOverviewLoader";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
-import type { Activity, ActivityGroup } from "@/types/domain";
-import { useLocale, useT } from "@/i18n/locale-provider";
+import { useT } from "@/i18n/locale-provider";
 
 export function DestinationOverviewPanel({
   destinationLabel,
@@ -17,10 +16,7 @@ export function DestinationOverviewPanel({
   discoveryError = null,
   onRetry,
   waitingForCoords = false,
-  taxonomy,
-  selectedActivities,
-  onToggleActivity,
-  onContinue,
+  onChooseActivities,
 }: {
   destinationLabel: string;
   destinationLat?: number | null;
@@ -30,13 +26,9 @@ export function DestinationOverviewPanel({
   discoveryError?: string | null;
   onRetry?: () => void;
   waitingForCoords?: boolean;
-  taxonomy: Array<ActivityGroup & { activities: Activity[] }>;
-  selectedActivities: Set<string>;
-  onToggleActivity: (slug: string) => void;
-  onContinue: () => void;
+  onChooseActivities: () => void;
 }) {
   const t = useT();
-  const { locale } = useLocale();
 
   if (waitingForCoords || discovering || !discovery) {
     return (
@@ -64,32 +56,6 @@ export function DestinationOverviewPanel({
       </>
     );
   }
-
-  const counts = discovery.activity_counts;
-  const slugsToShow = new Set([
-    ...discovery.suggested_activities,
-    ...Object.entries(counts)
-      .filter((entry): entry is [string, number] => entry[1] > 0)
-      .map(([slug]) => slug),
-  ]);
-
-  const foundActivities = taxonomy
-    .flatMap((g) =>
-      g.activities
-        .filter((a) => slugsToShow.has(a.slug))
-        .map((a) => ({
-          slug: a.slug,
-          name: locale === "en" ? a.name_en : a.name_pl,
-          group: locale === "en" ? g.name_en : g.name_pl,
-          count: counts[a.slug] ?? 0,
-        })),
-    )
-    .sort((a, b) => {
-      const aSelected = discovery.suggested_activities.includes(a.slug);
-      const bSelected = discovery.suggested_activities.includes(b.slug);
-      if (aSelected !== bSelected) return aSelected ? -1 : 1;
-      return b.count - a.count;
-    });
 
   return (
     <div className="overview-content-enter">
@@ -142,54 +108,8 @@ export function DestinationOverviewPanel({
           </Card>
         )}
 
-      <Card className="mb-6">
-        <CardHeader title={t("search.discoverFoundTitle")} />
-        <CardBody className="space-y-4 text-sm text-text-secondary">
-          <p className="text-base leading-relaxed text-text-primary">
-            {discovery.discovery_intro}
-          </p>
-          {foundActivities.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {foundActivities.map((a) => {
-                const selected = selectedActivities.has(a.slug);
-                return (
-                  <button
-                    key={a.slug}
-                    type="button"
-                    onClick={() => onToggleActivity(a.slug)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                      selected
-                        ? "bg-brand-700 text-white"
-                        : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
-                    }`}
-                  >
-                    {a.name}
-                    {a.count > 0 ? (
-                      <span
-                        className={`ml-1.5 text-xs ${
-                          selected ? "text-white/80" : "text-text-tertiary"
-                        }`}
-                      >
-                        ({a.count})
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-text-tertiary">{t("search.discoverFoundEmpty")}</p>
-          )}
-          <p className="text-xs text-text-tertiary">{t("search.discoverFoundHint")}</p>
-        </CardBody>
-      </Card>
-
-      <Button
-        size="lg"
-        disabled={selectedActivities.size === 0}
-        onClick={onContinue}
-      >
-        {t("search.discoverContinue", { n: selectedActivities.size })}
+      <Button size="lg" onClick={onChooseActivities}>
+        {t("search.chooseActivities")}
       </Button>
     </div>
   );

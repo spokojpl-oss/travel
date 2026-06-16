@@ -174,6 +174,7 @@ export const pl = {
     discoverFoundTitle: "Co znaleźliśmy",
     discoverFoundEmpty: "Jeszcze zbieramy dane — możecie doprecyzować na kolejnym kroku.",
     discoverFoundHint: "Kliknij, żeby dodać lub usunąć propozycję.",
+    chooseActivities: "Wybierz atrakcje →",
     discoverContinue: "Dalej z wybranymi ({n}) →",
     overviewUnderstand: "O miejscu",
     overviewWeather: "Pogoda na wyjazd",

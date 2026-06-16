@@ -135,6 +135,7 @@ function SearchPageContent() {
   const discoveryCacheKey = useRef<string | null>(null);
   const discoveryFailedKey = useRef<string | null>(null);
   const discoveryFetchInFlight = useRef<string | null>(null);
+  const scrollToActivitiesPending = useRef(false);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
@@ -452,6 +453,15 @@ function SearchPageContent() {
   const showActivitiesStep = isDestinationFlow ? step === 4 : step === 2;
   const showResultsStep = isDestinationFlow ? step === 5 : step === 3;
 
+  useEffect(() => {
+    if (step !== 4 || !scrollToActivitiesPending.current) return;
+    scrollToActivitiesPending.current = false;
+    document.getElementById("search-activities")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [step]);
+
   function syncUrl(nextTrip: TripContext, nextStep?: 2 | 3 | 4 | 5) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
@@ -706,10 +716,8 @@ function SearchPageContent() {
             setDiscoveryRetry((n) => n + 1);
           }}
           waitingForCoords={missingDestinationCoords}
-          taxonomy={taxonomy}
-          selectedActivities={selectedActivities}
-          onToggleActivity={toggleActivity}
-          onContinue={() => {
+          onChooseActivities={() => {
+            scrollToActivitiesPending.current = true;
             setStep(4);
             syncUrl(trip, 4);
           }}
@@ -739,7 +747,7 @@ function SearchPageContent() {
             </Card>
           )}
 
-          <Card className="mb-8">
+          <Card id="search-activities" className="mb-8 scroll-mt-6">
             <CardHeader title={t("search.activities")} />
             <CardBody>
               {pageLoading && <SkeletonList count={3} />}
