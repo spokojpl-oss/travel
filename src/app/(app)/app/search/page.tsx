@@ -64,6 +64,32 @@ type DataStatus = {
   message: string | null;
 };
 
+function debugLog(
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+  hypothesisId: string,
+) {
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "d6918b",
+    },
+    body: JSON.stringify({
+      sessionId: "d6918b",
+      location,
+      message,
+      data,
+      hypothesisId,
+      timestamp: Date.now(),
+      runId: "pre-fix",
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 function EmptyResultsCard({
   results,
   trip,
@@ -224,6 +250,7 @@ function SearchPageContent() {
 
     const fromUrl = tripContextFromParams(searchParams);
     let merged = mergeTripContext(defaultTripContext(), fromUrl);
+    let resolvedStep: SearchStep = 2;
 
     const restored = sessionStorage.getItem("restore_search_activities");
     if (restored) {
@@ -257,7 +284,7 @@ function SearchPageContent() {
 
       const stepParam = searchParams.get("step");
       const parsedStep = stepParam ? Number(stepParam) : 2;
-      const resolvedStep: SearchStep =
+      resolvedStep =
         merged.mode === "destination"
           ? parsedStep >= 2 && parsedStep <= 7
             ? (parsedStep as SearchStep)
@@ -284,6 +311,19 @@ function SearchPageContent() {
 
     setTrip(merged);
     setInitialized(true);
+    debugLog(
+      "search/page.tsx:init",
+      "search init complete",
+      {
+        step: resolvedStep,
+        mode: merged.mode,
+        hasRhythm: Boolean(merged.trip_rhythm),
+        departureDate: merged.departure_date ?? null,
+        destinationLabel: merged.destination_label ?? merged.destination ?? null,
+        touristRegionId: merged.tourist_region_id ?? null,
+      },
+      "H1",
+    );
   }, [initialized, pageLoading, searchParams, taxonomy]);
 
   useEffect(() => {
@@ -495,19 +535,65 @@ function SearchPageContent() {
   const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
 
+  useEffect(() => {
+    if (!initialized) return;
+    if (showRhythmStep && !trip.trip_rhythm) {
+      debugLog(
+        "search/page.tsx:blankRhythmStep",
+        "step 4 visible but trip_rhythm missing",
+        {
+          step,
+          departureDate: trip.departure_date ?? null,
+          destinationLabel: trip.destination_label ?? trip.destination ?? null,
+        },
+        "H1",
+      );
+    }
+    if (showRegionsStep && !trip.trip_rhythm) {
+      debugLog(
+        "search/page.tsx:blankRegionsStep",
+        "step 5 visible but trip_rhythm missing",
+        { step },
+        "H1",
+      );
+    }
+  }, [
+    initialized,
+    showRhythmStep,
+    showRegionsStep,
+    trip.trip_rhythm,
+    trip.departure_date,
+    trip.destination_label,
+    trip.destination,
+    step,
+  ]);
+
   const scoredRegions = useMemo(() => {
     if (!isDestinationFlow || !trip.trip_rhythm) return [];
     const label = trip.destination_label ?? trip.destination ?? "";
     if (!label) return [];
-    return findTouristRegions({
+    const regions = findTouristRegions({
       destinationLabel: label,
       rhythm: trip.trip_rhythm,
     });
+    debugLog(
+      "search/page.tsx:scoredRegions",
+      "tourist regions scored",
+      {
+        step,
+        label,
+        regionCount: regions.length,
+        regionIds: regions.map((r) => r.id),
+      },
+      "H2",
+    );
+    return regions;
   }, [
     isDestinationFlow,
     trip.trip_rhythm,
     trip.destination_label,
     trip.destination,
+    step,
   ]);
 
   const { primaryGroups, optionalGroups } = useMemo(() => {
@@ -593,18 +679,30 @@ function SearchPageContent() {
   }
 
   function goToActivitiesStep() {
+    let nextActivities = selectedActivities;
     if (trip.trip_rhythm && selectedActivities.size === 0) {
-      setSelectedActivities(
-        new Set(
-          suggestActivitiesFromRhythm({
-            rhythm: trip.trip_rhythm,
-            counts: activityCounts,
-            weather: discovery?.weather ?? null,
-            passengers: trip.passengers,
-          }),
-        ),
+      nextActivities = new Set(
+        suggestActivitiesFromRhythm({
+          rhythm: trip.trip_rhythm,
+          counts: activityCounts,
+          weather: discovery?.weather ?? null,
+          passengers: trip.passengers,
+        }),
       );
+      setSelectedActivities(nextActivities);
     }
+    debugLog(
+      "search/page.tsx:goToActivitiesStep",
+      "navigate to activities step",
+      {
+        rhythmPresent: Boolean(trip.trip_rhythm),
+        activityCountsLoaded: Object.keys(activityCounts).length,
+        selectedCount: nextActivities.size,
+        selectedSlugs: [...nextActivities],
+        touristRegionId: trip.tourist_region_id ?? null,
+      },
+      "H3",
+    );
     scrollToActivitiesPending.current = true;
     setStep(6);
     syncUrl(trip, 6);
@@ -684,7 +782,26 @@ function SearchPageContent() {
     overrideParams?: ReturnType<typeof getSearchParams>,
   ) {
     const params = overrideParams ?? getSearchParams();
+    debugLog(
+      "search/page.tsx:handleSearch",
+      "search invoked",
+      {
+        step,
+        activityCount: params.activities.length,
+        activities: params.activities,
+        dbReady: Boolean(dataStatus?.search_ready),
+        nearLat: params.near_lat ?? null,
+        nearLon: params.near_lon ?? null,
+      },
+      "H5",
+    );
     if (params.activities.length === 0) {
+      debugLog(
+        "search/page.tsx:handleSearch",
+        "search aborted — no activities",
+        { step },
+        "H3",
+      );
       return;
     }
     if (!dataStatus?.search_ready) {
@@ -722,8 +839,26 @@ function SearchPageContent() {
       }
       setResults(data as ActivitySearchResult);
       const result = data as ActivitySearchResult;
-
+      debugLog(
+        "search/page.tsx:handleSearch",
+        "search success",
+        {
+          clusterCount: result.clusters?.length ?? 0,
+          viewMode: result.view_mode ?? null,
+          totalAttractions: result.total_attractions_considered ?? null,
+        },
+        "H5",
+      );
     } catch (e) {
+      debugLog(
+        "search/page.tsx:handleSearch",
+        "search failed",
+        {
+          error: e instanceof Error ? e.message : String(e),
+          aborted: e instanceof Error && e.name === "AbortError",
+        },
+        "H5",
+      );
       if (e instanceof Error && e.name === "AbortError") {
         setError(t("search.timeout"));
       } else {
@@ -797,6 +932,17 @@ function SearchPageContent() {
         tripMode={trip.mode}
         tripComplete
         onStep={(s) => {
+          debugLog(
+            "search/page.tsx:onStep",
+            "step indicator navigation",
+            {
+              from: step,
+              to: s,
+              hasRhythm: Boolean(trip.trip_rhythm),
+              mode: trip.mode,
+            },
+            "H4",
+          );
           setStep(s);
           syncUrl(trip, s);
         }}
