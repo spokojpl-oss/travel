@@ -16,8 +16,8 @@ export const pl = {
     title2: "dopasowane do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
-    tabActivities: "Od aktywności",
-    tabDestination: "Od destynacji",
+    tabActivities: "Aktywności",
+    tabDestination: "Destynacji",
     search: "Szukaj wakacji",
     searching: "Przygotowuję wyszukiwanie...",
     trustNoFees: "Bez ukrytych kosztów",
