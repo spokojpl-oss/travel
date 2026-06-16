@@ -83,6 +83,8 @@ const EUROPE_SCRAPE_BUTTONS = [
   { label: "Europa Środkowa", bbox: "Central Europe" },
   { label: "Turcja", bbox: "Turkey" },
   { label: "Polska + sąsiedzi", bbox: "Poland + neighbors" },
+  { label: "Ukraina + Białoruś + Mołdawia", bbox: "Ukraine + Belarus + Moldova" },
+  { label: "Rosja (Europa)", bbox: "Russia (European)" },
 ] as const;
 
 export default function AdminSetupPage() {

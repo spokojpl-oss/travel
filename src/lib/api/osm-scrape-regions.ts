@@ -24,6 +24,14 @@ export const SCRAPE_REGIONS: ScrapeRegion[] = [
     bbox: { north: 25, south: 7, east: -60, west: -120 },
   },
   { name: "Poland + neighbors", bbox: { north: 56, south: 47, east: 25, west: 12 } },
+  {
+    name: "Ukraine + Belarus + Moldova",
+    bbox: { north: 56.5, south: 44, east: 41, west: 22 },
+  },
+  {
+    name: "Russia (European)",
+    bbox: { north: 70, south: 44, east: 60, west: 27 },
+  },
 ];
 
 /** Regiony scrape obejmujące destynacje z katalogu europejskiego. */
@@ -39,6 +47,8 @@ export const EUROPE_SCRAPE_REGIONS: string[] = [
   "Turkey",
   "Central Europe",
   "Poland + neighbors",
+  "Ukraine + Belarus + Moldova",
+  "Russia (European)",
 ];
 
 export function scrapeRegionByName(name: string): ScrapeRegion | undefined {
