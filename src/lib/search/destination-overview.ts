@@ -6,7 +6,6 @@ import {
   type DestinationOverview,
 } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
-import { agentLog } from "@/lib/debug/agent-log";
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
@@ -39,20 +38,17 @@ export async function buildDestinationOverview({
   explorationScope: ExplorationScope;
   locale?: Locale;
 }): Promise<DestinationOverview> {
-  const t0 = Date.now();
   const base = buildInstantOverview({
     destinationLabel,
     explorationScope,
     locale,
   });
 
-  const wikiStart = Date.now();
   const wikiPromise = withTimeout(
     fetchWikipediaSummary(destinationLabel, locale),
     2500,
   ).catch(() => null);
 
-  const weatherStart = Date.now();
   const weatherPromise =
     dateFrom && dateTo
       ? withTimeout(
@@ -66,19 +62,6 @@ export async function buildDestinationOverview({
       : Promise.resolve(null);
 
   const [wiki, weather] = await Promise.all([wikiPromise, weatherPromise]);
-
-  agentLog(
-    "destination-overview.ts:buildDestinationOverview",
-    "overview enrich done",
-    {
-      msTotal: Date.now() - t0,
-      msWiki: Date.now() - wikiStart,
-      msWeather: Date.now() - weatherStart,
-      hasWiki: !!wiki?.extract,
-      hasWeather: !!weather,
-    },
-    "H1",
-  );
 
   return {
     ...base,

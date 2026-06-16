@@ -13,7 +13,6 @@ import {
 import type { DestinationOverview } from "@/lib/search/destination-overview-instant";
 import type { ExplorationScope } from "@/lib/search/exploration-scope";
 import type { WeatherSummary } from "@/types/domain";
-import { agentLog } from "@/lib/debug/agent-log";
 
 export type DestinationDiscovery = DestinationOverview & {
   activity_counts: Record<string, number>;
@@ -144,14 +143,6 @@ export async function discoverDestination({
   locale?: Locale;
   passengers?: string;
 }): Promise<DestinationDiscovery> {
-  const discoverT0 = Date.now();
-  agentLog(
-    "destination-discover.ts:discoverDestination",
-    "discover start",
-    { destinationLabel, explorationScope },
-    "H5",
-  );
-
   const { scopeSearchRadii } = await import("@/lib/search/exploration-scope");
   const { near_radius_km } = scopeSearchRadii(explorationScope);
   const island = resolveIslandBoundary(destinationLabel);
@@ -194,14 +185,6 @@ export async function discoverDestination({
     sleep(DISCOVERY_COUNT_TIMEOUT_MS).then(() => ({}) as Record<string, number>),
   ]);
 
-  agentLog(
-    "destination-discover.ts:countsPromise",
-    "initial count (non-blocking)",
-    { timeoutMs: DISCOVERY_COUNT_TIMEOUT_MS },
-    "H2",
-    "post-fix",
-  );
-
   const [activity_counts, weather] = await Promise.all([
     countsPromise,
     weatherPromise,
@@ -212,23 +195,6 @@ export async function discoverDestination({
     weather,
     enriching: false,
   };
-
-  agentLog(
-    "destination-discover.ts:discoverDestination",
-    "discover complete",
-    {
-      msTotal: Date.now() - discoverT0,
-      activityTotal: Object.values(activity_counts).reduce((a, b) => a + b, 0),
-      suggestedCount: suggestActivities({
-        counts: activity_counts,
-        weather: overview.weather,
-        passengers,
-      }).length,
-      hasWeather: !!overview.weather,
-    },
-    "H5",
-    "post-fix",
-  );
 
   let suggested_activities = suggestActivities({
     counts: activity_counts,

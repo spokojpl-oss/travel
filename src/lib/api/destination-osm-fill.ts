@@ -11,7 +11,6 @@ import {
 } from "@/lib/destinations/island-boundary";
 import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox } from "@/types/domain";
-import { agentLog } from "@/lib/debug/agent-log";
 
 const ACTIVITY_TO_OSM_CATEGORIES: Record<string, OsmCategory[]> = {
   zoo: ["zoo", "aquarium"],
@@ -201,7 +200,6 @@ export async function countActivitiesNearPoint({
   radiusKm: number;
   destinationLabel?: string;
 }): Promise<Record<string, number>> {
-  const countT0 = Date.now();
   try {
     const supabase = createAdminClient();
   const island = resolveIslandBoundary(destinationLabel);
@@ -220,15 +218,6 @@ export async function countActivitiesNearPoint({
     .lte("lon", bbox.east);
 
   if (!headCount || headCount === 0) {
-    agentLog(
-      "destination-osm-fill.ts:countActivitiesNearPoint",
-      "zero attractions in bbox (head)",
-      {
-        ms: Date.now() - countT0,
-        destinationLabel,
-      },
-      "H4",
-    );
     return {};
   }
 
@@ -241,16 +230,6 @@ export async function countActivitiesNearPoint({
     .lte("lon", bbox.east);
 
   if (!attractions?.length) {
-    agentLog(
-      "destination-osm-fill.ts:countActivitiesNearPoint",
-      "zero attractions after fetch",
-      {
-        ms: Date.now() - countT0,
-        headCount,
-        destinationLabel,
-      },
-      "H4",
-    );
     return {};
   }
 
@@ -278,31 +257,8 @@ export async function countActivitiesNearPoint({
     }
   }
 
-  agentLog(
-    "destination-osm-fill.ts:countActivitiesNearPoint",
-    "count done",
-    {
-      ms: Date.now() - countT0,
-      attractionRows: attractions.length,
-      idsAfterFilter: ids.length,
-      tagSlugs: Object.keys(counts).length,
-      destinationLabel,
-    },
-    "H4",
-  );
-
   return counts;
-  } catch (err) {
-    agentLog(
-      "destination-osm-fill.ts:countActivitiesNearPoint",
-      "count failed",
-      {
-        ms: Date.now() - countT0,
-        error: err instanceof Error ? err.message : String(err),
-        destinationLabel,
-      },
-      "H4",
-    );
+  } catch {
     return {};
   }
 }
