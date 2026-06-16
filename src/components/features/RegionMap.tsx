@@ -25,6 +25,8 @@ type RegionMapProps = {
   height?: number;
   showLegend?: boolean;
   showRouteList?: boolean;
+  highlightedPointId?: string | null;
+  onPointClick?: (point: MapPoint) => void;
 };
 
 export function RegionMap({
@@ -34,6 +36,8 @@ export function RegionMap({
   height = 450,
   showLegend = true,
   showRouteList = true,
+  highlightedPointId,
+  onPointClick,
 }: RegionMapProps) {
   const apiKey = getGoogleMapsApiKey();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +107,12 @@ export function RegionMap({
           const position = { lat: point.lat, lng: point.lon };
           bounds.extend(position);
 
+          const isHighlighted = highlightedPointId === point.id;
+          const fillColor =
+            isHighlighted && point.type === "attraction"
+              ? "#ff5b00"
+              : POINT_COLORS[point.type];
+
           const marker = new maps.Marker({
             position,
             map,
@@ -112,13 +122,15 @@ export function RegionMap({
               scale:
                 point.type === "airport"
                   ? 13
-                  : point.type === "centroid"
-                    ? 11
-                    : 8,
-              fillColor: POINT_COLORS[point.type],
+                  : isHighlighted
+                    ? 12
+                    : point.type === "centroid"
+                      ? 11
+                      : 8,
+              fillColor,
               fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: point.type === "airport" ? 3 : 2,
+              strokeColor: isHighlighted ? "#ff5b00" : "#ffffff",
+              strokeWeight: point.type === "airport" || isHighlighted ? 3 : 2,
             },
           });
 
@@ -138,6 +150,7 @@ export function RegionMap({
           });
 
           marker.addListener("click", () => {
+            if (onPointClick) onPointClick(point);
             info.open({ map, anchor: marker });
           });
 
@@ -161,7 +174,7 @@ export function RegionMap({
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [apiKey, pointsKey, points]);
+  }, [apiKey, pointsKey, points, highlightedPointId, onPointClick]);
 
   useEffect(() => {
     if (segments.length === 0) {

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
-import { RegionMap } from "@/components/features/RegionMap";
 import { RegionResultCard } from "@/components/features/RegionResultCard";
 import {
   SearchStepIndicator,
@@ -14,16 +13,18 @@ import {
 } from "@/components/features/TripContextBar";
 import { TripRhythmStep } from "@/components/features/TripRhythmStep";
 import { TouristRegionCards } from "@/components/features/TouristRegionCards";
+import { ExplorationScopeStep } from "@/components/features/ExplorationScopeStep";
+import { IslandOverviewSection } from "@/components/features/IslandOverviewSection";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
   defaultRhythmForTrip,
-  formatRhythmSummary,
   hasChildrenInPassengers,
   isGroupInRhythm,
   suggestActivitiesFromRhythm,
   type TripRhythm,
 } from "@/lib/search/trip-rhythm";
-import { buildIslandMapData } from "@/lib/maps/build-island-map";
+import { adviseExplorationScope } from "@/lib/search/scope-advisor";
+import { assessIslandFeasibility } from "@/lib/search/island-feasibility";
 import { storeDestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
@@ -36,6 +37,7 @@ import {
   hasTripParams,
   mergeTripContext,
   matchActivitySlugsFromText,
+  daysBetweenIso,
   resolveDestinationCoords,
   tripContextFromParams,
   tripContextToParams,
@@ -43,13 +45,15 @@ import {
   type TripContext,
 } from "@/lib/search/trip-context";
 import { DestinationOverviewPanel } from "@/components/features/DestinationOverviewPanel";
-import {
-  EXPLORATION_SCOPE_OPTIONS,
-  scopeSearchRadii,
-} from "@/lib/search/exploration-scope";
+import { scopeSearchRadii } from "@/lib/search/exploration-scope";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
 import { buildFallbackDiscovery } from "@/lib/search/destination-discover";
-import type { Activity, ActivityGroup, ActivitySearchResult, GeoCluster } from "@/types/domain";
+import type {
+  Activity,
+  ActivityGroup,
+  ActivitySearchResult,
+  GeoCluster,
+} from "@/types/domain";
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
@@ -168,7 +172,7 @@ function SearchPageContent() {
   const discoveryCacheKey = useRef<string | null>(null);
   const discoveryFailedKey = useRef<string | null>(null);
   const discoveryFetchInFlight = useRef<string | null>(null);
-  const scrollToActivitiesPending = useRef(false);
+  const searchTopRef = useRef<HTMLDivElement>(null);
   const [activityCounts, setActivityCounts] = useState<Record<string, number>>({});
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(
     new Set(),
@@ -177,7 +181,6 @@ function SearchPageContent() {
   const [maxRadius, setMaxRadius] = useState(15);
   const [minPerActivity, setMinPerActivity] = useState(1);
   const [results, setResults] = useState<ActivitySearchResult | null>(null);
-  const [showIslandRegions, setShowIslandRegions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -254,6 +257,23 @@ function SearchPageContent() {
 
       if (merged.mode === "destination") {
         setMatchMode("any");
+        const label = merged.destination_label ?? merged.destination ?? "";
+        if (
+          !merged.exploration_scope &&
+          merged.departure_date &&
+          label
+        ) {
+          const advice = adviseExplorationScope({
+            destinationLabel: label,
+            departureDate: merged.departure_date,
+            returnDate: merged.return_date,
+            passengers: merged.passengers,
+            locale,
+          });
+          merged = mergeTripContext(merged, {
+            exploration_scope: advice.recommended,
+          });
+        }
         const scope = merged.exploration_scope ?? "region";
         setMaxRadius(scopeSearchRadii(scope).max_radius_km);
       }
@@ -268,6 +288,14 @@ function SearchPageContent() {
           : parsedStep >= 3
             ? 3
             : 2;
+
+      if (
+        merged.mode === "destination" &&
+        merged.exploration_scope === "island" &&
+        resolvedStep === 5
+      ) {
+        resolvedStep = 6;
+      }
       setStep(resolvedStep);
 
       if (
@@ -288,7 +316,13 @@ function SearchPageContent() {
 
     setTrip(merged);
     setInitialized(true);
-  }, [initialized, pageLoading, searchParams, taxonomy]);
+  }, [initialized, pageLoading, searchParams, taxonomy, locale]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    searchTopRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [step, initialized]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -492,12 +526,46 @@ function SearchPageContent() {
   }
 
   const isDestinationFlow = trip.mode === "destination";
+  const skipRegionsStep = trip.exploration_scope === "island";
   const showScopeStep = isDestinationFlow && step === 2;
   const showOverviewStep = isDestinationFlow && step === 3;
   const showRhythmStep = isDestinationFlow && step === 4;
-  const showRegionsStep = isDestinationFlow && step === 5;
+  const showRegionsStep = isDestinationFlow && step === 5 && !skipRegionsStep;
   const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
+
+  const tripDays = useMemo(
+    () =>
+      trip.departure_date
+        ? daysBetweenIso(trip.departure_date, trip.return_date ?? trip.departure_date)
+        : 0,
+    [trip.departure_date, trip.return_date],
+  );
+
+  const islandFeasibility = useMemo(() => {
+    if (!trip.destination_label && !trip.destination) return null;
+    return assessIslandFeasibility({
+      destinationLabel: trip.destination_label ?? trip.destination ?? "",
+      tripDays,
+      explorationScope: trip.exploration_scope ?? "region",
+      passengers: trip.passengers,
+      weather: discovery?.weather ?? null,
+      locale,
+    });
+  }, [
+    trip.destination_label,
+    trip.destination,
+    tripDays,
+    trip.exploration_scope,
+    trip.passengers,
+    discovery?.weather,
+    locale,
+  ]);
+
+  const taxonomyActivities = useMemo(
+    () => taxonomy.flatMap((g) => g.activities),
+    [taxonomy],
+  );
 
   useEffect(() => {
     if (!initialized || !isDestinationFlow || step !== 5 || !trip.trip_rhythm) {
@@ -563,15 +631,6 @@ function SearchPageContent() {
     return { primaryGroups: primary, optionalGroups: optional };
   }, [taxonomy, trip.trip_rhythm]);
 
-  useEffect(() => {
-    if (step !== 6 || !scrollToActivitiesPending.current) return;
-    scrollToActivitiesPending.current = false;
-    document.getElementById("search-activities")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, [step]);
-
   function syncUrl(nextTrip: TripContext, nextStep?: SearchStep) {
     const p = tripContextToParams(nextTrip);
     if (nextStep) p.set("step", String(nextStep));
@@ -603,7 +662,11 @@ function SearchPageContent() {
     });
   }
 
-  function goToRegionsStep() {
+  function goAfterRhythmStep() {
+    if (skipRegionsStep) {
+      goToActivitiesStep();
+      return;
+    }
     setStep(5);
     syncUrl(trip, 5);
   }
@@ -646,7 +709,6 @@ function SearchPageContent() {
       );
       setSelectedActivities(nextActivities);
     }
-    scrollToActivitiesPending.current = true;
     setStep(6);
     syncUrl(trip, 6);
   }
@@ -721,6 +783,25 @@ function SearchPageContent() {
     return params;
   }
 
+  function narrowScopeToRegion() {
+    setExplorationScope("region");
+    goToScopeStep();
+  }
+
+  function extendTripOnHome() {
+    const p = tripContextToParams(trip);
+    if (islandFeasibility?.suggestedMinDays && trip.departure_date) {
+      const extra = islandFeasibility.suggestedMinDays - tripDays;
+      if (extra > 0) {
+        const base = trip.return_date ?? trip.departure_date;
+        const end = new Date(`${base}T12:00:00`);
+        end.setDate(end.getDate() + extra);
+        p.set("return_date", end.toISOString().slice(0, 10));
+      }
+    }
+    router.push(`/app?${p.toString()}#search`);
+  }
+
   async function handleSearch(
     overrideParams?: ReturnType<typeof getSearchParams>,
   ) {
@@ -737,7 +818,6 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
-    setShowIslandRegions(false);
     setStep(isDestinationFlow ? 7 : 3);
     syncUrl(trip, isDestinationFlow ? 7 : 3);
 
@@ -797,6 +877,7 @@ function SearchPageContent() {
 
   return (
     <PageContainer>
+      <div ref={searchTopRef} className="scroll-mt-4" aria-hidden />
       <Breadcrumb
         items={[
           { label: t("common.home"), href: "/app" },
@@ -835,7 +916,14 @@ function SearchPageContent() {
         step={step}
         tripMode={trip.mode}
         tripComplete
+        skipRegionsStep={skipRegionsStep}
         onStep={(s) => {
+          if (
+            s === 5 &&
+            skipRegionsStep
+          ) {
+            return;
+          }
           if ((s === 4 || s === 5) && !trip.trip_rhythm && trip.departure_date) {
             setTrip((prev) => {
               const next = {
@@ -867,58 +955,36 @@ function SearchPageContent() {
         </Card>
       )}
 
-      {showScopeStep && (
-        <>
-          <Card className="mb-8">
-            <CardHeader title={t("search.scopeTitle")} />
-            <CardBody className="space-y-4">
-              <p className="text-sm text-text-secondary">
-                {t("search.scopeIntro")}{" "}
-                <strong>{trip.destination_label ?? trip.destination}</strong> —
-                {t("search.scopeIntroEnd")}
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {EXPLORATION_SCOPE_OPTIONS.map((option) => {
-                  const active = trip.exploration_scope === option.value;
-                  const label =
-                    locale === "en" ? option.label_en : option.label_pl;
-                  const description =
-                    locale === "en"
-                      ? option.description_en
-                      : option.description_pl;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setExplorationScope(option.value)}
-                      className={`rounded-xl border p-4 text-left transition-colors ${
-                        active
-                          ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
-                          : "border-border-default hover:border-brand-300"
-                      }`}
-                    >
-                      <p className="font-semibold text-text-primary">{label}</p>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {description}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </CardBody>
-          </Card>
+      {showScopeStep && trip.departure_date && (
+        <ExplorationScopeStep
+          destinationLabel={trip.destination_label ?? trip.destination ?? ""}
+          departureDate={trip.departure_date}
+          returnDate={trip.return_date}
+          passengers={trip.passengers}
+          selectedScope={trip.exploration_scope ?? "region"}
+          onSelectScope={setExplorationScope}
+          onContinue={() => {
+            if (missingDestinationCoords) return;
+            setStep(3);
+            syncUrl(trip, 3);
+          }}
+        />
+      )}
 
-          <Button
-            size="lg"
-            disabled={missingDestinationCoords}
-            onClick={() => {
-              setStep(3);
-              syncUrl(trip, 3);
-            }}
-          >
-            {t("search.continueToOverview")}
-          </Button>
-        </>
+      {showScopeStep && !trip.departure_date && (
+        <Card className="mb-8">
+          <CardBody className="text-sm text-text-secondary">
+            {t("search.scopeMissingDates")}
+          </CardBody>
+        </Card>
+      )}
+
+      {showScopeStep && missingDestinationCoords && trip.departure_date && (
+        <Card className="mb-6 border-warning/40 bg-orange-50/60">
+          <CardBody className="text-sm text-text-secondary">
+            {t("search.scopeMissingCoords")}
+          </CardBody>
+        </Card>
       )}
 
       {showOverviewStep && (
@@ -946,7 +1012,10 @@ function SearchPageContent() {
           passengers={trip.passengers}
           rhythm={trip.trip_rhythm}
           onChange={updateRhythm}
-          onContinue={goToRegionsStep}
+          onContinue={goAfterRhythmStep}
+          continueLabel={
+            skipRegionsStep ? t("rhythm.continueActivities") : undefined
+          }
         />
       )}
 
@@ -956,10 +1025,10 @@ function SearchPageContent() {
           {!regionsLoading && (
             <TouristRegionCards
               regions={scoredRegions}
-              rhythm={trip.trip_rhythm}
               selectedId={trip.tourist_region_id}
               onSelect={handleSelectRegion}
               onContinue={goToActivitiesStep}
+              onSkip={goToActivitiesStep}
               onBack={() => {
                 setStep(4);
                 syncUrl(trip, 4);
@@ -1009,11 +1078,7 @@ function SearchPageContent() {
             <CardHeader title={t("search.activities")} />
             <CardBody>
               {trip.trip_rhythm && isDestinationFlow && (
-                <p className="mb-4 rounded-lg border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm text-text-secondary">
-                  <span className="font-medium text-text-primary">
-                    {t("search.rhythmPlanHint")}:{" "}
-                  </span>
-                  {formatRhythmSummary(trip.trip_rhythm, locale)}.{" "}
+                <p className="mb-4 text-sm text-text-secondary">
                   {t("search.activitiesFromRhythm")}
                 </p>
               )}
@@ -1249,126 +1314,14 @@ function SearchPageContent() {
       {showResultsStep && results && !isSearching && (
         <section className="mt-8">
           {results.view_mode === "island" && results.island_overview ? (
-            <>
-              <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-                Cała {results.island_overview.island_name} — przegląd atrakcji
-              </h2>
-              <p className="mb-6 text-sm text-text-secondary">
-                {formatTravelSummary(trip)} · {formatTripDateRange(trip)} ·{" "}
-                {results.total_attractions_considered} miejsc na wyspie · nie
-                wybieramy jeszcze bazy noclegowej
-              </p>
-
-              <Card className="mb-6 overflow-hidden">
-                <RegionMap
-                  points={
-                    buildIslandMapData({
-                      attractions: results.island_overview.attractions,
-                      airports: results.island_overview.airports,
-                    }).points
-                  }
-                  segments={[]}
-                  height={520}
-                  showRouteList={false}
-                />
-                <CardBody className="text-sm text-text-secondary">
-                  <p>
-                    <span className="mr-4 inline-flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-[#003faa]" />
-                      Lotnisko
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-[#16a34a]" />
-                      Atrakcja
-                    </span>
-                  </p>
-                  {results.island_overview.airports.length > 0 && (
-                    <p className="mt-2">
-                      Lotniska:{" "}
-                      {results.island_overview.airports
-                        .map((a) => `${a.name} (${a.iata_code})`)
-                        .join(" · ")}
-                    </p>
-                  )}
-                  {results.total_attractions_considered >
-                    results.island_overview.attractions.length && (
-                    <p className="mt-1 text-xs text-text-tertiary">
-                      Na mapie pierwsze 300 punktów z{" "}
-                      {results.total_attractions_considered} znalezionych.
-                    </p>
-                  )}
-                </CardBody>
-              </Card>
-
-              <Card className="mb-8">
-                <CardHeader title="Co znaleźliśmy na wyspie" />
-                <CardBody>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(results.island_overview.activity_counts)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([slug, count]) => (
-                        <span
-                          key={slug}
-                          className="rounded-full bg-brand-50 px-3 py-1.5 text-sm text-brand-800"
-                        >
-                          {taxonomy
-                            .flatMap((g) => g.activities)
-                            .find((a) => a.slug === slug)
-                            ? locale === "en"
-                              ? taxonomy
-                                  .flatMap((g) => g.activities)
-                                  .find((a) => a.slug === slug)!.name_en
-                              : taxonomy
-                                  .flatMap((g) => g.activities)
-                                  .find((a) => a.slug === slug)!.name_pl
-                            : slug}
-                          : {count}
-                        </span>
-                      ))}
-                  </div>
-                </CardBody>
-              </Card>
-
-              {!showIslandRegions ? (
-                <div className="mb-8 text-center">
-                  <p className="mb-4 text-sm text-text-secondary">
-                    Po przeglądzie wybierz rejon, w którym chcesz się zatrzymać.
-                  </p>
-                  <Button
-                    size="lg"
-                    onClick={() => setShowIslandRegions(true)}
-                    disabled={results.clusters.length === 0}
-                  >
-                    Wybierz region na nocleg →
-                  </Button>
-                  {results.clusters.length === 0 && (
-                    <p className="mt-3 text-sm text-text-tertiary">
-                      Brak wyodrębnionych regionów — spróbuj mniej aktywności
-                      lub trybu „dowolna z wybranych”.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-display mb-4 text-lg font-bold text-text-primary">
-                    Wybierz region na nocleg ({results.clusters.length})
-                  </h3>
-                  {results.clusters.map((cluster, idx) => (
-                    <RegionResultCard
-                      key={cluster.id}
-                      cluster={cluster}
-                      idx={idx}
-                      airports={results.airports ?? []}
-                      destinationLabel={trip.destination_label ?? undefined}
-                      activityNames={activityNames}
-                      locale={locale}
-                      onOpen={() => openDestination(cluster)}
-                      ctaLabel="Planuj pobyt w tym regionie →"
-                    />
-                  ))}
-                </>
-              )}
-            </>
+            <IslandOverviewSection
+              results={results}
+              activityNames={activityNames}
+              taxonomyActivities={taxonomyActivities}
+              feasibility={islandFeasibility}
+              onNarrowScope={narrowScopeToRegion}
+              onExtendTrip={extendTripOnHome}
+            />
           ) : (
             <>
               <h2 className="font-display mb-2 text-xl font-bold text-text-primary">

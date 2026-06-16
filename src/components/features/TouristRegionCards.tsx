@@ -12,27 +12,25 @@ import {
   regionVibeLabel,
   type ScoredTouristRegion,
 } from "@/lib/destinations/tourist-regions";
-import { formatRhythmSummary, type TripRhythm } from "@/lib/search/trip-rhythm";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
 export function TouristRegionCards({
   regions,
-  rhythm,
   selectedId,
   onSelect,
   onContinue,
   onBack,
+  onSkip,
 }: {
   regions: ScoredTouristRegion[];
-  rhythm: TripRhythm;
   selectedId: string | null;
   onSelect: (region: ScoredTouristRegion) => void;
   onContinue: () => void;
   onBack?: () => void;
+  onSkip?: () => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const planSummary = formatRhythmSummary(rhythm, locale);
 
   if (regions.length === 0) {
     return (
@@ -56,36 +54,31 @@ export function TouristRegionCards({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-brand-100 bg-brand-50/40 px-4 py-3 text-sm text-text-secondary">
-        <span className="font-medium text-text-primary">{t("regions.planLabel")}</span>{" "}
-        {planSummary}
-      </div>
+      <p className="text-sm leading-relaxed text-text-secondary">
+        {t("regions.introHints")}
+      </p>
 
-      <p className="text-sm text-text-secondary">{t("regions.intro")}</p>
-
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="space-y-4">
         {regions.map((region, idx) => {
           const selected = selectedId === region.id;
           const overview = locale === "en" ? region.overview_en : region.overview_pl;
           const stayHint = locale === "en" ? region.stay_hint_en : region.stay_hint_pl;
 
           return (
-            <button
+            <div
               key={region.id}
-              type="button"
-              onClick={() => onSelect(region)}
               className={cn(
-                "rounded-2xl border text-left transition-all",
+                "rounded-2xl border transition-all",
                 selected
-                  ? "border-brand-700 bg-brand-50/60 ring-2 ring-brand-200"
-                  : "border-border-default bg-white hover:border-brand-300 hover:shadow-sm",
+                  ? "border-brand-700 bg-brand-50/40 ring-2 ring-brand-200"
+                  : "border-border-default bg-white",
               )}
             >
               <div className="border-b border-border-default/60 px-5 py-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                      {t("regions.recommended")} #{idx + 1}
+                      {t("regions.hintLabel")} #{idx + 1}
                     </p>
                     <h3 className="font-display text-xl font-bold text-text-primary">
                       {regionDisplayName(region, locale)}
@@ -109,7 +102,9 @@ export function TouristRegionCards({
 
               <div className="space-y-4 px-5 py-4">
                 <p className="text-sm leading-relaxed text-text-primary">{overview}</p>
-                <p className="text-sm text-text-secondary">{stayHint}</p>
+                <p className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-sm text-text-secondary">
+                  {stayHint}
+                </p>
 
                 {region.picks_for_rhythm.length > 0 && (
                   <div>
@@ -120,7 +115,7 @@ export function TouristRegionCards({
                       {region.picks_for_rhythm.map((pick) => (
                         <li
                           key={`${pick.day_theme}-${pick.name_pl}`}
-                          className="rounded-lg border border-brand-100 bg-white/80 px-3 py-2"
+                          className="rounded-lg border border-border-default bg-white px-3 py-2"
                         >
                           <p className="font-medium text-text-primary">
                             {pickDisplayName(pick, locale)}
@@ -133,8 +128,16 @@ export function TouristRegionCards({
                     </ul>
                   </div>
                 )}
+
+                <Button
+                  variant={selected ? "secondary" : "primary"}
+                  size="sm"
+                  onClick={() => onSelect(region)}
+                >
+                  {selected ? t("regions.useAsBase") : t("regions.selectHint")}
+                </Button>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -143,6 +146,11 @@ export function TouristRegionCards({
         <Button size="lg" disabled={!selectedId} onClick={onContinue}>
           {t("regions.continue")}
         </Button>
+        {onSkip && (
+          <Button variant="ghost" onClick={onSkip}>
+            {t("regions.skipToActivities")}
+          </Button>
+        )}
         {onBack && (
           <Button variant="ghost" onClick={onBack}>
             {t("regions.adjustRhythm")}

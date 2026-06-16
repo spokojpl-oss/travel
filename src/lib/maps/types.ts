@@ -7,6 +7,7 @@ export type MapPoint = {
   lat: number;
   lon: number;
   badge?: string;
+  activitySlugs?: string[];
 };
 
 export type MapRouteSegment = {

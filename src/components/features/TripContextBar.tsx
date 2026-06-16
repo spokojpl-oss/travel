@@ -1,7 +1,6 @@
 "use client";
 
 import { formatTripDateRange, travelModeIcon, type TripContext } from "@/lib/search/trip-context";
-import { formatRhythmSummary } from "@/lib/search/trip-rhythm";
 import { localeToIntl } from "@/i18n/config";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -71,19 +70,6 @@ export function TripContextBar({
     });
   }
 
-  const showRhythmInBar =
-    trip.trip_rhythm &&
-    trip.mode === "destination" &&
-    (searchStep == null || searchStep >= 4);
-
-  if (showRhythmInBar) {
-    items.push({
-      icon: "route",
-      label: t("context.rhythm"),
-      value: formatRhythmSummary(trip.trip_rhythm!, locale),
-    });
-  }
-
   if (trip.mode === "activities" && trip.interests) {
     items.unshift({
       icon: "target",
@@ -129,56 +115,69 @@ export function SearchStepIndicator({
   onStep,
   tripComplete = false,
   tripMode = "activities",
+  skipRegionsStep = false,
 }: {
   step: SearchStep;
   onStep?: (s: SearchStep) => void;
   tripComplete?: boolean;
   tripMode?: "activities" | "destination";
+  /** Ukryj krok „Region” gdy user wybrał całą wyspę. */
+  skipRegionsStep?: boolean;
 }) {
   const t = useT();
 
   const steps =
     tripMode === "destination"
       ? [
-          { n: 1 as const, label: t("steps.trip"), key: "trip", goto: 2 as const },
-          { n: 2 as const, label: t("steps.scope"), key: "scope", goto: 2 as const },
-          { n: 3 as const, label: t("steps.overview"), key: "overview", goto: 3 as const },
-          { n: 4 as const, label: t("steps.rhythm"), key: "rhythm", goto: 4 as const },
-          { n: 5 as const, label: t("steps.regions"), key: "regions", goto: 5 as const },
-          { n: 6 as const, label: t("steps.activities"), key: "activities", goto: 6 as const },
-          { n: 7 as const, label: t("steps.results"), key: "results", goto: 7 as const },
+          { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
+          { displayN: 2, label: t("steps.scope"), key: "scope", goto: 2 as SearchStep },
+          { displayN: 3, label: t("steps.overview"), key: "overview", goto: 3 as SearchStep },
+          { displayN: 4, label: t("steps.rhythm"), key: "rhythm", goto: 4 as SearchStep },
+          ...(skipRegionsStep
+            ? []
+            : [
+                {
+                  displayN: 5,
+                  label: t("steps.regions"),
+                  key: "regions",
+                  goto: 5 as SearchStep,
+                },
+              ]),
+          {
+            displayN: skipRegionsStep ? 5 : 6,
+            label: t("steps.activities"),
+            key: "activities",
+            goto: 6 as SearchStep,
+          },
+          {
+            displayN: skipRegionsStep ? 6 : 7,
+            label: t("steps.results"),
+            key: "results",
+            goto: 7 as SearchStep,
+          },
         ]
       : [
-          { n: 1 as const, label: t("steps.trip"), key: "trip", goto: 2 as const },
-          { n: 2 as const, label: t("steps.activities"), key: "activities", goto: 2 as const },
-          { n: 3 as const, label: t("steps.results"), key: "results", goto: 3 as const },
+          { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
+          { displayN: 2, label: t("steps.activities"), key: "activities", goto: 2 as SearchStep },
+          { displayN: 3, label: t("steps.results"), key: "results", goto: 3 as SearchStep },
         ];
 
-  const displayStep =
-    tripMode === "destination"
-      ? step
-      : step >= 6
-        ? 3
-        : step;
+  const currentStep =
+    tripMode === "destination" ? step : step >= 6 ? 3 : step;
 
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-2">
       {steps.map((s, i) => {
-        const stepNum = s.n;
+        const active = s.key === "trip" ? false : currentStep === s.goto;
         const done =
-          displayStep > stepNum ||
-          (tripComplete && stepNum === 1 && displayStep >= 2);
-        const active = displayStep === stepNum;
+          s.key === "trip"
+            ? currentStep >= 2 || tripComplete
+            : currentStep > s.goto;
         const clickable =
           onStep &&
-          displayStep >= s.goto &&
-          (tripMode === "destination"
-            ? stepNum === 1
-              ? tripComplete
-              : displayStep >= stepNum
-            : stepNum === 1
-              ? tripComplete
-              : displayStep >= stepNum);
+          (s.key === "trip"
+            ? tripComplete
+            : currentStep >= s.goto);
 
         return (
           <div key={s.key} className="flex items-center gap-2">
@@ -191,7 +190,7 @@ export function SearchStepIndicator({
               type="button"
               onClick={() => {
                 if (!clickable || !onStep) return;
-                if (stepNum === 1) onStep(2);
+                if (s.key === "trip") onStep(2);
                 else onStep(s.goto);
               }}
               disabled={!clickable}
@@ -203,7 +202,7 @@ export function SearchStepIndicator({
                     : "rounded-full bg-bg-soft px-4 py-1.5 text-sm font-medium text-text-tertiary"
               }
             >
-              {stepNum}. {s.label}
+              {s.displayN}. {s.label}
             </button>
           </div>
         );

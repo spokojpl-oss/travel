@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -8,9 +7,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   adjustableThemes,
   applyRhythmPreset,
-  formatRhythmSummary,
   hasChildrenInPassengers,
-  normalizeRhythm,
   rhythmTotalDays,
   THEME_META,
   type TripDayTheme,
@@ -18,7 +15,7 @@ import {
   type TripRhythmPreset,
 } from "@/lib/search/trip-rhythm";
 import { daysBetweenIso } from "@/lib/search/trip-context";
-import { useLocale, useT } from "@/i18n/locale-provider";
+import { useT } from "@/i18n/locale-provider";
 
 const PRESETS: Array<{
   id: TripRhythmPreset;
@@ -42,6 +39,7 @@ export function TripRhythmStep({
   rhythm,
   onChange,
   onContinue,
+  continueLabel,
 }: {
   departureDate: string;
   returnDate: string | null;
@@ -49,57 +47,31 @@ export function TripRhythmStep({
   rhythm: TripRhythm;
   onChange: (rhythm: TripRhythm) => void;
   onContinue: () => void;
+  continueLabel?: string;
 }) {
   const t = useT();
-  const { locale } = useLocale();
   const totalDays = daysBetweenIso(departureDate, returnDate ?? departureDate);
   const includeKids = hasChildrenInPassengers(passengers);
   const themes = adjustableThemes({ includeKids });
   const allocated = rhythmTotalDays(rhythm);
   const isComplete = allocated === totalDays;
 
-  const summary = useMemo(
-    () => formatRhythmSummary(rhythm, locale),
-    [rhythm, locale],
-  );
-
   function applyPreset(preset: TripRhythmPreset) {
     onChange(applyRhythmPreset(preset, totalDays, { includeKids }));
   }
 
   function adjustTheme(theme: TripDayTheme, delta: number) {
-    const nextDays = { ...rhythm.days, [theme]: rhythm.days[theme] + delta };
-    if (nextDays[theme] < 0) return;
-    onChange(
-      normalizeRhythm({ days: nextDays, preset: null }, totalDays),
-    );
+    const nextCount = rhythm.days[theme] + delta;
+    if (nextCount < 0) return;
+    if (allocated + delta > totalDays) return;
+    onChange({
+      days: { ...rhythm.days, [theme]: nextCount },
+      preset: null,
+    });
   }
 
   return (
     <div className="space-y-6">
-      <Card className="border-brand-100 bg-brand-50/30">
-        <CardBody className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-text-secondary">
-              {t("rhythm.tripLength", { n: totalDays })}
-            </p>
-            <p className="mt-1 font-display text-lg font-bold text-text-primary">
-              {summary || t("rhythm.emptyPlan")}
-            </p>
-          </div>
-          <div
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-semibold",
-              isComplete
-                ? "bg-brand-700 text-white"
-                : "bg-amber-100 text-amber-900",
-            )}
-          >
-            {t("rhythm.allocated", { allocated, total: totalDays })}
-          </div>
-        </CardBody>
-      </Card>
-
       <div>
         <h2 className="mb-3 font-display text-lg font-bold text-text-primary">
           {t("rhythm.presetsTitle")}
@@ -125,7 +97,21 @@ export function TripRhythmStep({
       </div>
 
       <Card>
-        <CardHeader title={t("rhythm.customTitle")} />
+        <CardHeader
+          title={t("rhythm.customTitle")}
+          action={
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                isComplete
+                  ? "bg-brand-700 text-white"
+                  : "bg-amber-100 text-amber-900",
+              )}
+            >
+              {t("rhythm.allocated", { allocated, total: totalDays })}
+            </span>
+          }
+        />
         <CardBody className="space-y-3">
           <p className="text-sm text-text-secondary">{t("rhythm.customHint")}</p>
           {themes.map((theme) => {
@@ -173,7 +159,7 @@ export function TripRhythmStep({
       </Card>
 
       <Button size="lg" disabled={!isComplete} onClick={onContinue}>
-        {t("rhythm.continue")}
+        {continueLabel ?? t("rhythm.continue")}
       </Button>
     </div>
   );

@@ -158,6 +158,8 @@ export const en: Messages = {
     scopeIntro: "You selected",
     scopeIntroEnd:
       " — tell us if you stay in one area or explore a wider region.",
+    scopeMissingDates: "Add trip dates on the home page to see a scope recommendation.",
+    scopeMissingCoords: "Waiting for destination coordinates — you can continue once the map resolves.",
     previewTitle: "What's nearby",
     previewHint:
       "Places in our database for this scope — we'll fill gaps from OpenStreetMap when you search.",
@@ -278,11 +280,36 @@ export const en: Messages = {
     decrease: "Decrease",
     increase: "Increase",
     continue: "Continue — pick a region →",
+    continueActivities: "Continue — pick activities →",
+  },
+  scope: {
+    recommended: "Recommended",
+  },
+  island: {
+    title: "All of {name} — attraction map",
+    subtitle:
+      "{count} places on the island · {filtered} on map after filters · in plan: {selected}",
+    mapHint: "Click a point on the map to see details and add to your plan.",
+    mapCap: "Map shows first {shown} of {total} found.",
+    filtersTitle: "Filter types on the map",
+    showAll: "Show all",
+    hideAll: "Hide all",
+    noFilters: "Enable at least one type to see attractions on the map.",
+    addToPlan: "Add to plan",
+    removeFromPlan: "Remove from plan",
+    planSelected: "Selected places: {n} — we'll match hotels to these.",
+    extendTrip: "Extend trip",
+    narrowScope: "Focus on one area",
   },
   regions: {
     planLabel: "Plan:",
     intro:
       "Each card is a suggested base with specific places for your days — no starting from scratch.",
+    introHints:
+      "These are hints, not a fixed plan — pick a base, skip this step, or refine activities manually.",
+    hintLabel: "Hint",
+    selectHint: "Use as lodging base",
+    useAsBase: "Selected base",
     recommended: "Pick",
     selected: "Selected",
     picksTitle: "Recommended in this area",

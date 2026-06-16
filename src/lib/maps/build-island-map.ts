@@ -34,12 +34,15 @@ export function buildIslandMapData({
 
   const plotted = attractions.slice(0, MAX_MAP_ATTRACTIONS);
   for (const a of plotted) {
+    const slugs = a.activity_tags.map((t) => t.activity_slug);
     points.push({
       id: a.id,
       type: "attraction",
       label: a.name.length > 32 ? `${a.name.slice(0, 32)}…` : a.name,
       lat: Number(a.lat),
       lon: Number(a.lon),
+      activitySlugs: slugs,
+      badge: slugs.length > 0 ? slugs[0] : undefined,
     });
   }
 

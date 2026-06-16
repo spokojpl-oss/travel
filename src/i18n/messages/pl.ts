@@ -156,6 +156,8 @@ export const pl = {
     scopeIntro: "Wybraliście",
     scopeIntroEnd:
       " powiedz nam, czy zostajecie w jednym rejonie, czy zwiedzacie szerszy obszar.",
+    scopeMissingDates: "Uzupełnij daty wyjazdu na stronie głównej, żeby zobaczyć propozycję zakresu.",
+    scopeMissingCoords: "Czekamy na współrzędne destynacji — możesz iść dalej, gdy mapa się ustabilizuje.",
     previewTitle: "Co jest w okolicy",
     previewHint:
       "Liczba miejsc w bazie w wybranym zakresie — przy wyszukiwaniu uzupełnimy braki z map OpenStreetMap.",
@@ -279,11 +281,36 @@ export const pl = {
     decrease: "Zmniejsz",
     increase: "Zwiększ",
     continue: "Dalej — wybierz region →",
+    continueActivities: "Dalej — wybierz aktywności →",
+  },
+  scope: {
+    recommended: "Rekomendacja",
+  },
+  island: {
+    title: "Cała {name} — mapa atrakcji",
+    subtitle:
+      "{count} miejsc na wyspie · na mapie {filtered} po filtrach · w planie: {selected}",
+    mapHint: "Kliknij punkt na mapie, żeby zobaczyć szczegóły i dodać do planu.",
+    mapCap: "Na mapie pierwsze {shown} punktów z {total} znalezionych.",
+    filtersTitle: "Filtruj typy na mapie",
+    showAll: "Pokaż wszystkie",
+    hideAll: "Ukryj wszystkie",
+    noFilters: "Włącz przynajmniej jeden typ, żeby zobaczyć atrakcje na mapie.",
+    addToPlan: "Dodaj do planu",
+    removeFromPlan: "Usuń z planu",
+    planSelected: "Wybrane miejsca: {n} — pod to dopasujemy hotel.",
+    extendTrip: "Wydłuż pobyt",
+    narrowScope: "Zawęź do rejonu",
   },
   regions: {
     planLabel: "Plan:",
     intro:
       "Każda karta to proponowana baza noclegowa z konkretnymi miejscami na Wasze dni — nie trzeba szukać od zera.",
+    introHints:
+      "To podpowiedzi, nie gotowy plan — możecie wybrać bazę, pominąć ten krok albo doprecyzować aktywności ręcznie.",
+    hintLabel: "Podpowiedź",
+    selectHint: "Użyj jako bazy noclegowej",
+    useAsBase: "Wybrana baza",
     recommended: "Propozycja",
     selected: "Wybrany",
     picksTitle: "Co polecamy w tym rejonie",
