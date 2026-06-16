@@ -1,5 +1,6 @@
 import type { AttractionWithActivities } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 
 type OsmTags = Record<string, string>;
 
@@ -64,7 +65,23 @@ function pickOsmDescription(tags: OsmTags, locale: Locale): string | null {
   return null;
 }
 
-export function attractionNameSearchVariants(name: string): string[] {
+export function isLikelyEnglish(text: string): boolean {
+  const lower = text.toLowerCase();
+  const polishChars = /[ąćęłńóśźż]/;
+  if (polishChars.test(lower)) return false;
+  const englishHints = [" the ", " and ", " with ", " beach ", " popular ", " backed ", " seasonal "];
+  const polishHints = [" plaż", " zatok", " nad ", " oraz ", " morze", " piaszcz"];
+  let en = 0;
+  let pl = 0;
+  for (const h of englishHints) if (lower.includes(h)) en++;
+  for (const h of polishHints) if (lower.includes(h)) pl++;
+  return en > pl;
+}
+
+export function attractionNameSearchVariants(
+  name: string,
+  locale: Locale = "pl",
+): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
 
@@ -76,6 +93,9 @@ export function attractionNameSearchVariants(name: string): string[] {
   }
 
   add(name);
+  if (locale !== "en") {
+    add(toPolishAttractionName(name, "pl"));
+  }
   for (const part of name.split(/[;|/]/)) {
     add(part);
   }

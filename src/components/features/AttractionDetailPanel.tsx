@@ -136,7 +136,12 @@ export function AttractionDetailPanel({
   }, [attraction.id, locale]);
 
   const photos = google?.photoUrls ?? [];
-  const hasContent = Boolean(overview || photos.length > 0 || (google?.reviews.length ?? 0) > 0);
+  const hasContent = Boolean(
+    overview ||
+      photos.length > 0 ||
+      (google?.reviews.length ?? 0) > 0 ||
+      (google?.rating != null && google.rating > 0),
+  );
   const website = google?.website?.trim() || attraction.website?.trim() || null;
   const mapsUrl = google?.googleMapsUrl ?? null;
 

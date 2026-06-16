@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAttractionDetail } from "@/lib/api/attraction-detail-fetch";
-import { wikipediaSearchUrl } from "@/lib/plan/attraction-detail-text";
+import { isLikelyEnglish, wikipediaSearchUrl } from "@/lib/plan/attraction-detail-text";
 import type { AttractionWithActivities } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
 
@@ -66,7 +66,8 @@ export async function POST(request: Request) {
   if (
     result.overview &&
     (result.source === "wikipedia" || result.source === "google") &&
-    !row.description?.trim()
+    !row.description?.trim() &&
+    !(locale === "pl" && isLikelyEnglish(result.overview))
   ) {
     try {
       const admin = createAdminClient();

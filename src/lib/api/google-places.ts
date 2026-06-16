@@ -73,14 +73,16 @@ export async function searchPlacesByText({
   textQuery,
   bbox,
   forceRefresh = false,
+  languageCode = "pl",
 }: {
   textQuery: string;
   bbox: BoundingBox;
   forceRefresh?: boolean;
+  languageCode?: string;
 }): Promise<GooglePlace[]> {
   const { data } = await fetchWithCache<GooglePlaceSearchTextResponse>({
     source: "google-places-search",
-    cacheParams: { textQuery, bbox },
+    cacheParams: { textQuery, bbox, languageCode },
     ttlSeconds: 30 * 24 * 60 * 60,
     forceRefresh,
     fetcher: async () => {
@@ -109,6 +111,7 @@ export async function searchPlacesByText({
         body: JSON.stringify({
           textQuery,
           maxResultCount: 20,
+          languageCode,
           locationBias: {
             rectangle: {
               low: { latitude: bbox.south, longitude: bbox.west },
@@ -244,6 +247,34 @@ function namesLikelyMatch(a: string, b: string): boolean {
   return overlap >= 2 || (wordsA.length === 1 && wordsB.has(wordsA[0]!));
 }
 
+/** Resolve Places photo resource names to short-lived CDN URLs (for `<img src>`). */
+export async function resolveGooglePhotoMediaUrls(
+  photoNames: string[],
+  max = 4,
+): Promise<string[]> {
+  if (!apiEnv.GOOGLE_PLACES_API_KEY || photoNames.length === 0) return [];
+
+  const key = requireGooglePlacesKey();
+  const urls: string[] = [];
+
+  for (const photoName of photoNames.slice(0, max)) {
+    if (!photoName.startsWith("places/") || !photoName.includes("/photos/")) continue;
+    try {
+      const response = await fetch(
+        `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=480&maxWidthPx=800&skipHttpRedirect=true`,
+        { headers: { "X-Goog-Api-Key": key } },
+      );
+      if (!response.ok) continue;
+      const body = (await response.json()) as { photoUri?: string };
+      if (body.photoUri) urls.push(body.photoUri);
+    } catch {
+      /* pojedyncze zdjęcie — kontynuuj */
+    }
+  }
+
+  return urls;
+}
+
 /** Proxy URL for a Places photo resource (served by `/api/places/photo`). */
 export function googlePlacePhotoUrl(photoName: string): string {
   return `/api/places/photo?name=${encodeURIComponent(photoName)}`;
@@ -269,6 +300,7 @@ type GooglePlaceDetailsResponse = {
 
 export async function fetchGooglePlaceDetails(
   placeId: string,
+  languageCode = "pl",
 ): Promise<GooglePlaceDetails | null> {
   if (!apiEnv.GOOGLE_PLACES_API_KEY) return null;
 
@@ -279,10 +311,12 @@ export async function fetchGooglePlaceDetails(
   try {
     const { data } = await fetchWithCache<GooglePlaceDetailsResponse>({
       source: "google-places-details",
-      cacheParams: { place_id: resourceName },
+      cacheParams: { place_id: resourceName, languageCode },
       ttlSeconds: 30 * 24 * 60 * 60,
       fetcher: async () => {
-        const response = await fetch(`${PLACES_API_BASE}/${resourceName}`, {
+        const response = await fetch(
+          `${PLACES_API_BASE}/${resourceName}?languageCode=${encodeURIComponent(languageCode)}`,
+          {
           method: "GET",
           headers: {
             "X-Goog-Api-Key": requireGooglePlacesKey(),
@@ -344,12 +378,14 @@ export async function findMatchingGooglePlace({
   lon,
   searchVariants,
   maxDistanceKm = 1.5,
+  languageCode = "pl",
 }: {
   name: string;
   lat: number;
   lon: number;
   searchVariants: string[];
   maxDistanceKm?: number;
+  languageCode?: string;
 }): Promise<GooglePlace | null> {
   if (!apiEnv.GOOGLE_PLACES_API_KEY) return null;
 
@@ -358,7 +394,7 @@ export async function findMatchingGooglePlace({
 
   for (const query of queries.slice(0, 4)) {
     try {
-      const places = await searchPlacesByText({ textQuery: query, bbox });
+      const places = await searchPlacesByText({ textQuery: query, bbox, languageCode });
       const match = places
         .filter((p) => p.location)
         .map((p) => ({

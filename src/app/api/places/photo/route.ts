@@ -1,18 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiEnv } from "@/config/api-env";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const name = searchParams.get("name")?.trim();
   if (!name || !name.startsWith("places/") || !name.includes("/photos/")) {

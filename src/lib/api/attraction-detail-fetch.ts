@@ -1,17 +1,19 @@
 import {
   fetchGooglePlaceDetails,
   findMatchingGooglePlace,
-  googlePlacePhotoUrl,
+  resolveGooglePhotoMediaUrls,
   type GooglePlaceReview,
 } from "@/lib/api/google-places";
 import { fetchWikipediaPageSummary } from "@/lib/api/wikipedia-summary";
 import {
   attractionNameSearchVariants,
   buildInlineAttractionDetail,
+  isLikelyEnglish,
   isWeakAttractionDescription,
   wikipediaSearchTitle,
   wikipediaTargetFromOsmTags,
 } from "@/lib/plan/attraction-detail-text";
+import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import type { AttractionWithActivities } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
 
@@ -56,15 +58,19 @@ async function fetchWikipediaOverview(
   attraction: AttractionWithActivities,
   tags: Record<string, string>,
   locale: Locale,
-): Promise<{ overview: string; wikipediaUrl?: string } | null> {
+): Promise<{ overview: string; wikipediaUrl?: string; thumbnail?: string | null } | null> {
   const wikiFromTag = wikipediaTargetFromOsmTags(tags, locale);
   const candidates: Array<{ page: string; wikiLocale: Locale }> = [];
 
   if (wikiFromTag) candidates.push(wikiFromTag);
 
-  for (const variant of attractionNameSearchVariants(attraction.name)) {
+  for (const variant of attractionNameSearchVariants(attraction.name, locale)) {
     candidates.push({ page: wikipediaSearchTitle(variant), wikiLocale: locale });
     if (locale === "pl") {
+      candidates.push({
+        page: wikipediaSearchTitle(toPolishAttractionName(variant, "pl")),
+        wikiLocale: "pl",
+      });
       candidates.push({ page: wikipediaSearchTitle(variant), wikiLocale: "en" });
     }
   }
@@ -84,6 +90,7 @@ async function fetchWikipediaOverview(
       return {
         overview: wiki.extract,
         wikipediaUrl: `https://${candidate.wikiLocale === "pl" ? "pl" : "en"}.wikipedia.org/wiki/${encodeURIComponent(candidate.page)}`,
+        thumbnail: wiki.thumbnail,
       };
     }
   }
@@ -119,14 +126,18 @@ export async function resolveAttractionDetail(
       : {};
 
   const hasStrongInline =
-    Boolean(inline.overview) && !isWeakAttractionDescription(inline.overview);
+    Boolean(inline.overview) &&
+    !isWeakAttractionDescription(inline.overview) &&
+    !(locale === "pl" && isLikelyEnglish(inline.overview!));
 
-  const variants = attractionNameSearchVariants(attraction.name);
+  const variants = attractionNameSearchVariants(attraction.name, locale);
+  const googleLanguage = locale === "en" ? "en" : "pl";
   const matchPromise = findMatchingGooglePlace({
     name: attraction.name,
     lat,
     lon,
     searchVariants: variants,
+    languageCode: googleLanguage,
   });
 
   const [match, wiki] = await Promise.all([
@@ -134,7 +145,17 @@ export async function resolveAttractionDetail(
     hasStrongInline ? Promise.resolve(null) : fetchWikipediaOverview(attraction, tags, locale),
   ]);
 
-  const details = match ? await fetchGooglePlaceDetails(match.place_id) : null;
+  const details = match
+    ? await fetchGooglePlaceDetails(match.place_id, googleLanguage)
+    : null;
+
+  let photoUrls: string[] = [];
+  if (details?.photo_names?.length) {
+    photoUrls = await resolveGooglePhotoMediaUrls(details.photo_names);
+  }
+  if (photoUrls.length === 0 && wiki?.thumbnail) {
+    photoUrls = [wiki.thumbnail];
+  }
 
   const googleEnrichment: AttractionGoogleEnrichment | undefined = match
     ? {
@@ -143,10 +164,20 @@ export async function resolveAttractionDetail(
         ratingCount: details?.rating_count ?? match.rating_count,
         googleMapsUrl: details?.google_maps_url ?? match.google_maps_url,
         website: details?.website ?? match.website,
-        photoUrls: (details?.photo_names ?? []).map(googlePlacePhotoUrl),
+        photoUrls,
         reviews: details?.reviews ?? [],
       }
-    : undefined;
+    : photoUrls.length > 0
+      ? {
+          placeId: "",
+          rating: null,
+          ratingCount: null,
+          googleMapsUrl: null,
+          website: null,
+          photoUrls,
+          reviews: [],
+        }
+      : undefined;
 
   const googleText = googleOverviewText(details);
 
@@ -163,7 +194,16 @@ export async function resolveAttractionDetail(
   let source: AttractionDetailResult["source"] = "none";
   let wikipediaUrl: string | undefined;
 
-  if (googleText && !isWeakAttractionDescription(googleText)) {
+  const googleIsUsable =
+    googleText &&
+    !isWeakAttractionDescription(googleText) &&
+    !(locale === "pl" && isLikelyEnglish(googleText) && wiki);
+
+  if (locale === "pl" && wiki) {
+    overview = wiki.overview;
+    source = "wikipedia";
+    wikipediaUrl = wiki.wikipediaUrl;
+  } else if (googleIsUsable) {
     overview = googleText;
     source = "google";
   } else if (wiki) {
