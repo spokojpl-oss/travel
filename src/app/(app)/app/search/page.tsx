@@ -35,6 +35,12 @@ import {
   sanitizeClusterForDestination,
   filterAttractionsToDestinationIsland,
 } from "@/lib/plan/cluster-island-guard";
+import {
+  centroidOfTouristRegions,
+  filterAttractionsToTouristRegions,
+  filterClustersToTouristRegions,
+  reanchorClusterToTouristRegions,
+} from "@/lib/plan/tourist-region-anchor";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Breadcrumb, PageContainer } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -858,10 +864,13 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
-    setStep(isDestinationFlow ? 7 : 3);
-    syncUrl(trip, isDestinationFlow ? 7 : 3);
 
-    const clientStart = Date.now();
+    const mayAutoOpen =
+      isDestinationFlow && trip.tourist_region_ids.length > 0;
+    if (!mayAutoOpen) {
+      setStep(isDestinationFlow ? 7 : 3);
+      syncUrl(trip, isDestinationFlow ? 7 : 3);
+    }
 
     try {
       const controller = new AbortController();
@@ -881,7 +890,24 @@ function SearchPageContent() {
           typeof data.error === "string" ? data.error : "Search failed",
         );
       }
-      setResults(data as ActivitySearchResult);
+
+      const searchResult = data as ActivitySearchResult;
+
+      if (mayAutoOpen) {
+        const label = trip.destination_label ?? trip.destination ?? "";
+        const cluster = resolveClusterForSelectedRegions(
+          searchResult.clusters,
+          label,
+        );
+        if (cluster) {
+          openDestination(cluster);
+          return;
+        }
+      }
+
+      setStep(isDestinationFlow ? 7 : 3);
+      syncUrl(trip, isDestinationFlow ? 7 : 3);
+      setResults(searchResult);
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         setError(t("search.timeout"));
@@ -934,6 +960,65 @@ function SearchPageContent() {
     };
   }
 
+  function selectedTouristRegions(): ScoredTouristRegion[] {
+    return trip.tourist_region_ids
+      .map((id) => scoredRegions.find((r) => r.id === id))
+      .filter((r): r is ScoredTouristRegion => r != null);
+  }
+
+  function resolveClusterForSelectedRegions(
+    clusters: GeoCluster[],
+    destinationLabel: string,
+  ): GeoCluster | null {
+    const regions = selectedTouristRegions();
+    if (regions.length === 0) return null;
+
+    const allAttrs = clusters.flatMap((c) => c.attractions);
+    const regionAttrs = filterAttractionsToTouristRegions(allAttrs, regions);
+    const filteredClusters = filterClustersToTouristRegions(clusters, regions);
+
+    if (filteredClusters.length > 0) {
+      const best = [...filteredClusters].sort(
+        (a, b) => b.attractions.length - a.attractions.length,
+      )[0]!;
+      return reanchorClusterToTouristRegions(
+        regionAttrs.length > 0
+          ? { ...best, attractions: regionAttrs }
+          : best,
+        regions,
+      );
+    }
+
+    if (regionAttrs.length > 0) {
+      return (
+        buildClusterFromAttractions({
+          attractions: regionAttrs,
+          destinationLabel,
+          id: `regions-${Date.now()}`,
+        }) ?? null
+      );
+    }
+
+    const center = centroidOfTouristRegions(regions);
+    if (!center) return null;
+
+    return {
+      id: `regions-${Date.now()}`,
+      center,
+      bbox: {
+        north: center.lat + 0.2,
+        south: center.lat - 0.2,
+        east: center.lon + 0.2,
+        west: center.lon - 0.2,
+      },
+      radius_km: Math.max(...regions.map((r) => r.radius_km ?? 20)),
+      attractions: [],
+      covered_activities: [],
+      score: 1,
+      activity_counts: {},
+    };
+  }
+
   function storeAndGoToPlan(
     buildId: string,
     cluster: GeoCluster,
@@ -965,7 +1050,11 @@ function SearchPageContent() {
 
   function openDestination(cluster: GeoCluster) {
     const label = trip.destination_label ?? trip.destination ?? "";
-    const sanitized = sanitizeClusterForDestination(cluster, label);
+    let sanitized = sanitizeClusterForDestination(cluster, label);
+    const regions = selectedTouristRegions();
+    if (regions.length > 0) {
+      sanitized = reanchorClusterToTouristRegions(sanitized, regions);
+    }
     const pool = filterAttractionsToDestinationIsland(
       sanitized.attractions.length > 0
         ? sanitized.attractions
@@ -982,13 +1071,17 @@ function SearchPageContent() {
   ) {
     const label = trip.destination_label ?? trip.destination ?? "";
     const selected = pool.filter((a) => selectedIds.includes(a.id));
-    const cluster =
+    let cluster =
       buildClusterFromAttractions({
         attractions: selected.length > 0 ? selected : pool,
         destinationLabel: label,
         id: `island-${Date.now()}`,
       }) ?? null;
     if (!cluster) return;
+    const regions = selectedTouristRegions();
+    if (regions.length > 0) {
+      cluster = reanchorClusterToTouristRegions(cluster, regions);
+    }
     const fullPool = filterAttractionsToDestinationIsland(pool, label, cluster.center);
     storeAndGoToPlan(cluster.id, cluster, fullPool);
   }
@@ -998,6 +1091,15 @@ function SearchPageContent() {
     trip.mode === "destination" &&
     (trip.destination_lat == null || trip.destination_lon == null) &&
     Boolean(trip.destination_label ?? trip.destination);
+
+  const resultClusters = useMemo(() => {
+    if (!results?.clusters.length) return [];
+    const regions = trip.tourist_region_ids
+      .map((id) => scoredRegions.find((r) => r.id === id))
+      .filter((r): r is ScoredTouristRegion => r != null);
+    if (regions.length === 0) return results.clusters;
+    return filterClustersToTouristRegions(results.clusters, regions);
+  }, [results, trip.tourist_region_ids, scoredRegions]);
 
   const showDataInfo =
     dataStatus &&
@@ -1404,14 +1506,16 @@ function SearchPageContent() {
           ) : (
             <>
               <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-                Regiony ({results.clusters.length})
+                Regiony ({resultClusters.length})
               </h2>
               <p className="mb-6 text-sm text-text-secondary">
                 {formatTravelSummary(trip)} · {formatTripDateRange(trip)} ·
-                Każdy rejon ma mapę i krótki opis — wybierz bazę na nocleg
+                {trip.tourist_region_ids.length > 0
+                  ? " Wyniki ograniczone do wybranych rejonów — wybierz bazę na nocleg"
+                  : " Każdy rejon ma mapę i krótki opis — wybierz bazę na nocleg"}
               </p>
 
-              {results.clusters.length === 0 && (
+              {resultClusters.length === 0 && (
                 <EmptyResultsCard
                   results={results}
                   trip={trip}
@@ -1424,7 +1528,7 @@ function SearchPageContent() {
                 />
               )}
 
-              {results.clusters.map((cluster, idx) => (
+              {resultClusters.map((cluster, idx) => (
                 <RegionResultCard
                   key={cluster.id}
                   cluster={cluster}

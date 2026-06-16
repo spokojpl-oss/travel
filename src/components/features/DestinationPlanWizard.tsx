@@ -15,6 +15,8 @@ import {
   buildDiscoverPlaces,
   type PlaceCard,
 } from "@/lib/plan/build-discover-places";
+import { centroidOfTouristRegions } from "@/lib/plan/tourist-region-anchor";
+import { matchingRegionsForDestination } from "@/lib/plan/destination-story";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 import {
   computeLodgingBaseOptions,
@@ -48,6 +50,28 @@ export function DestinationPlanWizard({
 
   const rawPool = payload.attractionPool;
 
+  const matchedRegions = useMemo(
+    () =>
+      matchingRegionsForDestination(
+        SEED_TOURIST_REGIONS,
+        payload.destinationLabel ?? "",
+        payload.touristRegionId,
+        payload.touristRegionIds,
+      ),
+    [
+      payload.destinationLabel,
+      payload.touristRegionId,
+      payload.touristRegionIds,
+    ],
+  );
+
+  const planAnchor = useMemo(() => {
+    if (matchedRegions.length > 0) {
+      return centroidOfTouristRegions(matchedRegions) ?? payload.cluster.center;
+    }
+    return payload.cluster.center;
+  }, [matchedRegions, payload.cluster.center]);
+
   const discover = useMemo(() => {
     if (payload.discover) return payload.discover;
     return buildDiscoverPlaces({
@@ -63,11 +87,11 @@ export function DestinationPlanWizard({
       explorationScope:
         explorationScopeFromString(payload.explorationScope ?? null) ??
         defaultExplorationScope(),
-      referencePoint: payload.cluster.center,
+      referencePoint: planAnchor,
       withKids,
       stayRadiusKm: payload.stayRadiusKm,
     });
-  }, [payload, rawPool, locale, withKids]);
+  }, [payload, rawPool, locale, withKids, planAnchor, matchedRegions.length]);
 
   const placeCards = discover.placeCards;
   const story = discover.story;
@@ -103,8 +127,14 @@ export function DestinationPlanWizard({
   }, [payload.poolEnriched, payload.discover?.suggestedIds, payload.selectedAttractionIds]);
 
   const selectedPoolIds = useMemo(
-    () => resolvePlaceSelectionToPoolIds([...selectedIds], rawPool, placeCards),
-    [selectedIds, rawPool, placeCards],
+    () =>
+      resolvePlaceSelectionToPoolIds(
+        [...selectedIds],
+        rawPool,
+        placeCards,
+        matchedRegions,
+      ),
+    [selectedIds, rawPool, placeCards, matchedRegions],
   );
 
   const selectedAttractions = useMemo(

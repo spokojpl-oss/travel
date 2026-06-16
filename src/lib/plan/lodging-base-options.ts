@@ -58,6 +58,18 @@ function resolveCityCenter(
   cluster: GeoCluster,
   attractions: AttractionWithActivities[],
 ): { point: GeoPoint; name: string } {
+  if (attractions.length > 0) {
+    const lat =
+      attractions.reduce((s, a) => s + Number(a.lat), 0) / attractions.length;
+    const lon =
+      attractions.reduce((s, a) => s + Number(a.lon), 0) / attractions.length;
+    const displayName = clusterDisplayName({ ...cluster, attractions });
+    return {
+      point: { lat, lon },
+      name: displayName !== "Region do wyboru" ? displayName : "Baza",
+    };
+  }
+
   if (cluster.settlement?.name) {
     return {
       point: {

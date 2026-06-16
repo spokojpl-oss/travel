@@ -1,5 +1,8 @@
 import { distanceKm } from "@/lib/search/geo-clustering";
-import { curatedPickCoveredByPool } from "@/lib/plan/curated-day-trips";
+import {
+  filterAttractionsToTouristRegions,
+  pointInTouristRegion,
+} from "@/lib/plan/tourist-region-anchor";
 import {
   resolveDestinationStory,
   matchingRegionsForDestination,
@@ -217,9 +220,13 @@ export function buildDiscoverPlaces({
       : undefined);
 
   const poolInRange =
-    maxCardKm != null
-      ? pool.filter((a) => distanceKm(referencePoint, point(a)) <= maxCardKm)
-      : pool;
+    regions.length > 0
+      ? filterAttractionsToTouristRegions(pool, regions, 4)
+      : maxCardKm != null
+        ? pool.filter(
+            (a) => distanceKm(referencePoint, point(a)) <= maxCardKm,
+          )
+        : pool;
 
   for (const region of regions) {
     const sortedPicks = [...region.picks].sort((a, b) => a.rank - b.rank);
@@ -293,9 +300,48 @@ export function resolvePlaceSelectionToPoolIds(
   selectedIds: string[],
   pool: AttractionWithActivities[],
   cards: PlaceCard[],
+  regions: TouristRegion[] = [],
 ): string[] {
   const poolIds = new Set(pool.map((p) => p.id));
   const out = new Set<string>();
+
+  function findMatchForCard(card: PlaceCard): AttractionWithActivities | null {
+    const cardPoint = { lat: card.lat, lon: card.lon };
+    const region = regions.find((r) => r.id === card.regionId);
+    const searchPool =
+      region != null
+        ? pool.filter((p) =>
+            pointInTouristRegion(
+              { lat: Number(p.lat), lon: Number(p.lon) },
+              region,
+              6,
+            ),
+          )
+        : pool;
+
+    const normalized = normalizeName(card.name);
+    let best: AttractionWithActivities | null = null;
+    let bestScore = 0;
+
+    for (const p of searchPool) {
+      if (!isDisplayableAttractionName(p.name)) continue;
+      const nameNorm = normalizeName(p.name);
+      let score = 0;
+      if (nameNorm.includes(normalized) || normalized.includes(nameNorm)) {
+        score += 12;
+      }
+      const km = distanceKm(cardPoint, point(p));
+      if (km <= 25) score += 4;
+      if (km <= 8) score += 4;
+      if (p.source === "curated") score += 2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+
+    return bestScore >= 8 ? best : null;
+  }
 
   for (const id of selectedIds) {
     if (poolIds.has(id)) {
@@ -304,12 +350,24 @@ export function resolvePlaceSelectionToPoolIds(
     }
     const card = cards.find((c) => c.id === id);
     if (!card) continue;
-    const match = pool.find(
-      (p) =>
-        distanceKm({ lat: card.lat, lon: card.lon }, point(p)) < 12 &&
-        normalizeName(p.name).includes(normalizeName(card.name).slice(0, 8)),
-    );
-    if (match) out.add(match.id);
+
+    const match = findMatchForCard(card);
+    if (match) {
+      out.add(match.id);
+      continue;
+    }
+
+    if (id.startsWith("pick:")) {
+      const byRegion = pool.find(
+        (p) =>
+          p.source === "curated" &&
+          p.tags &&
+          typeof p.tags === "object" &&
+          "curated_region" in p.tags &&
+          normalizeName(p.name).includes(normalizeName(card.name).slice(0, 6)),
+      );
+      if (byRegion) out.add(byRegion.id);
+    }
   }
 
   return [...out];

@@ -36,6 +36,7 @@ export function buildRawPlanAttractionPool({
   expandedAttractions,
   destinationLabel,
   touristRegionId,
+  touristRegionIds,
   explorationScope,
   tripDays,
   referencePoint,
@@ -47,6 +48,7 @@ export function buildRawPlanAttractionPool({
   expandedAttractions?: AttractionWithActivities[];
   destinationLabel: string;
   touristRegionId?: string | null;
+  touristRegionIds?: string[] | null;
   explorationScope?: ExplorationScope | null;
   tripDays: number;
   /** Punkt odniesienia do kuracji i filtrowania (centrum klastra). */
@@ -57,6 +59,13 @@ export function buildRawPlanAttractionPool({
 }): AttractionWithActivities[] {
   const scope = explorationScope ?? defaultExplorationScope();
   const exploreKm = exploreRadiusKm(scope, tripDays);
+
+  const selectedRegionIds =
+    touristRegionIds && touristRegionIds.length > 0
+      ? touristRegionIds
+      : touristRegionId
+        ? [touristRegionId]
+        : [];
 
   const byId = new Map<string, AttractionWithActivities>();
   for (const a of [...clusterAttractions, ...(expandedAttractions ?? [])]) {
@@ -72,19 +81,22 @@ export function buildRawPlanAttractionPool({
   );
   merged = groupNearbyBeaches(merged, 2.5, referencePoint);
 
-  const curated = buildCuratedDayTrips({
-    basePoint: referencePoint,
-    destinationLabel,
-    currentRegionId: touristRegionId,
-    maxRadiusKm: exploreKm,
-    locale,
-    catalog,
-    existingPool: merged,
-    explorationScope: scope,
-  });
+  /** Wybrane rejony = baza; bez sztucznych wycieczek z innych części wyspy. */
+  if (selectedRegionIds.length === 0) {
+    const curated = buildCuratedDayTrips({
+      basePoint: referencePoint,
+      destinationLabel,
+      currentRegionId: touristRegionId,
+      maxRadiusKm: exploreKm,
+      locale,
+      catalog,
+      existingPool: merged,
+      explorationScope: scope,
+    });
 
-  for (const c of curated) {
-    if (!byId.has(c.id)) merged.push(c);
+    for (const c of curated) {
+      if (!byId.has(c.id)) merged.push(c);
+    }
   }
 
   return merged;

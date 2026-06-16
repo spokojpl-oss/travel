@@ -175,3 +175,85 @@ export function buildCuratedDayTrips({
       (readPlanMeta(a)?.drive_km ?? 0) - (readPlanMeta(b)?.drive_km ?? 0),
   );
 }
+
+/** Wstrzykuje brakujące picki wybranych regionów do poolu (pod wybór w wizardzie). */
+export function injectCuratedPicksForRegions({
+  catalog,
+  regionIds,
+  existingPool,
+  locale = "pl",
+}: {
+  catalog: TouristRegion[];
+  regionIds: string[];
+  existingPool: AttractionWithActivities[];
+  locale?: Locale;
+}): AttractionWithActivities[] {
+  if (regionIds.length === 0) return existingPool;
+
+  const byId = new Map(existingPool.map((a) => [a.id, a]));
+  const seenNames = new Set(
+    existingPool.map((a) => normalizeName(a.name)),
+  );
+
+  for (const regionId of regionIds) {
+    const region = catalog.find((r) => r.id === regionId);
+    if (!region) continue;
+
+    const regionPoint: GeoPoint = {
+      lat: region.center_lat,
+      lon: region.center_lon,
+    };
+
+    for (let i = 0; i < region.picks.length; i++) {
+      const pick = region.picks[i]!;
+      const name = pickName(pick, locale);
+      const key = normalizeName(name);
+      if (seenNames.has(key)) continue;
+      if (curatedPickCoveredByPool(name, regionPoint, existingPool, 20)) {
+        continue;
+      }
+
+      seenNames.add(key);
+      const id = syntheticId(region.id, i);
+      if (byId.has(id)) continue;
+
+      byId.set(
+        id,
+        withPlanMeta(
+          {
+            id,
+            name,
+            description: locale === "en" ? pick.why_en : pick.why_pl,
+            category: pick.day_theme,
+            subcategories: pick.activity_slugs,
+            lat: regionPoint.lat,
+            lon: regionPoint.lon,
+            address: null,
+            phone: null,
+            website: null,
+            opening_hours: null,
+            tags: { curated_region: region.slug },
+            min_age: null,
+            duration_minutes: null,
+            destination_id: null,
+            source: "curated",
+            external_id: region.slug,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            activity_tags: pick.activity_slugs.map((slug) => ({
+              activity_slug: slug,
+              confidence: 1,
+            })),
+          },
+          {
+            kind: "nearby",
+            curated: true,
+            source_region_id: region.id,
+          },
+        ),
+      );
+    }
+  }
+
+  return [...byId.values()];
+}

@@ -7,6 +7,13 @@ import {
   tripDaysFromDates,
 } from "@/lib/plan/build-plan-pool";
 import { buildDiscoverPlaces } from "@/lib/plan/build-discover-places";
+import { injectCuratedPicksForRegions } from "@/lib/plan/curated-day-trips";
+import { matchingRegionsForDestination } from "@/lib/plan/destination-story";
+import {
+  centroidOfTouristRegions,
+  filterAttractionsToTouristRegions,
+  reanchorClusterToTouristRegions,
+} from "@/lib/plan/tourist-region-anchor";
 import { resolvePlanSearchRadii } from "@/lib/plan/day-trip-radius";
 import {
   defaultExplorationScope,
@@ -93,10 +100,32 @@ export async function POST(request: Request) {
   );
   const label = parsed.data.destination_label ?? "";
 
-  const enrichedCluster = await enrichClusterWithSettlement(
+  const catalog = await loadTouristRegionsCatalog();
+  const selectedRegions = matchingRegionsForDestination(
+    catalog,
+    label,
+    parsed.data.tourist_region_id,
+    parsed.data.tourist_region_ids,
+  );
+  const anchorPoint =
+    centroidOfTouristRegions(selectedRegions) ??
+    parsed.data.cluster.center;
+
+  let enrichedCluster = await enrichClusterWithSettlement(
     parsed.data.cluster,
     label,
   );
+
+  if (selectedRegions.length > 0) {
+    enrichedCluster = reanchorClusterToTouristRegions(
+      enrichedCluster,
+      selectedRegions,
+    );
+    enrichedCluster = await enrichClusterWithSettlement(
+      enrichedCluster,
+      label,
+    );
+  }
 
   const radii = resolvePlanSearchRadii({
     scope,
@@ -108,8 +137,8 @@ export async function POST(request: Request) {
   const searchResult = await searchActivities({
     activities: parsed.data.activities,
     destination_label: label,
-    near_lat: enrichedCluster.center.lat,
-    near_lon: enrichedCluster.center.lon,
+    near_lat: anchorPoint.lat,
+    near_lon: anchorPoint.lon,
     stay_radius_km: radii.stay_radius_km,
     explore_radius_km: radii.explore_radius_km,
     max_radius_km: radii.stay_radius_km,
@@ -121,32 +150,45 @@ export async function POST(request: Request) {
 
   const expanded = flattenSearchAttractions(
     searchResult.clusters,
-    enrichedCluster.center,
+    anchorPoint,
     radii.explore_radius_km,
   );
-
-  const catalog = await loadTouristRegionsCatalog();
 
   let attractionPool = buildRawPlanAttractionPool({
     clusterAttractions: enrichedCluster.attractions,
     expandedAttractions: expanded,
     destinationLabel: label,
     touristRegionId: parsed.data.tourist_region_id,
+    touristRegionIds: parsed.data.tourist_region_ids,
     explorationScope: scope,
     tripDays,
-    referencePoint: enrichedCluster.center,
+    referencePoint: anchorPoint,
     locale: parsed.data.locale ?? "pl",
     catalog,
     preferredActivities: parsed.data.activities,
   });
 
-  attractionPool = attractionPool.filter(
-    (a) =>
-      distanceKm(enrichedCluster.center, {
-        lat: Number(a.lat),
-        lon: Number(a.lon),
-      }) <= radii.explore_radius_km,
-  );
+  if (selectedRegions.length > 0) {
+    attractionPool = injectCuratedPicksForRegions({
+      catalog,
+      regionIds: selectedRegions.map((r) => r.id),
+      existingPool: attractionPool,
+      locale: parsed.data.locale ?? "pl",
+    });
+    attractionPool = filterAttractionsToTouristRegions(
+      attractionPool,
+      selectedRegions,
+      5,
+    );
+  } else {
+    attractionPool = attractionPool.filter(
+      (a) =>
+        distanceKm(anchorPoint, {
+          lat: Number(a.lat),
+          lon: Number(a.lon),
+        }) <= radii.explore_radius_km,
+    );
+  }
 
   const discover = buildDiscoverPlaces({
     pool: attractionPool,
@@ -159,7 +201,7 @@ export async function POST(request: Request) {
     locale: parsed.data.locale ?? "pl",
     tripDays,
     explorationScope: scope,
-    referencePoint: enrichedCluster.center,
+    referencePoint: anchorPoint,
     withKids: parsed.data.with_kids,
     stayRadiusKm: radii.stay_radius_km,
   });
