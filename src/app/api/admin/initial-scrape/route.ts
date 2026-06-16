@@ -3,7 +3,9 @@ import {
   performGlobalOsmScrape,
   tagAttractionsWithActivities,
 } from "@/lib/api/osm-global-scrape";
+import { OSM_SCRAPE_CATEGORIES } from "@/lib/api/osm-scrape-categories";
 import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
+import type { OsmCategory } from "@/lib/api/osm";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminEmails, isAdminEmail } from "@/lib/admin/auth";
@@ -60,18 +62,44 @@ export async function POST(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const europe = searchParams.get("europe") === "true";
+  const bboxParam = searchParams.get("bbox");
   const bboxFilter = europe
     ? [...EUROPE_SCRAPE_REGIONS]
-    : searchParams.get("bbox")?.split(",").map((s) => s.trim());
+    : bboxParam
+      ? [bboxParam.trim()]
+      : undefined;
+  const categoryParam = searchParams.get("category");
+  const categoryFilter: OsmCategory[] | undefined =
+    categoryParam &&
+    OSM_SCRAPE_CATEGORIES.includes(categoryParam as OsmCategory)
+      ? [categoryParam as OsmCategory]
+      : undefined;
   const skipScrape = searchParams.get("skipScrape") === "true";
   const skipTagging = searchParams.get("skipTagging") === "true";
+
+  const requestStarted = Date.now();
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
+    body: JSON.stringify({
+      sessionId: "0c16de",
+      hypothesisId: "E",
+      location: "initial-scrape/route.ts:POST",
+      message: "request start",
+      data: { bboxFilter, categoryFilter, skipScrape, skipTagging },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   const results: Record<string, unknown> = {};
 
   if (!skipScrape) {
     results.scrape = await performGlobalOsmScrape({
       bboxFilter,
-      delayBetweenRequestsMs: 1200,
+      categoryFilter,
+      delayBetweenRequestsMs: categoryFilter ? 400 : 1200,
     });
   }
 
@@ -121,10 +149,37 @@ export async function POST(request: Request) {
     );
   }
 
+  const durationMs = Date.now() - requestStarted;
+  if (!skipScrape && bboxFilter && bboxFilter.length === 0) {
+    warnings.push("Nie rozpoznano regionu bbox — sprawdź nazwę regionu.");
+  }
+
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
+    body: JSON.stringify({
+      sessionId: "0c16de",
+      hypothesisId: "A",
+      location: "initial-scrape/route.ts:POST",
+      message: "request done",
+      data: {
+        durationMs,
+        persisted,
+        fetched: scrape?.total_fetched ?? 0,
+        scrapeErrors,
+        warnings,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   return NextResponse.json({
     success: warnings.length === 0,
     warnings,
     results,
+    duration_ms: durationMs,
     summary: {
       fetched: scrape?.total_fetched ?? 0,
       persisted,

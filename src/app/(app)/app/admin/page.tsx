@@ -6,6 +6,7 @@ import { PageContainer, Breadcrumb } from "@/components/layout/Header";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EUROPE_SCRAPE_REGIONS } from "@/lib/api/osm-scrape-regions";
+import { OSM_SCRAPE_CATEGORIES } from "@/lib/api/osm-scrape-categories";
 
 type SetupStatus = {
   user: { email: string; is_admin: boolean };
@@ -27,6 +28,7 @@ type SetupStatus = {
 type ScrapeResponse = {
   success?: boolean;
   warnings?: string[];
+  duration_ms?: number;
   summary?: {
     fetched: number;
     persisted: number;
@@ -68,7 +70,128 @@ type QueueStep = {
   ok: boolean;
   summary?: ScrapeResponse["summary"];
   error?: string;
+  durationMs?: number;
 };
+
+type ScrapeStepResult = ScrapeResponse & {
+  httpOk: boolean;
+  httpStatus: number;
+  durationMs: number;
+};
+
+async function postScrapeRequest(params: URLSearchParams): Promise<ScrapeStepResult> {
+  const started = Date.now();
+  const query = params.toString();
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
+    body: JSON.stringify({
+      sessionId: "0c16de",
+      hypothesisId: "D",
+      location: "admin/page.tsx:postScrapeRequest",
+      message: "client fetch start",
+      data: { query },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  let httpOk = false;
+  let httpStatus = 0;
+  let data: ScrapeResponse = {};
+
+  try {
+    const r = await fetch(`/api/admin/initial-scrape?${query}`, { method: "POST" });
+    httpOk = r.ok;
+    httpStatus = r.status;
+    try {
+      data = (await r.json()) as ScrapeResponse;
+    } catch {
+      data = {
+        error: `Nieprawidłowa odpowiedź serwera (HTTP ${r.status}). Prawdopodobny timeout Vercel — scrape podzielony na mniejsze kroki.`,
+      };
+    }
+  } catch (e) {
+    data = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  const durationMs = Date.now() - started;
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
+    body: JSON.stringify({
+      sessionId: "0c16de",
+      hypothesisId: "D",
+      location: "admin/page.tsx:postScrapeRequest",
+      message: "client fetch done",
+      data: {
+        httpOk,
+        httpStatus,
+        durationMs,
+        persisted: data.summary?.persisted,
+        fetched: data.summary?.fetched,
+        scrapeErrors: data.summary?.scrape_errors,
+        error: data.error,
+        warnings: data.warnings,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  return { ...data, httpOk, httpStatus, durationMs };
+}
+
+function stepFromResult(label: string, result: ScrapeStepResult): QueueStep {
+  const scrapeErrors = result.summary?.scrape_errors ?? 0;
+  const warningText = result.warnings?.filter(Boolean).join(" | ");
+  let error = result.error;
+  if (!error && !result.httpOk) {
+    error = `HTTP ${result.httpStatus}${result.durationMs > 280_000 ? " (timeout?)" : ""}`;
+  }
+  if (!error && scrapeErrors > 0) {
+    error = `${scrapeErrors} błędów Overpass`;
+  }
+  if (!error && warningText) {
+    error = warningText;
+  }
+
+  return {
+    region: label,
+    ok: result.httpOk && scrapeErrors === 0 && !result.error,
+    summary: result.summary,
+    error,
+    durationMs: result.durationMs,
+  };
+}
+
+async function scrapeRegionByCategories(
+  region: string,
+  steps: QueueStep[],
+  stepOffset: number,
+  totalSteps: number,
+  onProgress: (label: string, steps: QueueStep[]) => void,
+): Promise<QueueStep[]> {
+  const next = [...steps];
+  for (let i = 0; i < OSM_SCRAPE_CATEGORIES.length; i++) {
+    const category = OSM_SCRAPE_CATEGORIES[i]!;
+    const stepNum = stepOffset + i + 1;
+    const label = `${region} / ${category}`;
+    onProgress(`Scrape: ${label} (${stepNum}/${totalSteps})…`, next);
+
+    const params = new URLSearchParams({
+      bbox: region,
+      category,
+      skipTagging: "true",
+    });
+    const result = await postScrapeRequest(params);
+    next.push(stepFromResult(label, result));
+    onProgress(`Scrape: ${label} (${stepNum}/${totalSteps})…`, next);
+  }
+  return next;
+}
 
 const EUROPE_SCRAPE_BUTTONS = [
   { label: "Europa — kolejka (puste regiony)", action: "queue-empty" as const },
@@ -141,25 +264,64 @@ export default function AdminSetupPage() {
     setScraping(true);
     setScrapeResult(null);
     setError(null);
+    setQueueProgress([]);
     try {
-      const params = new URLSearchParams();
-      if (bbox) params.set("bbox", bbox);
-      if (options?.skipTagging) params.set("skipTagging", "true");
-      const url = `/api/admin/initial-scrape${params.size ? `?${params}` : ""}`;
-      const r = await fetch(url, { method: "POST" });
-      const data = (await r.json()) as ScrapeResponse;
-      setScrapeResult(data);
-      if (!r.ok) {
-        setError(data.error ?? `HTTP ${r.status}`);
+      if (options?.skipTagging) {
+        const result = await postScrapeRequest(
+          new URLSearchParams({ skipScrape: "true" }),
+        );
+        setScrapeResult(result);
+        if (!result.httpOk) setError(result.error ?? `HTTP ${result.httpStatus}`);
+        await loadStatus();
+        await loadCoverage();
+        return result;
       }
+
+      if (bbox) {
+        setQueueLabel(`Scrape: ${bbox}…`);
+        const totalSteps = OSM_SCRAPE_CATEGORIES.length + 1;
+        let steps: QueueStep[] = [];
+        steps = await scrapeRegionByCategories(
+          bbox,
+          steps,
+          0,
+          totalSteps,
+          (label, s) => {
+            setQueueLabel(label);
+            setQueueProgress([...s]);
+          },
+        );
+
+        setQueueLabel("Tagowanie aktywności…");
+        const tagResult = await postScrapeRequest(
+          new URLSearchParams({ skipScrape: "true" }),
+        );
+        setScrapeResult(tagResult);
+        if (!tagResult.httpOk) {
+          setError(tagResult.error ?? `HTTP ${tagResult.httpStatus}`);
+        } else if (tagResult.warnings?.length) {
+          setError(tagResult.warnings.join(" | "));
+        }
+        const failed = steps.filter((s) => !s.ok);
+        if (failed.length > 0 && !tagResult.error) {
+          setError(
+            `${failed.length} kroków scrape z błędami (np. ${failed[0]?.region}: ${failed[0]?.error ?? "błąd"})`,
+          );
+        }
+      } else {
+        const result = await postScrapeRequest(new URLSearchParams());
+        setScrapeResult(result);
+        if (!result.httpOk) setError(result.error ?? `HTTP ${result.httpStatus}`);
+        else if (result.warnings?.length) setError(result.warnings.join(" | "));
+      }
+
       await loadStatus();
       await loadCoverage();
-      return data;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      return null;
     } finally {
       setScraping(false);
+      setQueueLabel(null);
     }
   }
 
@@ -195,46 +357,47 @@ export default function AdminSetupPage() {
 
       if (regions.length === 0) {
         setQueueLabel("Regiony OK — uruchamiam tagowanie…");
-        const tagRes = await fetch("/api/admin/initial-scrape?skipScrape=true", {
-          method: "POST",
-        });
-        const tagData = (await tagRes.json()) as ScrapeResponse;
-        setScrapeResult(tagData);
+        const tagResult = await postScrapeRequest(
+          new URLSearchParams({ skipScrape: "true" }),
+        );
+        setScrapeResult(tagResult);
         await loadStatus();
         await loadCoverage();
         setQueueLabel("Tagowanie zakończone.");
         return;
       }
 
-      const steps: QueueStep[] = [];
+      const totalSteps = regions.length * OSM_SCRAPE_CATEGORIES.length;
+      let steps: QueueStep[] = [];
 
       for (const region of regions) {
-        setQueueLabel(`Scrape: ${region} (${steps.length + 1}/${regions.length})…`);
-        const params = new URLSearchParams({
-          bbox: region,
-          skipTagging: "true",
-        });
-        const r = await fetch(`/api/admin/initial-scrape?${params}`, {
-          method: "POST",
-        });
-        const data = (await r.json()) as ScrapeResponse;
-        steps.push({
+        const offset = steps.length;
+        steps = await scrapeRegionByCategories(
           region,
-          ok: r.ok && (data.summary?.persisted ?? 0) >= 0,
-          summary: data.summary,
-          error: data.error ?? (r.ok ? undefined : `HTTP ${r.status}`),
-        });
-        setQueueProgress([...steps]);
+          steps,
+          offset,
+          totalSteps,
+          (label, s) => {
+            setQueueLabel(label);
+            setQueueProgress([...s]);
+          },
+        );
+      }
+
+      const failed = steps.filter((s) => !s.ok);
+      if (failed.length > 0) {
+        setError(
+          `${failed.length}/${steps.length} kroków z błędami. Pierwszy: ${failed[0]?.region} — ${failed[0]?.error ?? "błąd"}`,
+        );
       }
 
       setQueueLabel("Tagowanie aktywności…");
-      const tagRes = await fetch("/api/admin/initial-scrape?skipScrape=true", {
-        method: "POST",
-      });
-      const tagData = (await tagRes.json()) as ScrapeResponse;
-      setScrapeResult(tagData);
-      if (!tagRes.ok) {
-        setError(tagData.error ?? `HTTP ${tagRes.status}`);
+      const tagResult = await postScrapeRequest(
+        new URLSearchParams({ skipScrape: "true" }),
+      );
+      setScrapeResult(tagResult);
+      if (!tagResult.httpOk) {
+        setError(tagResult.error ?? `HTTP ${tagResult.httpStatus}`);
       }
 
       await loadStatus();
@@ -251,13 +414,11 @@ export default function AdminSetupPage() {
     setScraping(true);
     setScrapeResult(null);
     try {
-      const r = await fetch(
-        "/api/admin/initial-scrape?skipScrape=true",
-        { method: "POST" },
+      const result = await postScrapeRequest(
+        new URLSearchParams({ skipScrape: "true" }),
       );
-      const data = (await r.json()) as ScrapeResponse;
-      setScrapeResult(data);
-      await loadStatus();
+      setScrapeResult(result);
+      if (!result.httpOk) setError(result.error ?? `HTTP ${result.httpStatus}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -421,16 +582,16 @@ export default function AdminSetupPage() {
                 <CardHeader title="Uruchom scrape" />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-text-secondary">
+                    Kolejka wykonuje małe kroki (region + kategoria OSM), żeby
+                    nie przekroczyć limitu 5 min Vercel. Postęp aktualizuje się
+                    co ok. 30–90 s. Nie zamykaj karty.
+                  </p>
+                  <p className="text-sm text-text-secondary">
                     Scrape OSM uzupełnia plaże, muzea, zamki itd.{" "}
                     <strong>Nie</strong> wypożyczalnie rowerów, quadów, nurkowanie —
                     te pobierane są z Google Places przy wyszukiwaniu (wymaga{" "}
                     <code className="rounded bg-bg-soft px-1">GOOGLE_PLACES_API_KEY</code>
                     ).
-                  </p>
-                  <p className="text-sm text-text-secondary">
-                    Jeden region trwa ok. 3–8 min (limit Vercel). Kolejka uruchamia
-                    regiony po kolei, na końcu tagowanie. Nie zamykaj karty do
-                    końca kolejki.
                   </p>
                   {queueLabel && (
                     <p className="text-sm font-medium text-brand-800">{queueLabel}</p>
@@ -444,7 +605,10 @@ export default function AdminSetupPage() {
                           </span>{" "}
                           {step.region}
                           {step.summary
-                            ? ` — ${step.summary.persisted} zapisanych, ${step.summary.scrape_errors} błędów`
+                            ? ` — ${step.summary.persisted} zapisanych, ${step.summary.fetched} pobranych, ${step.summary.scrape_errors} błędów`
+                            : ""}
+                          {step.durationMs
+                            ? ` (${Math.round(step.durationMs / 1000)}s)`
                             : ""}
                           {step.error ? ` (${step.error})` : ""}
                         </li>
