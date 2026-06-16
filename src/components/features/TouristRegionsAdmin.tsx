@@ -186,7 +186,9 @@ export function TouristRegionsAdmin() {
       <CardBody className="space-y-4">
         <p className="text-sm text-text-secondary">
           Kuratorskie bazy noclegowe z picks dopasowanymi do planu dni. Po migracji
-          019 uruchom seed — potem możesz dodawać kolejne kraje ręcznie.
+          019 uruchom seed — potem w sekcji „Uruchom scrape” kliknij{" "}
+          <strong>Regiony turystyczne (puste)</strong>, żeby punkty OSM pojawiły się
+          na mapie wokół każdej karty.
         </p>
 
         <div className="flex flex-wrap gap-3">

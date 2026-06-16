@@ -201,6 +201,14 @@ async function scrapeRegionByCategories(
 }
 
 const EUROPE_SCRAPE_BUTTONS = [
+  {
+    label: "Regiony turystyczne (puste)",
+    action: "tourist-regions-empty" as const,
+  },
+  {
+    label: "Regiony turystyczne (wszystkie)",
+    action: "tourist-regions-all" as const,
+  },
   { label: "Europa — kolejka (puste regiony)", action: "queue-empty" as const },
   { label: "Europa — kolejka (wszystkie)", action: "queue-all" as const },
   { label: "Grecja + Cypr", bbox: "Greece + Cyprus" },
@@ -417,6 +425,95 @@ export default function AdminSetupPage() {
     }
   }
 
+  async function runTouristRegionScrapeQueue(mode: "empty" | "all") {
+    setScraping(true);
+    setScrapeResult(null);
+    setError(null);
+    setQueueProgress([]);
+    setQueueLabel(
+      mode === "all"
+        ? "OSM dla wszystkich regionów turystycznych…"
+        : "OSM dla pustych regionów turystycznych…",
+    );
+
+    try {
+      const listRes = await fetch(
+        `/api/admin/scrape-tourist-regions?mode=${mode}`,
+      );
+      const listData = (await listRes.json()) as {
+        error?: string;
+        regions?: Array<{ id: string; name_pl: string; attractions: number }>;
+      };
+      if (!listRes.ok) {
+        throw new Error(listData.error ?? `HTTP ${listRes.status}`);
+      }
+
+      const regions = listData.regions ?? [];
+      if (regions.length === 0) {
+        setQueueLabel("Regiony turystyczne OK — nic do uzupełnienia.");
+        await loadCoverage();
+        return;
+      }
+
+      const steps: QueueStep[] = [];
+
+      for (let i = 0; i < regions.length; i++) {
+        const region = regions[i]!;
+        setQueueLabel(
+          `Region turystyczny ${i + 1}/${regions.length}: ${region.name_pl}…`,
+        );
+
+        const started = Date.now();
+        const r = await fetch(
+          `/api/admin/scrape-tourist-regions?regionId=${encodeURIComponent(region.id)}`,
+          { method: "POST" },
+        );
+        const data = (await r.json()) as {
+          error?: string;
+          result?: {
+            persisted: number;
+            tagged: number;
+            attractionsBefore: number;
+            attractionsAfter: number;
+          };
+        };
+        const durationMs = Date.now() - started;
+
+        steps.push({
+          region: region.name_pl,
+          ok: r.ok,
+          durationMs,
+          error: data.error,
+          summary: data.result
+            ? {
+                fetched: data.result.persisted,
+                persisted: data.result.persisted,
+                scrape_errors: 0,
+                attractions_tagged: data.result.tagged,
+                tags_created: data.result.tagged,
+              }
+            : undefined,
+        });
+        setQueueProgress([...steps]);
+      }
+
+      const failed = steps.filter((s) => !s.ok);
+      if (failed.length > 0) {
+        setError(
+          `${failed.length}/${steps.length} regionów z błędem. Pierwszy: ${failed[0]?.region}`,
+        );
+      }
+
+      await loadStatus();
+      await loadCoverage();
+      setQueueLabel("Scrape regionów turystycznych zakończony.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScraping(false);
+    }
+  }
+
   async function runTaggingOnly() {
     setScraping(true);
     setScrapeResult(null);
@@ -591,6 +688,13 @@ export default function AdminSetupPage() {
                 <CardHeader title="Uruchom scrape" />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-text-secondary">
+                    <strong>Najprościej:</strong> po seedzie regionów turystycznych
+                    kliknij <strong>„Regiony turystyczne (puste)”</strong> — OSM
+                    pobierze atrakcje wokół każdej karty (Ksamil, Paryż, Bałkany…)
+                    bez zgadywania bboxów. Przy normalnym wyszukiwaniu użytkownika
+                    baza też uzupełnia się automatycznie przy pierwszym zapytaniu.
+                  </p>
+                  <p className="text-sm text-text-secondary">
                     Duże regiony (np. Włochy) są dzielone na kafelki 2×2–4×4,
                     żeby nie przekroczyć limitu 5 min Vercel. Postęp aktualizuje
                     się co ok. 20–90 s. Nie zamykaj karty.
@@ -631,13 +735,23 @@ export default function AdminSetupPage() {
                         size="sm"
                         disabled={scraping}
                         variant={
-                          "action" in btn ? "primary" : "secondary"
+                          "action" in btn &&
+                          (btn.action === "tourist-regions-empty" ||
+                            btn.action === "queue-empty")
+                            ? "primary"
+                            : "secondary"
                         }
                         onClick={() =>
                           "action" in btn
-                            ? runScrapeEuropeQueue(
-                                btn.action === "queue-all" ? "all" : "empty",
-                              )
+                            ? btn.action === "queue-all" || btn.action === "queue-empty"
+                              ? runScrapeEuropeQueue(
+                                  btn.action === "queue-all" ? "all" : "empty",
+                                )
+                              : runTouristRegionScrapeQueue(
+                                  btn.action === "tourist-regions-all"
+                                    ? "all"
+                                    : "empty",
+                                )
                             : runScrape(btn.bbox)
                         }
                       >
