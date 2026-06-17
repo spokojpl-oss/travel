@@ -31,25 +31,6 @@ export async function performGlobalOsmScrape(options?: {
     ? STRATEGIC_BBOXES.filter((b) => options.bboxFilter!.includes(b.name))
     : STRATEGIC_BBOXES;
 
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-    body: JSON.stringify({
-      sessionId: "0c16de",
-      hypothesisId: "E",
-      location: "osm-global-scrape.ts:performGlobalOsmScrape",
-      message: "scrape start",
-      data: {
-        bboxCount: bboxes.length,
-        bboxNames: bboxes.map((b) => b.name),
-        categories,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-
   const result = {
     total_fetched: 0,
     total_persisted: 0,
@@ -68,7 +49,6 @@ export async function performGlobalOsmScrape(options?: {
       };
 
     for (const category of categories) {
-      const categoryStarted = Date.now();
       const fetchBbox = options?.fetchBboxOverride ?? bbox;
       try {
         const places = await fetchOsmPlaces({
@@ -80,27 +60,6 @@ export async function performGlobalOsmScrape(options?: {
         perBbox.categories[category] = places.length;
         result.total_fetched += places.length;
         result.total_persisted += upserted;
-        // #region agent log
-        fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-          body: JSON.stringify({
-            sessionId: "0c16de",
-            hypothesisId: "A",
-            location: "osm-global-scrape.ts:category-done",
-            message: "category scrape ok",
-            data: {
-              bbox: name,
-              category,
-              fetchBbox,
-              fetched: places.length,
-              upserted,
-              durationMs: Date.now() - categoryStarted,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         await sleep(delay);
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
@@ -109,25 +68,6 @@ export async function performGlobalOsmScrape(options?: {
           category,
           error: errMsg,
         });
-        // #region agent log
-        fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-          body: JSON.stringify({
-            sessionId: "0c16de",
-            hypothesisId: "A",
-            location: "osm-global-scrape.ts:category-error",
-            message: "category scrape failed",
-            data: {
-              bbox: name,
-              category,
-              error: errMsg,
-              durationMs: Date.now() - categoryStarted,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       }
     }
 

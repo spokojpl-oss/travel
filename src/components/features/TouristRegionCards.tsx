@@ -5,7 +5,6 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
-import { buildCyclingRegionOverview } from "@/lib/activities/cycling/region-overview";
 import {
   pickDisplayName,
   pickWhy,
@@ -30,7 +29,6 @@ function RegionDetailPanel({
   canAddMore,
   onConfirm,
   onRemove,
-  cyclingMode = false,
 }: {
   region: ScoredTouristRegion;
   index: number;
@@ -38,28 +36,13 @@ function RegionDetailPanel({
   canAddMore: boolean;
   onConfirm: () => void;
   onRemove: () => void;
-  cyclingMode?: boolean;
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const cyclingOverview = useMemo(
-    () => (cyclingMode ? buildCyclingRegionOverview(region, locale) : null),
-    [cyclingMode, region, locale],
-  );
-  const seedOverview = cyclingOverview?.overview
-    ?? (locale === "en" ? region.overview_en : region.overview_pl);
-  const stayHint = cyclingOverview?.stayHint
-    ?? (locale === "en" ? region.stay_hint_en : region.stay_hint_pl);
+  const seedOverview = locale === "en" ? region.overview_en : region.overview_pl;
+  const stayHint = locale === "en" ? region.stay_hint_en : region.stay_hint_pl;
   const areaLabel = regionAreaLabel(region, locale);
-  const topPicks = cyclingMode
-    ? region.picks_for_rhythm
-        .filter((p) =>
-          p.activity_slugs.some((s) =>
-            ["cycling", "bike_rental", "mountain_biking", "sandy_beaches", "hiking_trails"].includes(s),
-          ),
-        )
-        .slice(0, 2)
-    : region.picks_for_rhythm.slice(0, 2);
+  const topPicks = region.picks_for_rhythm.slice(0, 2);
 
   const [overview, setOverview] = useState(seedOverview);
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
@@ -161,14 +144,6 @@ function RegionDetailPanel({
       ) : (
         <p className="text-sm leading-relaxed text-text-primary">{overview}</p>
       )}
-      {cyclingOverview?.infrastructure && (
-        <p className="text-xs font-medium text-brand-800">
-          {cyclingOverview.infrastructure}
-        </p>
-      )}
-      {cyclingOverview?.cyclingHint && (
-        <p className="text-xs text-text-secondary">{cyclingOverview.cyclingHint}</p>
-      )}
       <p className="rounded-md border border-brand-100 bg-brand-50/40 px-2.5 py-2 text-xs leading-snug text-text-secondary">
         {stayHint}
       </p>
@@ -237,7 +212,6 @@ export function TouristRegionCards({
   onSkip,
   destinationLabel = "",
   onChooseWholeIsland,
-  cyclingMode = false,
 }: {
   regions: ScoredTouristRegion[];
   selectedIds: string[];
@@ -247,7 +221,6 @@ export function TouristRegionCards({
   onSkip?: () => void;
   destinationLabel?: string;
   onChooseWholeIsland?: () => void;
-  cyclingMode?: boolean;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -299,12 +272,12 @@ export function TouristRegionCards({
           <p className="font-medium text-text-primary">{t("regions.emptyTitle")}</p>
           <p className="text-sm text-text-secondary">{t("regions.emptyBody")}</p>
           {onBack && (
-            <Button variant="ghost" onClick={onBack}>
-              {cyclingMode ? t("regions.adjustScope") : t("regions.adjustRhythm")}
+            <Button variant="secondary" onClick={onBack}>
+              {t("regions.adjustRhythm")}
             </Button>
           )}
           <Button variant="ghost" onClick={onContinue}>
-            {cyclingMode ? t("regions.skipToResults") : t("regions.skipToActivities")}
+            {t("regions.skipToActivities")}
           </Button>
         </CardBody>
       </Card>
@@ -380,7 +353,6 @@ export function TouristRegionCards({
               canAddMore={selectedIds.length < MAX_TOURIST_REGIONS}
               onConfirm={() => confirmRegion(focusedRegion)}
               onRemove={() => removeRegion(focusedRegion.id)}
-              cyclingMode={cyclingMode}
             />
           ) : (
             <p className="py-8 text-center text-sm text-text-secondary">
@@ -398,12 +370,12 @@ export function TouristRegionCards({
         </Button>
         {onSkip && (
           <Button variant="ghost" onClick={onSkip}>
-            {cyclingMode ? t("regions.skipToResults") : t("regions.skipToActivities")}
+            {t("regions.skipToActivities")}
           </Button>
         )}
         {onBack && (
           <Button variant="ghost" onClick={onBack}>
-            {cyclingMode ? t("regions.adjustScope") : t("regions.adjustRhythm")}
+            {t("regions.adjustRhythm")}
           </Button>
         )}
       </div>

@@ -93,20 +93,6 @@ export async function POST(request: Request) {
   }
 
   const requestStarted = Date.now();
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-    body: JSON.stringify({
-      sessionId: "0c16de",
-      hypothesisId: "F",
-      location: "initial-scrape/route.ts:POST",
-      message: "request start",
-      data: { bboxFilter, categoryFilter, fetchBboxOverride, skipScrape, skipTagging },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   const results: Record<string, unknown> = {};
 
@@ -170,27 +156,6 @@ export async function POST(request: Request) {
   if (!skipScrape && bboxFilter && bboxFilter.length === 0) {
     warnings.push("Nie rozpoznano regionu bbox — sprawdź nazwę regionu.");
   }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0c16de" },
-    body: JSON.stringify({
-      sessionId: "0c16de",
-      hypothesisId: "A",
-      location: "initial-scrape/route.ts:POST",
-      message: "request done",
-      data: {
-        durationMs,
-        persisted,
-        fetched: scrape?.total_fetched ?? 0,
-        scrapeErrors,
-        warnings,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return NextResponse.json({
     success: warnings.length === 0,
