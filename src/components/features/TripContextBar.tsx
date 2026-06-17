@@ -74,7 +74,7 @@ export function TripContextBar({
     items.unshift({
       icon: "target",
       label: t("context.mode"),
-      value: t("hero.tabCycling"),
+      value: t("context.cyclingMode"),
     });
   } else if (trip.mode === "activities" && trip.interests) {
     items.unshift({

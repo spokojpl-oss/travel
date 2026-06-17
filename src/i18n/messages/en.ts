@@ -20,8 +20,8 @@ export const en: Messages = {
     titleCycling2: "tailored to ...",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
-    tabDestination: "family",
-    tabCycling: "saddle",
+    tabDestination: "for family",
+    tabCycling: "for the saddle",
     search: "Search holidays",
     searchCycling: "Find cycling routes",
     searching: "Preparing search...",
@@ -433,6 +433,7 @@ export const en: Messages = {
     who: "Who",
     where: "Where to",
     mode: "Mode",
+    cyclingMode: "saddle",
     interests: "Interests",
     rhythm: "Day plan",
     edit: "Edit",

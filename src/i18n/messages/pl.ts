@@ -18,8 +18,8 @@ export const pl = {
     titleCycling2: "dopasowany do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
-    tabDestination: "rodziny",
-    tabCycling: "siodło",
+    tabDestination: "do rodziny",
+    tabCycling: "do siodła",
     search: "Szukaj wakacji",
     searchCycling: "Szukaj tras rowerowych",
     searching: "Przygotowuję wyszukiwanie...",
@@ -434,6 +434,7 @@ export const pl = {
     who: "Kto",
     where: "Dokąd",
     mode: "Tryb",
+    cyclingMode: "siodło",
     interests: "Zainteresowania",
     rhythm: "Plan dni",
     edit: "Zmień",

@@ -35,6 +35,7 @@ import { ActivityPanel } from "@/components/activities/ActivityPanel";
 import { CyclingPlanWizard } from "@/components/activities/cycling/CyclingPlanWizard";
 import { CYCLING_TAXONOMY_SLUGS } from "@/lib/activities/cycling/constants";
 import type { CyclingDestinationSummary } from "@/lib/synthesis/cycling-destination-summary";
+import { useT } from "@/i18n/locale-provider";
 
 type BuildEvent = {
   type: string;
@@ -73,6 +74,7 @@ function parseTrailingSseEvent(buffer: string): BuildEvent | null {
 }
 
 export default function DestinationPage() {
+  const t = useT();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [cluster, setCluster] = useState<GeoCluster | null>(null);
@@ -493,7 +495,9 @@ export default function DestinationPage() {
           {pageTitle}
         </h1>
         {isCyclingMode && (
-          <p className="mt-2 text-sm font-medium text-brand-700">siodło</p>
+          <p className="mt-2 text-sm font-medium text-brand-700">
+            {t("context.cyclingMode")}
+          </p>
         )}
         {destination && (
           <p className="mt-2 text-sm text-text-secondary">
