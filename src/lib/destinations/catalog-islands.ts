@@ -7,6 +7,9 @@ const COMPACT: DestinationSuggestion["islandProfile"] = {
   kidsExtraDays: 1,
 };
 
+/** Huby Canarias z regularnymi lotami z Europy — małe wyspy nie mają bezpośrednich połączeń z PL. */
+const CANARY_GATEWAY_AIRPORTS = ["TFS", "TFN", "LPA"] as const;
+
 /**
  * Wyspy z regionami turystycznymi w seedach, których brakowało w głównym katalogu.
  * Uzupełnia DESTINATION_CATALOG (islandBbox + lotniska).
@@ -55,6 +58,7 @@ export const ISLAND_CATALOG_ENTRIES: DestinationSuggestion[] = [
     lon: -17.7642,
     islandBbox: { north: 28.88, south: 28.52, east: -17.67, west: -18.01 },
     primaryAirports: ["SPC"],
+    gatewayAirports: [...CANARY_GATEWAY_AIRPORTS],
     islandProfile: COMPACT,
   },
   {
@@ -66,6 +70,7 @@ export const ISLAND_CATALOG_ENTRIES: DestinationSuggestion[] = [
     lon: -17.237,
     islandBbox: { north: 28.23, south: 28.02, east: -17.07, west: -17.35 },
     primaryAirports: ["GMZ"],
+    gatewayAirports: [...CANARY_GATEWAY_AIRPORTS],
     islandProfile: COMPACT,
   },
   {
@@ -77,6 +82,7 @@ export const ISLAND_CATALOG_ENTRIES: DestinationSuggestion[] = [
     lon: -18.033,
     islandBbox: { north: 27.86, south: 27.62, east: -17.89, west: -18.18 },
     primaryAirports: ["VDE"],
+    gatewayAirports: [...CANARY_GATEWAY_AIRPORTS],
     islandProfile: COMPACT,
   },
   // —— Grecja: Cyklady ——

@@ -296,9 +296,6 @@ export default function DestinationPage() {
   }, [planPayload, trip, buildId]);
 
   function handlePlanComplete(updated: DestinationBuildPayload) {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H4',location:'destination/page.tsx:handlePlanComplete',message:'plan complete on destination page',data:{buildId,planComplete:updated.planComplete,routeCount:updated.selectedCyclingRoutes?.length??0},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const finalCluster = applyPlanToCluster(updated);
     if (buildId) {
       storeDestinationBuildPayload(buildId, updated);

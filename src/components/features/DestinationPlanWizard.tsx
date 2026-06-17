@@ -374,13 +374,6 @@ export function DestinationPlanWizard({
     cyclingRoutes.length > 0;
   const canConfirmPlan = Boolean(selectedBase) && hasPlanSelection;
 
-  // #region agent log
-  useEffect(() => {
-    if (step !== "plan") return;
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H1',location:'DestinationPlanWizard.tsx:planStep',message:'plan step state',data:{canConfirmPlan,hasPlanSelection,hasBase:Boolean(selectedBase),baseOptionsLen:baseOptions.length,selectedIds:selectedIds.size,poolIds:selectedPoolIds.length,cyclingRoutes:cyclingRoutes.length,baseChoice},timestamp:Date.now()})}).catch(()=>{});
-  }, [step, canConfirmPlan, hasPlanSelection, selectedBase, baseOptions.length, selectedIds.size, selectedPoolIds.length, cyclingRoutes.length, baseChoice]);
-  // #endregion
-
   const primaryRegionOverview = useMemo(() => {
     if (matchedRegions.length === 0) return null;
     const r = matchedRegions[0]!;
@@ -471,9 +464,6 @@ export function DestinationPlanWizard({
   }
 
   function confirmPlan() {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H2',location:'DestinationPlanWizard.tsx:confirmPlan:entry',message:'confirmPlan called',data:{hasBase:Boolean(selectedBase),hasPlanSelection,selectedIds:selectedIds.size,poolIds:selectedPoolIds.length,cyclingRoutes:cyclingRoutes.length,clusterId:payload.cluster.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!selectedBase) return;
     if (!hasPlanSelection) return;
 
@@ -481,10 +471,6 @@ export function DestinationPlanWizard({
       selectedPoolIds.length > 0
         ? selectedPoolIds
         : selectedPlaces.map((place) => place.id);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H2',location:'DestinationPlanWizard.tsx:confirmPlan:beforeComplete',message:'calling onComplete',data:{attractionIds:attractionIds.length,baseId:selectedBase.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     onComplete({
       ...payload,

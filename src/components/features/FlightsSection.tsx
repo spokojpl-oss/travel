@@ -47,6 +47,8 @@ type FlightSearchResult = {
       distance_km: number;
     }>;
     searched_origins: string[];
+    searched_destinations?: string[];
+    gateway_airports?: string[];
     warning?: string;
     fallback_used?: boolean;
     oldest_fetched_at?: string;
@@ -244,6 +246,17 @@ export function FlightsSection({
                 .map((iata) => polishAirportLabel(iata))
                 .join(", ") || "—"}
             </p>
+            {(results.meta.searched_destinations?.length ?? 0) > 0 && (
+              <p className="text-gray-600 mt-1">
+                {t("flights.searchedTo")}:{" "}
+                {(results.meta.searched_destinations ?? []).join(", ")}
+              </p>
+            )}
+            {(results.meta.gateway_airports?.length ?? 0) > 0 && (
+              <p className="text-gray-600 mt-1 text-xs">
+                {t("flights.gatewayNote")}
+              </p>
+            )}
           </div>
 
           {results.result.suggestions.length > 0 && (

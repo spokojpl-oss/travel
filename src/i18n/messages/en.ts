@@ -406,10 +406,15 @@ export const en: Messages = {
     cacheUpdated: "Cache last updated:",
     destAirports: "Destination airports",
     searchedFrom: "Searched from",
+    searchedTo: "Searched to (international flights)",
+    gatewayNote:
+      "Reach the island by inter-island flight or ferry from Tenerife or Gran Canaria.",
     priceTips: "Price tips",
     cheapest: "Top 5 cheapest",
     noResults:
-      "No results. Try different dates or check Travelpayouts configuration.",
+      "No flights in the selected date range. Try a wider range or a different departure airport.",
+    noResultsIsland:
+      "No direct flights from Poland to the island airport — we search Canary hubs (TFS, TFN, LPA) instead.",
     stops: "stops",
     viewOnAviasales: "View on Aviasales →",
     priceCalendar: "Price calendar",

@@ -10,6 +10,8 @@ export type IslandBoundary = {
   bbox: BoundingBox;
   center: GeoPoint;
   primaryAirports: string[];
+  /** Lotniska z połączeniami międzynarodowymi (np. TFS dla małych wysp Canarias). */
+  gatewayAirports: string[];
   /** Max distance from island center to any point on the island (km). */
   maxRadiusKm: number;
 };
@@ -53,6 +55,7 @@ function catalogToBoundary(entry: DestinationSuggestion): IslandBoundary | null 
     bbox: entry.islandBbox,
     center,
     primaryAirports: entry.primaryAirports ?? [],
+    gatewayAirports: entry.gatewayAirports ?? [],
     maxRadiusKm: bboxMaxRadiusKm(entry.islandBbox, center),
   };
 }

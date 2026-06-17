@@ -406,10 +406,15 @@ export const pl = {
     cacheUpdated: "Ostatnia aktualizacja cache:",
     destAirports: "Lotniska docelowe",
     searchedFrom: "Szukano z",
+    searchedTo: "Szukano do (loty międzynarodowe)",
+    gatewayNote:
+      "Na wyspę dojedziesz promem lub lotem międzywyspowym z Teneryfy lub Gran Canarii.",
     priceTips: "Podpowiedzi cenowe",
     cheapest: "Top 5 najtańszych",
     noResults:
-      "Brak wyników. Spróbuj inny zakres dat lub sprawdź konfigurację Travelpayouts.",
+      "Brak lotów w wybranym zakresie dat. Spróbuj szerszy termin lub inne lotnisko wyjazdu.",
+    noResultsIsland:
+      "Brak bezpośrednich lotów z Polski na lokalne lotnisko wyspy — szukamy na hubach Canarias (TFS, TFN, LPA).",
     stops: "przesiadek",
     viewOnAviasales: "Zobacz na Aviasales →",
     priceCalendar: "Kalendarz cenowy",

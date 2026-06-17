@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  resolveIslandBoundary,
   resolveIslandBoundaryForSearch,
   type IslandBoundary,
 } from "@/lib/destinations/island-boundary";
@@ -182,6 +181,37 @@ export async function getOrFindDestinationAirports({
     await persistDestinationAirports(destinationId, airports);
   }
   return airports;
+}
+
+export type FlightSearchAirportPlan = {
+  /** Lotniska na wyspie — pokazywane użytkownikowi. */
+  localAirports: DestinationAirport[];
+  /** Kody IATA używane w zapytaniu do Travelpayouts. */
+  searchDestinations: string[];
+  /** Międzynarodowe huby (np. TFS dla El Hierro). */
+  gatewayAirports: string[];
+};
+
+/** Łączy lokalne lotnisko wyspy z hubami międzynarodowymi do wyszukiwania lotów z PL. */
+export function resolveFlightSearchAirports(
+  destinationLabel: string | null | undefined,
+  center: GeoPoint,
+  localAirports: DestinationAirport[],
+): FlightSearchAirportPlan {
+  const island = resolveIslandBoundaryForSearch(destinationLabel, center);
+  const gatewayAirports = island?.gatewayAirports ?? [];
+  const localIatas = localAirports.map((a) => a.iata_code);
+
+  const searchDestinations =
+    gatewayAirports.length > 0
+      ? [...new Set([...gatewayAirports, ...localIatas])]
+      : localIatas;
+
+  return {
+    localAirports,
+    searchDestinations,
+    gatewayAirports,
+  };
 }
 
 async function queryAirportsInBBox(

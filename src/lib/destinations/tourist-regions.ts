@@ -287,6 +287,10 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "cyclades",
   "cypr",
   "cyprus",
+  "czechy",
+  "czech",
+  "czechia",
+  "cesko",
 ]);
 
 function matchesLabelKeyToRegionKey(labelKey: string, regionKey: string): boolean {
@@ -300,9 +304,8 @@ function matchesLabelKeyToRegionKey(labelKey: string, regionKey: string): boolea
   }
 
   if (!labelKey.includes(" ") && labelKey.length >= minLen) {
-    if (regionKey.includes(labelKey) || labelKey.includes(regionKey)) {
-      return true;
-    }
+    if (regionKey.includes(labelKey)) return true;
+    if (labelKey.includes(regionKey) && regionKey.length >= 5) return true;
   }
 
   return false;
@@ -449,7 +452,11 @@ export function findTouristRegionsInCatalog(
     })
     .sort((a, b) => b.score - a.score);
 
-  if (cycling && rhythm.preset === "cycling_only") {
+  if (
+    cycling &&
+    rhythm.preset === "cycling_only" &&
+    !isCountryLevelDestinationLabel(destinationLabel)
+  ) {
     const cyclingRegions = scored.filter((r) => isCyclingTouristRegion(r));
     if (cyclingRegions.length >= 2) {
       scored = cyclingRegions;

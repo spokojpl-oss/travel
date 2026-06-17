@@ -15,6 +15,8 @@ export type DestinationSuggestion = {
   islandBbox?: BoundingBox;
   /** Główne lotniska na wyspie (IATA). */
   primaryAirports?: string[];
+  /** Międzynarodowe huby — wyszukiwanie lotów z Polski (np. TFS dla El Hierro). */
+  gatewayAirports?: string[];
   /** Ręczne progi dni — gdy bbox zawyża powierzchnię (np. Fuerteventura). */
   islandProfile?: {
     wholeWithBeachDays: number;

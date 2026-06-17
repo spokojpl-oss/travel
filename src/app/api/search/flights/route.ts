@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOrFindDestinationAirports } from "@/lib/flights/airport-finder";
+import { getOrFindDestinationAirports, resolveFlightSearchAirports } from "@/lib/flights/airport-finder";
 import { flexibleFlightSearch } from "@/lib/flights/flexible-search";
 import { POLISH_AIRPORT_IATAS } from "@/lib/flights/polish-airports";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -70,12 +70,42 @@ export async function POST(request: Request) {
     destinationLabel: destination.name,
   });
 
+  const airportPlan = resolveFlightSearchAirports(
+    destination.name,
+    { lat: destination.center_lat, lon: destination.center_lon },
+    destinationAirports,
+  );
+
   const defaultOrigins = [...POLISH_AIRPORT_IATAS];
   const origins = parsed.data.origins ?? defaultOrigins;
   const maxOrigins =
     parsed.data.max_origins ??
     (parsed.data.origins ? parsed.data.origins.length : defaultOrigins.length);
   const searchedOrigins = origins.slice(0, maxOrigins);
+
+  // #region agent log
+  fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "d400df",
+    },
+    body: JSON.stringify({
+      sessionId: "d400df",
+      runId: "pre-fix",
+      hypothesisId: "B",
+      location: "flights/route.ts:airportPlan",
+      message: "Flight search airport plan",
+      data: {
+        destinationName: destination.name,
+        localAirports: airportPlan.localAirports.map((a) => a.iata_code),
+        searchDestinations: airportPlan.searchDestinations,
+        gatewayAirports: airportPlan.gatewayAirports,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   if (destinationAirports.length === 0) {
     return NextResponse.json({
@@ -95,9 +125,10 @@ export async function POST(request: Request) {
     });
   }
 
-  const destinations = destinationAirports
-    .slice(0, parsed.data.max_destinations)
-    .map((a) => a.iata_code);
+  const destinations = airportPlan.searchDestinations.slice(
+    0,
+    parsed.data.max_destinations,
+  );
 
   const passengers = {
     adults: parsed.data.adults,
@@ -126,12 +157,61 @@ export async function POST(request: Request) {
     const meta = {
       destination_id: destination.id,
       destination_name: destination.name,
-      destination_airports: destinationAirports,
+      destination_airports: airportPlan.localAirports,
+      searched_destinations: destinations,
+      gateway_airports: airportPlan.gatewayAirports,
       searched_origins: searchedOrigins,
     };
 
+    // #region agent log
+    fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "d400df",
+      },
+      body: JSON.stringify({
+        sessionId: "d400df",
+        runId: "pre-fix",
+        hypothesisId: "A",
+        location: "flights/route.ts:success",
+        message: "Flight search API success",
+        data: {
+          destinations,
+          offerCount: result.all_offers.length,
+          cheapestCount: result.cheapest.length,
+          dateFrom: parsed.data.departure_date_from,
+          dateTo: parsed.data.departure_date_to,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     return NextResponse.json({ result, meta });
   } catch (error) {
+    // #region agent log
+    fetch("http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "d400df",
+      },
+      body: JSON.stringify({
+        sessionId: "d400df",
+        runId: "pre-fix",
+        hypothesisId: "D",
+        location: "flights/route.ts:catch",
+        message: "Flight search API error",
+        data: {
+          error: error instanceof Error ? error.message : String(error),
+          destinations,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     const { data: cached } = await admin
       .from("flight_offers_cache")
       .select("*")
@@ -157,7 +237,9 @@ export async function POST(request: Request) {
         meta: {
           destination_id: destination.id,
           destination_name: destination.name,
-          destination_airports: destinationAirports,
+          destination_airports: airportPlan.localAirports,
+          searched_destinations: destinations,
+          gateway_airports: airportPlan.gatewayAirports,
           searched_origins: searchedOrigins,
           warning:
             "API niedostępne, pokazuję ostatnie znane ceny. Dane mogą być nieaktualne.",

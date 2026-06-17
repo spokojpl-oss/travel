@@ -36,6 +36,14 @@ function resolveTouristRegionLimit(
   ) {
     return 15;
   }
+  if (
+    norm.includes("czechy") ||
+    norm.includes("czech") ||
+    norm.includes("czechia") ||
+    norm.includes("cesko")
+  ) {
+    return 32;
+  }
   if (cycling) return 12;
   return 10;
 }

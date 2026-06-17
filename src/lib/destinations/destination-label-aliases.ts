@@ -36,6 +36,7 @@ export function buildDestinationLabelAliases(): Record<string, string[]> {
     nicea: ["nice"],
     rzym: ["rome", "roma"],
     praga: ["prague", "praha"],
+    czechy: ["czech", "czechia", "cesko", "czech republic"],
     budapeszt: ["budapest"],
     wieden: ["vienna", "wien"],
     krakow: ["krakow", "cracow"],
