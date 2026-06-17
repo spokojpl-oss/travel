@@ -597,9 +597,9 @@ export function DestinationPlanWizard({
             />
             <RegionMap
               points={mapData.points}
-              segments={mapData.segments}
+              segments={isCyclingMode ? [] : mapData.segments}
               height={480}
-              showRouteList
+              showRouteList={!isCyclingMode}
               cyclingRoutes={cyclingMapRoutes}
             />
           </Card>

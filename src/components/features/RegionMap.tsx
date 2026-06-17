@@ -37,6 +37,8 @@ type RegionMapProps = {
   height?: number;
   showLegend?: boolean;
   showRouteList?: boolean;
+  /** Lista tras rowerowych pod mapą (domyślnie włączona gdy są trasy). */
+  showCyclingRouteList?: boolean;
   highlightedPointId?: string | null;
   onPointClick?: (point: MapPoint) => void;
   /** Bez dymka Google Maps — klik tylko do panelu bocznego. */
@@ -51,6 +53,7 @@ export function RegionMap({
   height = 450,
   showLegend = true,
   showRouteList = true,
+  showCyclingRouteList = true,
   highlightedPointId,
   onPointClick,
   suppressInfoWindow = false,
@@ -437,7 +440,7 @@ export function RegionMap({
         </div>
       )}
 
-      {cyclingRoutes.length > 0 && (
+      {showCyclingRouteList && cyclingRoutes.length > 0 && (
         <div className="border-t border-border-default px-4 py-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
             {t("map.cyclingRoutes")}

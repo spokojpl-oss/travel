@@ -148,10 +148,11 @@ export function CyclingTripSummarySection({
         <CardHeader title={t("destination.cyclingSummaryMapTitle")} />
         <RegionMap
           points={mapData.points}
-          segments={mapData.segments}
+          segments={[]}
           cyclingRoutes={mapData.cyclingRoutes}
           height={520}
-          showRouteList
+          showRouteList={false}
+          showCyclingRouteList={false}
           showLegend
           className="border-0 shadow-none"
         />
