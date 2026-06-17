@@ -353,6 +353,7 @@ export const pl = {
     picksTitle: "Co polecamy w tym rejonie",
     continue: "Dalej — doprecyzuj aktywności →",
     adjustRhythm: "← Zmień rozkład dni",
+    adjustScope: "← Zmień zakres wyjazdu",
     emptyTitle: "Brak gotowych propozycji dla tego miejsca",
     emptyBody:
       "Nie mamy jeszcze kart regionu dla tej destynacji. Zmień plan dni, wybierz inne miejsce albo przejdź dalej ręcznie — aktywności i wyszukiwanie OSM nadal działają.",
@@ -374,6 +375,7 @@ export const pl = {
     viewOnMap: "Zobacz rejon w Google Maps",
     detailLoading: "Wczytuję rozszerzony opis rejonu…",
     skipToActivities: "Pomiń — wybierz aktywności ręcznie →",
+    skipToResults: "Pomiń — przejdź do wyników →",
     wholeIslandTitle: "Chcę zwiedzać całą wyspę",
     wholeIslandBody:
       "Wyspa jest na tyle mała, że rejony nachodzą na siebie — możesz objechać całość z jedną lub dwiema bazami.",

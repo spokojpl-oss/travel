@@ -352,6 +352,7 @@ export const en: Messages = {
     picksTitle: "Recommended in this area",
     continue: "Continue — refine activities →",
     adjustRhythm: "← Change day plan",
+    adjustScope: "← Change trip scope",
     emptyTitle: "No curated guide for this place yet",
     emptyBody:
       "We don't have region cards for this destination yet. Adjust your day plan, pick another place, or continue manually — OSM activity search still works.",
@@ -373,6 +374,7 @@ export const en: Messages = {
     viewOnMap: "View area in Google Maps",
     detailLoading: "Loading extended area description…",
     skipToActivities: "Skip — pick activities manually →",
+    skipToResults: "Skip — go to results →",
     wholeIslandTitle: "Explore the whole island",
     wholeIslandBody:
       "The island is small enough that sub-regions overlap — you can tour the whole area with one or two bases.",

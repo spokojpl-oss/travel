@@ -299,12 +299,12 @@ export function TouristRegionCards({
           <p className="font-medium text-text-primary">{t("regions.emptyTitle")}</p>
           <p className="text-sm text-text-secondary">{t("regions.emptyBody")}</p>
           {onBack && (
-            <Button variant="secondary" onClick={onBack}>
-              {t("regions.adjustRhythm")}
+            <Button variant="ghost" onClick={onBack}>
+              {cyclingMode ? t("regions.adjustScope") : t("regions.adjustRhythm")}
             </Button>
           )}
           <Button variant="ghost" onClick={onContinue}>
-            {t("regions.skipToActivities")}
+            {cyclingMode ? t("regions.skipToResults") : t("regions.skipToActivities")}
           </Button>
         </CardBody>
       </Card>
@@ -398,12 +398,12 @@ export function TouristRegionCards({
         </Button>
         {onSkip && (
           <Button variant="ghost" onClick={onSkip}>
-            {t("regions.skipToActivities")}
+            {cyclingMode ? t("regions.skipToResults") : t("regions.skipToActivities")}
           </Button>
         )}
         {onBack && (
           <Button variant="ghost" onClick={onBack}>
-            {t("regions.adjustRhythm")}
+            {cyclingMode ? t("regions.adjustScope") : t("regions.adjustRhythm")}
           </Button>
         )}
       </div>

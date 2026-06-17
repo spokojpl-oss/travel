@@ -321,20 +321,24 @@ function SearchPageContent() {
 
       setStep(resolvedStep);
 
-      if (
-        merged.mode === "destination" &&
-        !merged.trip_rhythm &&
-        merged.departure_date &&
-        resolvedStep >= 4 &&
-        !isCyclingTrip(merged)
-      ) {
-        merged = mergeTripContext(merged, {
-          trip_rhythm: defaultRhythmForTrip(
-            merged.departure_date,
-            merged.return_date,
-            { includeKids: hasChildrenInPassengers(merged.passengers) },
-          ),
-        });
+      if (merged.mode === "destination" && !merged.trip_rhythm && merged.departure_date) {
+        const skipRegionsOnInit = merged.exploration_scope === "island";
+        const needsRhythmForFamily = resolvedStep >= 4 && !isCyclingTrip(merged);
+        const needsRhythmForCycling =
+          isCyclingTrip(merged) && resolvedStep >= 5 && !skipRegionsOnInit;
+        if (needsRhythmForFamily || needsRhythmForCycling) {
+          merged = mergeTripContext(merged, {
+            trip_rhythm: defaultRhythmForTrip(
+              merged.departure_date,
+              merged.return_date,
+              {
+                includeKids:
+                  !isCyclingTrip(merged) &&
+                  hasChildrenInPassengers(merged.passengers),
+              },
+            ),
+          });
+        }
       }
     }
 
@@ -691,7 +695,7 @@ function SearchPageContent() {
         destination_label: label,
         from_date: trip.departure_date,
         to_date: trip.return_date ?? trip.departure_date,
-        rhythm: trip.trip_rhythm,
+        rhythm: trip.trip_rhythm ?? undefined,
       }),
     })
       .then(async (r) => {
@@ -717,6 +721,7 @@ function SearchPageContent() {
   }, [
     initialized,
     isDestinationFlow,
+    isCyclingFlow,
     step,
     trip.trip_rhythm,
     trip.destination_label,
@@ -1451,8 +1456,20 @@ function SearchPageContent() {
               if (skipRegionsStep) {
                 goToCyclingResults();
               } else {
+                setTrip((prev) => {
+                  const next = {
+                    ...prev,
+                    trip_rhythm:
+                      prev.trip_rhythm ??
+                      defaultRhythmForTrip(
+                        prev.departure_date!,
+                        prev.return_date,
+                      ),
+                  };
+                  syncUrl(next, 5);
+                  return next;
+                });
                 setStep(5);
-                syncUrl(trip, 5);
               }
               return;
             }
@@ -1514,7 +1531,7 @@ function SearchPageContent() {
         />
       )}
 
-      {showRegionsStep && trip.trip_rhythm && (
+      {showRegionsStep && (isCyclingFlow || trip.trip_rhythm) && (
         <>
           {regionsLoading && <SkeletonList count={2} />}
           {!regionsLoading && (
