@@ -1959,22 +1959,6 @@ function SearchPageContent() {
 
       {showPlanStep && results && !isSearching && (
         <section className="mt-8 space-y-8">
-          {isCyclingTrip(trip) && attractionMapOverview && (
-            <IslandOverviewSection
-              results={{ ...results, island_overview: attractionMapOverview }}
-              activityNames={activityNames}
-              taxonomyActivities={taxonomyActivities}
-              feasibility={
-                results.view_mode === "island" ? islandFeasibility : null
-              }
-              variant={results.view_mode === "island" ? "island" : "region"}
-              planIds={selectedAttractionPlanIds}
-              onPlanIdsChange={setSelectedAttractionPlanIds}
-              plannedCyclingRoutes={plannedCyclingRoutes}
-              onRemoveCyclingRoute={removeCyclingPlanRoute}
-            />
-          )}
-
           {isCyclingTrip(trip) && (
             <CyclingSearchPanel
               destinationLabel={
