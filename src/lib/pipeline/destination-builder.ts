@@ -14,6 +14,10 @@ import {
   getOrCreateDestinationSummary,
   type DestinationSummary,
 } from "@/lib/synthesis/destination-summary";
+import {
+  getOrCreateCyclingDestinationSummary,
+  type CyclingDestinationSummary,
+} from "@/lib/synthesis/cycling-destination-summary";
 import type {
   AttractionWithActivities,
   Destination,
@@ -34,8 +38,9 @@ export type BuildEvent =
   | {
       type: "ai_synthesis_loaded";
       from_cache: boolean;
-      summary: DestinationSummary;
+      summary: DestinationSummary | CyclingDestinationSummary;
       context_hash: string;
+      mode?: "cycling" | "family";
     }
   | { type: "complete"; duration_ms: number }
   | { type: "error"; step: string; message: string };
@@ -43,6 +48,7 @@ export type BuildEvent =
 export type DestinationBuildInput = {
   cluster: GeoCluster;
   selectedActivities: string[];
+  mode?: "cycling" | "family";
   trip?: {
     dateFrom?: string;
     dateTo?: string;
@@ -141,11 +147,11 @@ export async function* buildDestinationPage(
   };
 
   let googlePlaces: GooglePlace[] = [];
+  const isCycling = input.mode === "cycling";
   try {
-    const placeQueries = buildGooglePlacesQueries(
-      input.selectedActivities,
-      destinationName,
-    );
+    const placeQueries = isCycling
+      ? buildCyclingGooglePlacesQueries(destinationName)
+      : buildGooglePlacesQueries(input.selectedActivities, destinationName);
     const placeResults = await Promise.all(
       placeQueries
         .slice(0, 5)
@@ -172,29 +178,54 @@ export async function* buildDestinationPage(
 
   yield { type: "ai_synthesis_started" };
   try {
-    const result = await getOrCreateDestinationSummary({
-      destination,
-      selectedActivities: input.selectedActivities,
-      attractions: matchingAttractions,
-      allAttractions,
-      wikivoyage,
-      googlePlaces,
-      weatherSummary: weatherSummary ?? undefined,
-      familyProfile: input.trip?.adults
-        ? {
-            adults: input.trip.adults,
-            children_ages: input.trip.children_ages ?? [],
-            travel_style: input.trip.travel_style ?? "mixed",
-          }
-        : undefined,
-    });
-    await markStepComplete(buildId, "ai_synthesis");
-    yield {
-      type: "ai_synthesis_loaded",
-      from_cache: result.fromCache,
-      summary: result.summary,
-      context_hash: result.contextHash,
-    };
+    if (isCycling) {
+      const { count: routeCount } = await supabase
+        .from("activity_routes")
+        .select("*", { count: "exact", head: true })
+        .eq("destination_id", destination.id)
+        .eq("category", "cycling");
+
+      const result = await getOrCreateCyclingDestinationSummary({
+        destination,
+        wikivoyage,
+        googlePlaces,
+        weatherSummary: weatherSummary ?? undefined,
+        routeCount: routeCount ?? 0,
+      });
+      await markStepComplete(buildId, "ai_synthesis");
+      yield {
+        type: "ai_synthesis_loaded",
+        from_cache: result.fromCache,
+        summary: result.summary,
+        context_hash: result.contextHash,
+        mode: "cycling",
+      };
+    } else {
+      const result = await getOrCreateDestinationSummary({
+        destination,
+        selectedActivities: input.selectedActivities,
+        attractions: matchingAttractions,
+        allAttractions,
+        wikivoyage,
+        googlePlaces,
+        weatherSummary: weatherSummary ?? undefined,
+        familyProfile: input.trip?.adults
+          ? {
+              adults: input.trip.adults,
+              children_ages: input.trip.children_ages ?? [],
+              travel_style: input.trip.travel_style ?? "mixed",
+            }
+          : undefined,
+      });
+      await markStepComplete(buildId, "ai_synthesis");
+      yield {
+        type: "ai_synthesis_loaded",
+        from_cache: result.fromCache,
+        summary: result.summary,
+        context_hash: result.contextHash,
+        mode: "family",
+      };
+    }
   } catch (error) {
     yield { type: "error", step: "ai_synthesis", message: errorMsg(error) };
   }
@@ -333,6 +364,16 @@ function detectCountryFromCluster(cluster: GeoCluster): string | null {
 
 function guessWikivoyagePageName(name: string, _cluster: GeoCluster): string {
   return name.replace(/^Region: /, "").replace(/\s+/g, "_");
+}
+
+function buildCyclingGooglePlacesQueries(destinationName: string): string[] {
+  const dest = destinationName.replace(/^Region: /, "");
+  return [
+    `bike rental ${dest}`,
+    `bicycle shop ${dest}`,
+    `cycling tour ${dest}`,
+    `mountain bike rental ${dest}`,
+  ];
 }
 
 function buildGooglePlacesQueries(

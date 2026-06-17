@@ -32,6 +32,7 @@ type CyclingActivityContextValue = {
   generateRoute: () => Promise<void>;
   generating: boolean;
   routePaths: Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
+  destinationCenter: { lat: number; lng: number } | null;
 };
 
 const CyclingActivityContext = createContext<CyclingActivityContextValue | null>(
@@ -160,9 +161,11 @@ export function CyclingActivityProvider({
       generateRoute,
       generating,
       routePaths,
+      destinationCenter: destinationCenter ?? null,
     }),
     [
       destinationId,
+      destinationCenter,
       filters,
       routes,
       loading,

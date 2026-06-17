@@ -26,6 +26,7 @@ const buildRequestSchema = z.object({
     activity_counts: z.record(z.string(), z.number()),
   }),
   selected_activities: z.array(z.string()).min(1),
+  mode: z.enum(["cycling", "family"]).optional(),
   trip: z
     .object({
       date_from: z.string().optional(),
@@ -71,13 +72,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const { cluster, selected_activities, trip } = parsed.data;
+  const { cluster, selected_activities, trip, mode } = parsed.data;
   const requestId = crypto.randomUUID();
   const lockKey = `build:destination:${cluster.id}`;
 
   const buildInput = {
     cluster: cluster as unknown as GeoCluster,
     selectedActivities: selected_activities,
+    mode: mode ?? "family",
     trip: trip
       ? {
           dateFrom: trip.date_from,

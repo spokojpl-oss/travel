@@ -16,6 +16,8 @@ export const en: Messages = {
   hero: {
     title1: "Plan your holiday",
     title2: "tailored to ...",
+    titleCycling1: "Plan your cycling trip",
+    titleCycling2: "tailored to ...",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
     tabDestination: "family",
@@ -155,7 +157,11 @@ export const en: Messages = {
     titleResults: "Search results",
     titleCyclingResults: "Cycling regions",
     subtitleCyclingResults:
-      "Pick a region — you'll get road, gravel, and MTB routes with maps and filters.",
+      "Pick a cycling base — routes, elevation profiles, and region info for road, gravel, and MTB.",
+    cyclingResultsHeading: "Cycling bases",
+    cyclingResultsSubheading:
+      "Each area has route maps and cycling-focused info — no family holiday content.",
+    cyclingResultsCta: "View routes in this area →",
     titleActivities: "Choose activities",
     titleScope: "How do you want to explore?",
     subtitleScope:

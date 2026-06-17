@@ -27,6 +27,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     refreshRoutes,
     generateRoute,
     generating,
+    destinationCenter,
   } = useCyclingActivity();
 
   const { locale } = useLocale();
@@ -47,7 +48,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         if (cancelled || !mapContainerRef.current) return;
 
         const map = new maps.Map(mapContainerRef.current, {
-          center: { lat: 39.6, lng: 2.9 },
+          center: destinationCenter ?? { lat: 39.6, lng: 2.9 },
           zoom: 10,
           mapTypeControl: false,
           streetViewControl: false,
@@ -66,7 +67,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     return () => {
       cancelled = true;
     };
-  }, [locale, destinationId]);
+  }, [locale, destinationId, destinationCenter]);
 
   useEffect(() => {
     if (!mapInstance || routePaths.length === 0) return;
@@ -145,7 +146,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
           ) : (
             <div
               ref={mapContainerRef}
-              className="h-[360px] w-full rounded-b-xl"
+              className="h-[420px] w-full rounded-b-xl"
             />
           )}
           {mapReady && mapInstance && (

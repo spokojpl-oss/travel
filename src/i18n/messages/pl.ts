@@ -14,6 +14,8 @@ export const pl = {
   hero: {
     title1: "Zaplanuj wakacje",
     title2: "dopasowane do ...",
+    titleCycling1: "Zaplanuj wyjazd rowerowy",
+    titleCycling2: "dopasowany do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
     tabDestination: "rodziny",
@@ -153,7 +155,11 @@ export const pl = {
     titleResults: "Wyniki wyszukiwania",
     titleCyclingResults: "Regiony rowerowe",
     subtitleCyclingResults:
-      "Wybierz region — zobaczysz trasy szosowe, gravel i MTB z mapą i filtrami.",
+      "Wybierz bazę kolarską — zobaczysz trasy, profil wysokości i opis regionu pod szosę, gravel i MTB.",
+    cyclingResultsHeading: "Bazy kolarskie",
+    cyclingResultsSubheading:
+      "Każdy rejon ma mapę tras i opis pod kolarstwo — bez treści rodzinnych.",
+    cyclingResultsCta: "Zobacz trasy w tym rejonie →",
     titleActivities: "Wybierz aktywności",
     titleScope: "Jak chcecie zwiedzać?",
     subtitleScope:

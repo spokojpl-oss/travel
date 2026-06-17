@@ -99,6 +99,12 @@ export default function DestinationPage() {
   const activityMode = searchParams.get("activity") ?? undefined;
   const isCyclingMode = activityMode === "cycling";
 
+  useEffect(() => {
+    if (!isCyclingMode) return;
+    const params = new URLSearchParams(searchParams.toString());
+    router.replace(`/app/cycling/destination?${params.toString()}`);
+  }, [isCyclingMode, searchParams, router]);
+
   const trip = useMemo(
     () =>
       mergeTripContext(
@@ -428,6 +434,14 @@ export default function DestinationPage() {
     } finally {
       setIsBuilding(false);
     }
+  }
+
+  if (isCyclingMode) {
+    return (
+      <PageContainer>
+        <p className="text-sm text-text-secondary">Przekierowuję do strony rowerowej…</p>
+      </PageContainer>
+    );
   }
 
   if (error) {

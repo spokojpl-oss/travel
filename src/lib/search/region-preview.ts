@@ -114,3 +114,98 @@ export function buildRegionPreview({
     stayHint,
   };
 }
+
+export type CyclingRegionPreview = {
+  name: string;
+  overview: string;
+  cyclingHint: string;
+  infrastructureLine: string;
+};
+
+const CYCLING_SLUGS = new Set([
+  "cycling",
+  "bike_rental",
+  "ebike_rental",
+  "mountain_biking",
+  "hiking_trails",
+]);
+
+export function buildCyclingRegionPreview({
+  cluster,
+  destinationLabel,
+  locale = "pl",
+}: {
+  cluster: GeoCluster;
+  destinationLabel?: string;
+  locale?: Locale;
+}): CyclingRegionPreview {
+  const name = clusterDisplayName(cluster);
+  const base = cluster.settlement?.name ?? name;
+  const radius = Math.round(cluster.radius_km);
+
+  const bikeCounts = cluster.covered_activities
+    .filter((s) => CYCLING_SLUGS.has(s))
+    .map((slug) => {
+      const count = cluster.activity_counts[slug] ?? 0;
+      return count;
+    });
+  const totalBikePoints = bikeCounts.reduce((a, b) => a + b, 0);
+
+  const dest =
+    destinationLabel?.split(",")[0]?.trim() ||
+    destinationLabel?.trim() ||
+    null;
+
+  let overview: string;
+  let cyclingHint: string;
+
+  if (locale === "en") {
+    overview = dest
+      ? `${base} is a cycling base around ${dest} — ~${radius} km radius with ${totalBikePoints} bike-related points in our database.`
+      : `${base}: ~${radius} km riding radius, ${totalBikePoints} bike-related points.`;
+    cyclingHint =
+      totalBikePoints >= 5
+        ? "Enough infrastructure nearby for multi-day loops without long transfers."
+        : "Check generated routes and OSM paths — infrastructure may be sparse.";
+  } else {
+    overview = dest
+      ? `${base} to proponowana baza kolarska w rejonie ${dest}. Promień ~${radius} km, w bazie ${totalBikePoints} punktów związanych z kolarstwem.`
+      : `${base}: promień jazdy ~${radius} km, ${totalBikePoints} punktów rowerowych w okolicy.`;
+    cyclingHint =
+      totalBikePoints >= 5
+        ? "Dobra baza na wielodniowe pętle — wypożyczalnie i szlaki w zasięgu krótkiego dojazdu."
+        : "Sprawdź wygenerowane trasy i szlaki OSM — infrastruktura może być ograniczona.";
+  }
+
+  const infraParts = cluster.covered_activities
+    .filter((s) => CYCLING_SLUGS.has(s))
+    .map((slug) => {
+      const count = cluster.activity_counts[slug];
+      const labels: Record<string, string> =
+        locale === "en"
+          ? {
+              cycling: "cycling",
+              bike_rental: "bike rental",
+              ebike_rental: "e-bike rental",
+              mountain_biking: "MTB",
+              hiking_trails: "trails",
+            }
+          : {
+              cycling: "kolarstwo",
+              bike_rental: "wypożyczalnie",
+              ebike_rental: "e-bike",
+              mountain_biking: "MTB",
+              hiking_trails: "szlaki",
+            };
+      const label = labels[slug] ?? slug;
+      return count != null && count > 0 ? `${label} (${count})` : label;
+    })
+    .filter(Boolean);
+
+  return {
+    name,
+    overview,
+    cyclingHint,
+    infrastructureLine: infraParts.join(" · "),
+  };
+}

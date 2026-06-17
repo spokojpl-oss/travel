@@ -123,6 +123,7 @@ export function SearchStepIndicator({
   tripMode = "activities",
   skipRegionsStep = false,
   skipActivitiesStep = false,
+  cyclingMode = false,
 }: {
   step: SearchStep;
   onStep?: (s: SearchStep) => void;
@@ -132,11 +133,17 @@ export function SearchStepIndicator({
   skipRegionsStep?: boolean;
   /** Ukryj krok „Aktywności” w flow kolarstwa. */
   skipActivitiesStep?: boolean;
+  /** Uproszczony stepper: tylko wyjazd + wyniki. */
+  cyclingMode?: boolean;
 }) {
   const t = useT();
 
-  const steps =
-    tripMode === "destination"
+  const steps = cyclingMode
+    ? [
+        { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
+        { displayN: 2, label: t("steps.results"), key: "results", goto: 7 as SearchStep },
+      ]
+    : tripMode === "destination"
       ? [
           { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
           { displayN: 2, label: t("steps.scope"), key: "scope", goto: 2 as SearchStep },
@@ -181,8 +188,15 @@ export function SearchStepIndicator({
           { displayN: 3, label: t("steps.results"), key: "results", goto: 3 as SearchStep },
         ];
 
-  const currentStep =
-    tripMode === "destination" ? step : step >= 6 ? 3 : step;
+  const currentStep = cyclingMode
+    ? step >= 7
+      ? 7
+      : 2
+    : tripMode === "destination"
+      ? step
+      : step >= 6
+        ? 3
+        : step;
 
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-2">

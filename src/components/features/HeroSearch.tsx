@@ -128,7 +128,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         interests: "",
         destination: nextTrip.destination_label,
       });
-      params.set("step", "2");
+      params.set("step", isCyclingTab ? "7" : "2");
       router.push(`/app/search?${params.toString()}`);
     } finally {
       setSubmitting(false);
@@ -189,9 +189,11 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
                 : "text-4xl md:text-5xl lg:text-6xl xl:text-7xl",
             )}
           >
-            {t("hero.title1")}
+            {isCyclingTab ? t("hero.titleCycling1") : t("hero.title1")}
             <br />
-            <span className="text-accent-500">{t("hero.title2")}</span>
+            <span className="text-accent-500">
+              {isCyclingTab ? t("hero.titleCycling2") : t("hero.title2")}
+            </span>
           </h1>
           {!compact && (
             <p className="mx-auto mt-4 max-w-2xl text-base text-white/70">
