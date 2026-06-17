@@ -334,6 +334,32 @@ export function resolveCountryCodeFromLabel(label: string): string | null {
   return null;
 }
 
+/** Wyciąga kod kraju z pełnej etykiety, np. „Algarve, Portugalia” → PT. */
+export function resolveCountryCodeFromDestinationLabel(
+  destinationLabel: string,
+): string | null {
+  const parts = destinationLabel
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const code = resolveCountryCodeFromLabel(parts[i]!);
+    if (code) return code;
+  }
+
+  const normalized = normalizeCountrySearchText(destinationLabel);
+  let best: { code: string; len: number } | null = null;
+  for (const [name, code] of Object.entries(COUNTRY_CODES)) {
+    const key = normalizeCountrySearchText(name);
+    if (key.length < 3) continue;
+    if (normalized.includes(key) && (!best || key.length > best.len)) {
+      best = { code, len: key.length };
+    }
+  }
+  return best?.code ?? null;
+}
+
 export function numbeoCountryName(countryCode: string): string {
   return NUMBEO_COUNTRY[countryCode] ?? countryCode;
 }

@@ -261,7 +261,20 @@ function enrichTagsForMatching(
   return enriched;
 }
 
+function isCoastalBeach(tags: Record<string, unknown>): boolean {
+  const beach = String(tags.beach ?? "").toLowerCase();
+  if (beach === "river" || beach === "lake" || beach === "reservoir") {
+    return false;
+  }
+  const ele = Number(tags.ele ?? tags.elevation ?? 0);
+  if (Number.isFinite(ele) && ele > 120) return false;
+  return true;
+}
+
 function beachActivitySlugs(tags: Record<string, unknown>): string[] {
+  if (!isCoastalBeach(tags)) {
+    return ["hiking_trails", "viewpoints"];
+  }
   const surface = String(tags.surface ?? "").toLowerCase();
   if (surface.includes("sand")) return ["sandy_beaches"];
   if (/pebble|gravel|rock/.test(surface)) return ["rocky_beaches"];

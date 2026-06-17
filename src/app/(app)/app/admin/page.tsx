@@ -216,6 +216,8 @@ const EUROPE_SCRAPE_BUTTONS = [
   { label: "Włochy + Malta", bbox: "Italy + Malta" },
   { label: "Francja + Benelux", bbox: "France + Benelux" },
   { label: "Hiszpania + Wyspy", bbox: "Iberia + Madeira + Canary" },
+  { label: "Portugalia — regiony (puste)", action: "tourist-regions-portugal-empty" as const },
+  { label: "Portugalia — regiony (wszystkie)", action: "tourist-regions-portugal-all" as const },
   { label: "Niemcy + Alpy", bbox: "Germany + Alps" },
   { label: "UK + Irlandia", bbox: "UK + Ireland" },
   { label: "Nordyki", bbox: "Nordics" },
@@ -425,20 +427,28 @@ export default function AdminSetupPage() {
     }
   }
 
-  async function runTouristRegionScrapeQueue(mode: "empty" | "all") {
+  async function runTouristRegionScrapeQueue(
+    mode: "empty" | "all",
+    country: "portugal" | null = null,
+  ) {
     setScraping(true);
     setScrapeResult(null);
     setError(null);
     setQueueProgress([]);
     setQueueLabel(
-      mode === "all"
-        ? "OSM dla wszystkich regionów turystycznych…"
-        : "OSM dla pustych regionów turystycznych…",
+      country === "portugal"
+        ? mode === "all"
+          ? "OSM — wszystkie regiony Portugalii…"
+          : "OSM — puste regiony Portugalii…"
+        : mode === "all"
+          ? "OSM dla wszystkich regionów turystycznych…"
+          : "OSM dla pustych regionów turystycznych…",
     );
 
     try {
+      const countryQuery = country ? `&country=${country}` : "";
       const listRes = await fetch(
-        `/api/admin/scrape-tourist-regions?mode=${mode}`,
+        `/api/admin/scrape-tourist-regions?mode=${mode}${countryQuery}`,
       );
       const listData = (await listRes.json()) as {
         error?: string;
@@ -737,6 +747,7 @@ export default function AdminSetupPage() {
                         variant={
                           "action" in btn &&
                           (btn.action === "tourist-regions-empty" ||
+                            btn.action === "tourist-regions-portugal-empty" ||
                             btn.action === "queue-empty")
                             ? "primary"
                             : "secondary"
@@ -747,11 +758,15 @@ export default function AdminSetupPage() {
                               ? runScrapeEuropeQueue(
                                   btn.action === "queue-all" ? "all" : "empty",
                                 )
-                              : runTouristRegionScrapeQueue(
-                                  btn.action === "tourist-regions-all"
-                                    ? "all"
-                                    : "empty",
-                                )
+                              : btn.action === "tourist-regions-portugal-all"
+                                ? runTouristRegionScrapeQueue("all", "portugal")
+                                : btn.action === "tourist-regions-portugal-empty"
+                                  ? runTouristRegionScrapeQueue("empty", "portugal")
+                                  : runTouristRegionScrapeQueue(
+                                      btn.action === "tourist-regions-all"
+                                        ? "all"
+                                        : "empty",
+                                    )
                             : runScrape(btn.bbox)
                         }
                       >

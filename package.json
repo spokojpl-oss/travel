@@ -11,6 +11,7 @@
     "seed:airports": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-airports.ts",
     "scrape:osm": "node_modules/.bin/tsx --env-file=.env.local scripts/initial-scrape.ts",
     "scrape:europe": "node_modules/.bin/tsx --env-file=.env.local scripts/initial-scrape.ts -- --europe",
+    "scrape:portugal": "node_modules/.bin/tsx --env-file=.env.local scripts/scrape-portugal.ts",
     "audit:osm": "node_modules/.bin/tsx --env-file=.env.local scripts/audit-europe-coverage.ts",
     "scrape:cycling-osm": "node_modules/.bin/tsx --env-file=.env.local scripts/scrape-osm-cycling.ts",
     "list:cycling-destinations": "node_modules/.bin/tsx --env-file=.env.local scripts/list-cycling-destinations.ts",

@@ -26,6 +26,82 @@ const DEFAULT_FILL_ACTIVITIES = [
   "boat_tour",
 ] as const;
 
+const MOUNTAIN_FILL_ACTIVITIES = [
+  "viewpoints",
+  "hiking_trails",
+  "national_parks",
+  "waterfalls",
+  "caves",
+  "castles",
+  "archaeology",
+  "old_towns",
+  "museums",
+  "bike_rental",
+  "mountain_biking",
+] as const;
+
+const HISTORIC_FILL_ACTIVITIES = [
+  "viewpoints",
+  "museums",
+  "archaeology",
+  "castles",
+  "old_towns",
+  "hiking_trails",
+  "national_parks",
+] as const;
+
+const PORTUGAL_REGION_KEYS = new Set([
+  "portugalia",
+  "portugal",
+  "algarve",
+  "madeira",
+  "madera",
+  "azory",
+  "azores",
+  "lisbon",
+  "lizbona",
+  "lisboa",
+  "porto",
+  "funchal",
+]);
+
+/** Aktywności OSM dopasowane do charakteru regionu — bez plaż w górach. */
+export function fillActivitySlugsForRegion(region: TouristRegion): string[] {
+  const cycling =
+    region.id.includes("cycling") ||
+    region.id.startsWith("cy-") ||
+    region.slug.includes("cycling");
+
+  if (cycling || region.character === "wild") {
+    return [...MOUNTAIN_FILL_ACTIVITIES];
+  }
+  if (region.character === "historic") {
+    return [...HISTORIC_FILL_ACTIVITIES];
+  }
+  return [...DEFAULT_FILL_ACTIVITIES];
+}
+
+export function isPortugalTouristRegion(region: TouristRegion): boolean {
+  return region.destination_keys.some((key) =>
+    PORTUGAL_REGION_KEYS.has(key.toLowerCase()),
+  );
+}
+
+export function filterTouristRegionsByCountry(
+  regions: TouristRegionScrapeStatus[],
+  country: string | null,
+): TouristRegionScrapeStatus[] {
+  if (!country || country === "all") return regions;
+  if (country === "portugal") {
+    return regions.filter((r) =>
+      r.destination_keys.some((key) =>
+        PORTUGAL_REGION_KEYS.has(key.toLowerCase()),
+      ),
+    );
+  }
+  return regions;
+}
+
 export type TouristRegionScrapeStatus = {
   id: string;
   name_pl: string;
@@ -93,7 +169,7 @@ export async function scrapeTouristRegionOsm(
     lat: region.center_lat,
     lon: region.center_lon,
     radiusKm,
-    activitySlugs: [...DEFAULT_FILL_ACTIVITIES],
+    activitySlugs: fillActivitySlugsForRegion(region),
     searchBbox: bbox,
     forceRefresh: true,
   });

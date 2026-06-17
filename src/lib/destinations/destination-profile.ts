@@ -14,6 +14,8 @@ import {
 import { DESTINATION_CATALOG } from "@/lib/destinations/catalog";
 import {
   getEuropeDestinationProfiles,
+  numbeoCountryName,
+  resolveCountryCodeFromDestinationLabel,
   type EuropeDestinationProfile,
 } from "@/lib/destinations/europe-profiles";
 import { resolveEuropeProfileSlug } from "@/lib/destinations/profile-slug";
@@ -242,8 +244,12 @@ export async function buildDestinationProfile({
   const resolvedLon = lon ?? europeProfile?.lon ?? catalogHit?.lon;
   const name =
     europeProfile?.name ?? catalogHit?.name ?? destinationLabel.split(",")[0]?.trim() ?? destinationLabel;
+  const countryFromLabel = resolveCountryCodeFromDestinationLabel(destinationLabel);
   const countryCode =
-    europeProfile?.countryCode ?? catalogHit?.countryCode ?? null;
+    europeProfile?.countryCode ??
+    (catalogHit?.countryCode !== "XX" ? catalogHit?.countryCode : null) ??
+    countryFromLabel ??
+    null;
   const slug = europeProfile?.slug ?? resolveEuropeProfileSlug(destinationLabel);
 
   let climate: DestinationProfileClimate | null = null;
@@ -275,11 +281,27 @@ export async function buildDestinationProfile({
     }
   }
 
-  if (!budget && europeProfile) {
+  if (!budget && countryCode) {
     try {
-      const ctx = await prepareEuropeBudgetContext([europeProfile.countryCode]);
+      const profileForBudget: EuropeDestinationProfile =
+        europeProfile ?? {
+          slug: slug ?? `${name.toLowerCase().replace(/\s+/g, "-")}-${countryCode.toLowerCase()}`,
+          name,
+          country:
+            destinationLabel.split(",").pop()?.trim() ??
+            numbeoCountryName(countryCode),
+          countryCode,
+          kind: "region",
+          lat: resolvedLat ?? 0,
+          lon: resolvedLon ?? 0,
+          numbeoQuery: `${name}, ${numbeoCountryName(countryCode)}`,
+        };
+      const ctx = await prepareEuropeBudgetContext([
+        profileForBudget.countryCode,
+        "PL",
+      ]);
       const liveBudget = await buildDestinationBudgetProfile({
-        profile: europeProfile,
+        profile: profileForBudget,
         eurostatMap: ctx.eurostatMap,
         reference: ctx.reference,
       });

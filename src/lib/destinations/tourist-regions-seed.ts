@@ -8,6 +8,8 @@ import { SEED_TOURIST_REGIONS_POPULAR } from "./tourist-regions-seed-popular";
 import { SEED_TOURIST_REGIONS_TOP_EUROPE } from "./tourist-regions-seed-top-europe";
 import { SEED_TOURIST_REGIONS_CYCLING } from "./tourist-regions-seed-cycling";
 import { SEED_TOURIST_REGIONS_CYCLING_EUROPE } from "./tourist-regions-seed-cycling-europe";
+import { SEED_TOURIST_REGIONS_CYCLING_MECCA } from "./tourist-regions-seed-cycling-mecca";
+import { SEED_TOURIST_REGIONS_PORTUGAL } from "./tourist-regions-seed-portugal";
 
 export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   {
@@ -851,6 +853,8 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   ...SEED_TOURIST_REGIONS_CYPRUS,
   ...SEED_TOURIST_REGIONS_POPULAR,
   ...SEED_TOURIST_REGIONS_TOP_EUROPE,
+  ...SEED_TOURIST_REGIONS_PORTUGAL,
   ...SEED_TOURIST_REGIONS_CYCLING,
   ...SEED_TOURIST_REGIONS_CYCLING_EUROPE,
+  ...SEED_TOURIST_REGIONS_CYCLING_MECCA,
 ] as TouristRegion[];

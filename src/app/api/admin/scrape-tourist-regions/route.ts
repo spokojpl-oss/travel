@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/admin/auth";
 import {
+  filterTouristRegionsByCountry,
   listTouristRegionScrapeStatus,
   scrapeTouristRegionOsm,
 } from "@/lib/api/tourist-region-osm-scrape";
@@ -16,17 +17,20 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("mode") === "all" ? "all" : "empty";
+  const country = searchParams.get("country")?.trim().toLowerCase() ?? null;
 
   const regions = await listTouristRegionScrapeStatus();
+  const byCountry = filterTouristRegionsByCountry(regions, country);
   const filtered =
-    mode === "all" ? regions : regions.filter((r) => r.needsScrape);
+    mode === "all" ? byCountry : byCountry.filter((r) => r.needsScrape);
 
   return NextResponse.json({
     mode,
-    total: regions.length,
+    country: country ?? "all",
+    total: byCountry.length,
     count: filtered.length,
     regions: filtered,
-    emptyCount: regions.filter((r) => r.needsScrape).length,
+    emptyCount: byCountry.filter((r) => r.needsScrape).length,
   });
 }
 
