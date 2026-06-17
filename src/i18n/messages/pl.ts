@@ -16,8 +16,8 @@ export const pl = {
     title2: "dopasowane do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
-    tabDestination: "Destynacja",
-    tabCycling: "Kolarstwo",
+    tabDestination: "rodziny",
+    tabCycling: "siodła",
     search: "Szukaj wakacji",
     searchCycling: "Szukaj tras rowerowych",
     searching: "Przygotowuję wyszukiwanie...",

@@ -18,8 +18,8 @@ export const en: Messages = {
     title2: "tailored to ...",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
-    tabDestination: "Destination",
-    tabCycling: "Cycling",
+    tabDestination: "family",
+    tabCycling: "saddle",
     search: "Search holidays",
     searchCycling: "Find cycling routes",
     searching: "Preparing search...",

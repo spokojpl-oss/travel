@@ -30,7 +30,7 @@ export const ACTIVITY_REGISTRY: Partial<
 > = {
   cycling: {
     category: "cycling",
-    label: "Kolarstwo",
+    label: "Siodło",
     enabled: true,
     Filters: CyclingFilters,
     RoutesList: CyclingRoutesList,
