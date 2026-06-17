@@ -3,6 +3,10 @@ import type { TripDayTheme, TripRhythm } from "@/lib/search/trip-rhythm";
 import { activeThemes } from "@/lib/search/trip-rhythm";
 import { isCompactIslandDestination } from "@/lib/search/destination-size";
 import { distanceKm } from "@/lib/search/geo-clustering";
+import {
+  pointInIslandBbox,
+  resolveIslandBoundaryForSearch,
+} from "@/lib/destinations/island-boundary";
 import { DESTINATION_LABEL_ALIASES } from "@/lib/destinations/destination-label-aliases";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 
@@ -404,7 +408,13 @@ export function findTouristRegionsInCatalog(
 
   let pool = labelMatched;
 
-  if (coords && (cycling || pool.length < 4)) {
+  const islandBoundary = resolveIslandBoundaryForSearch(
+    destinationLabel,
+    coords ?? null,
+  );
+  const compactIsland = isCompactIslandDestination(destinationLabel);
+
+  if (coords && (cycling || pool.length < 4) && !compactIsland) {
     const radiusKm = cycling ? CYCLING_GEO_RADIUS_KM : FAMILY_GEO_RADIUS_KM;
     const geoMatched = catalog.filter((r) => {
       if (matchedIds.has(r.id)) return false;
@@ -414,6 +424,16 @@ export function findTouristRegionsInCatalog(
       );
     });
     pool = [...pool, ...geoMatched];
+  }
+
+  if (compactIsland && islandBoundary) {
+    pool = pool.filter((r) =>
+      pointInIslandBbox(
+        { lat: r.center_lat, lon: r.center_lon },
+        islandBoundary.bbox,
+        0.02,
+      ),
+    );
   }
 
   let scored = pool
