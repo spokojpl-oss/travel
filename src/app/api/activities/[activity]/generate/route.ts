@@ -54,8 +54,8 @@ export async function POST(
         surface_mix: route.surface_mix,
         is_loop: parsed.data.loop,
         start_point: pointGeoJson(
-          parsed.data.startLng,
-          parsed.data.startLat,
+          route.snappedLng,
+          route.snappedLat,
         ) as unknown as Json,
         geometry: route.geometryGeoJson as unknown as Json,
         elevation_profile: route.elevation_profile as unknown as Json,
