@@ -96,14 +96,21 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
       (r) => r.id === selectedRouteId && r.path.length > 0,
     );
     const bounds = new google.maps.LatLngBounds();
+    let pointCount = 0;
     if (selected) {
-      for (const point of selected.path) bounds.extend(point);
+      for (const point of selected.path) {
+        bounds.extend(point);
+        pointCount++;
+      }
     } else {
       for (const route of routePaths) {
-        for (const point of route.path) bounds.extend(point);
+        for (const point of route.path) {
+          bounds.extend(point);
+          pointCount++;
+        }
       }
     }
-    if (bounds.isEmpty()) return;
+    if (pointCount === 0) return;
     mapInstance.fitBounds(bounds, 48);
   }, [routePaths, mapInstance, selectedRouteId]);
 
