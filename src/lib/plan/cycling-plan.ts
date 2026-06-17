@@ -15,6 +15,106 @@ import type { TouristRegion } from "@/lib/destinations/tourist-regions";
 
 export const BEACH_ACTIVITY_SLUGS = ["sandy_beaches", "rocky_beaches"] as const;
 
+/** Po jeździe rowerem — tylko relaks nad wodą i widoki (bez kolejnych „aktywności”). */
+export const CYCLING_REST_ACTIVITY_SLUGS = [
+  ...BEACH_ACTIVITY_SLUGS,
+  "viewpoints",
+] as const;
+
+const CYCLING_ONLY_PICK_SLUGS = new Set([
+  "bike_rental",
+  "ebike_rental",
+  "mountain_biking",
+  "cycling",
+  "cycling_road",
+  "cycling_gravel",
+  "cycling_mtb",
+  "cycling_ebike",
+  "cycling_touring",
+]);
+
+const FAMOUS_CYCLING_CLIMB_RE =
+  /\b(girona|rocacorba|rocacorba|masa\b|mont ventoux|stelvio|gavia|mortirolo|passo\b|dolomit|alpe d.?huez|galibier|monte grappa|zoncolan|muro di sormano|cipressa|poggio\b|etna\b.*climb|sa calobra)\b/i;
+
+const VIEWPOINT_HINT_RE =
+  /widok|viewpoint|panoram|lookout|belvedere|mirador|scenic|view\b/i;
+
+export function isFamousCyclingHighlight(text: string): boolean {
+  return FAMOUS_CYCLING_CLIMB_RE.test(text);
+}
+
+export function isCyclingRestPick(pick: TouristRegion["picks"][number]): boolean {
+  if (pick.day_theme === "beach_relax") return true;
+
+  const text = `${pick.name_pl} ${pick.name_en} ${pick.why_pl} ${pick.why_en}`;
+  if (isFamousCyclingHighlight(text)) return true;
+
+  const slugs = pick.activity_slugs;
+  const hasCyclingSlug = slugs.some((s) => CYCLING_ONLY_PICK_SLUGS.has(s));
+  if (hasCyclingSlug) return false;
+
+  if (slugs.some((s) => (CYCLING_REST_ACTIVITY_SLUGS as readonly string[]).includes(s))) {
+    return true;
+  }
+  if (slugs.includes("viewpoints") || VIEWPOINT_HINT_RE.test(text)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function isCyclingRestPlaceCard(card: PlaceCard): boolean {
+  if (card.theme === "beach_relax") return true;
+  if (card.theme === "city_culture" || card.theme === "kids") return false;
+
+  const text = `${card.name} ${card.why} ${card.detail ?? ""}`;
+  if (isFamousCyclingHighlight(text)) return true;
+
+  if (card.theme === "active_outdoor") {
+    if (/wjazd|pętla|loop|climb|drogi lokalne|ride|tempo|gravel|szosa/i.test(text)) {
+      return false;
+    }
+    return VIEWPOINT_HINT_RE.test(text);
+  }
+
+  if (VIEWPOINT_HINT_RE.test(text)) return true;
+
+  return false;
+}
+
+/** Usuwa generyczne pętle kolarskie i karty bez realnego POI (pinezka w centrum rejonu). */
+export function filterDiscoverForCyclingRest(
+  discover: { placeCards: PlaceCard[]; suggestedIds: string[] },
+  regions: TouristRegion[] = [],
+): { placeCards: PlaceCard[]; suggestedIds: string[] } {
+  const placeCards = discover.placeCards.filter((card) => {
+    if (!isCyclingRestPlaceCard(card)) return false;
+
+    const region = regions.find((r) => r.id === card.regionId);
+    if (region && card.source === "pick" && card.theme === "active_outdoor") {
+      const atCenter =
+        distanceKm(
+          { lat: card.lat, lon: card.lon },
+          { lat: region.center_lat, lon: region.center_lon },
+        ) < 0.6;
+      if (atCenter || card.id.startsWith("curated:")) return false;
+    }
+
+    return true;
+  });
+
+  const allowed = new Set(placeCards.map((c) => c.id));
+  const suggestedIds = discover.suggestedIds.filter((id) => allowed.has(id));
+
+  return {
+    placeCards,
+    suggestedIds:
+      suggestedIds.length > 0
+        ? suggestedIds
+        : placeCards.filter((c) => c.recommended).slice(0, 6).map((c) => c.id),
+  };
+}
+
 const COASTAL_HINT_RE =
   /plaż|morz|zatok|port|nadmorz|wybrzeż|beach|sea|coast|harbour|harbor|bay|waterfront/i;
 
@@ -373,10 +473,13 @@ export function enhanceDiscoverForCycling({
   regions: TouristRegion[];
 }): { placeCards: PlaceCard[]; suggestedIds: string[] } {
   if (beaches.length === 0 && routes.length === 0) {
-    return {
-      placeCards: discover.placeCards,
-      suggestedIds: discover.suggestedIds,
-    };
+    return filterDiscoverForCyclingRest(
+      {
+        placeCards: discover.placeCards,
+        suggestedIds: discover.suggestedIds,
+      },
+      regions,
+    );
   }
 
   const beachIds = new Set(beaches.map((b) => b.id));
@@ -436,7 +539,7 @@ export function enhanceDiscoverForCycling({
         ].slice(0, 8)
       : discover.suggestedIds;
 
-  return { placeCards, suggestedIds };
+  return filterDiscoverForCyclingRest({ placeCards, suggestedIds }, regions);
 }
 
 function normalizeName(name: string): string {

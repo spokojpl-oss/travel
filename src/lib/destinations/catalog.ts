@@ -123,7 +123,16 @@ export const DESTINATION_CATALOG: DestinationSuggestion[] = [
     islandBbox: { north: 36.55, south: 36.33, east: 25.52, west: 25.32 },
     primaryAirports: ["JTR"],
   },
-  { name: "Dubrownik", country: "Chorwacja", aliases: ["dubrovnik"], geocodeQuery: "Dubrovnik, Croatia", lat: 42.6507, lon: 18.0944 },
+  { 
+    name: "Dubrownik",
+    country: "Chorwacja",
+    aliases: ["dubrovnik"],
+    geocodeQuery: "Dubrovnik, Croatia",
+    lat: 42.6507,
+    lon: 18.0944,
+    islandBbox: { north: 42.72, south: 42.52, east: 18.35, west: 18.0 },
+    primaryAirports: ["DBV"],
+  },
   { name: "Split", country: "Chorwacja", lat: 43.5081, lon: 16.4402 },
   {
     name: "Cypr",

@@ -8,6 +8,8 @@ import { distanceKm } from "@/lib/search/geo-clustering";
 import type { BoundingBox, GeoPoint } from "@/types/domain";
 import type { Database } from "@/types/database";
 
+const KM_PER_DEG_LAT = 111.32;
+
 type AirportRow = Database["public"]["Tables"]["airports"]["Row"];
 
 export type DestinationAirport = {
@@ -50,15 +52,19 @@ export async function findAirportsForDestination({
     west: searchBbox.west - margin,
   };
 
-  const { data: candidates } = await supabase
-    .from("airports")
-    .select("*")
-    .gte("lat", queryBbox.south)
-    .lte("lat", queryBbox.north)
-    .gte("lon", queryBbox.west)
-    .lte("lon", queryBbox.east)
-    .eq("scheduled_service", true)
-    .limit(50);
+  let candidates = await queryAirportsInBBox(supabase, queryBbox);
+
+  if ((!candidates || candidates.length === 0) && !island) {
+    const latRad = (center.lat * Math.PI) / 180;
+    const lonDeg = effectiveMaxDistance / (KM_PER_DEG_LAT * Math.max(0.25, Math.cos(latRad)));
+    const latDeg = effectiveMaxDistance / KM_PER_DEG_LAT;
+    candidates = await queryAirportsInBBox(supabase, {
+      north: center.lat + latDeg,
+      south: center.lat - latDeg,
+      east: center.lon + lonDeg,
+      west: center.lon - lonDeg,
+    });
+  }
 
   if (!candidates || candidates.length === 0) return [];
 
@@ -172,8 +178,26 @@ export async function getOrFindDestinationAirports({
     bbox,
     destinationLabel,
   });
-  await persistDestinationAirports(destinationId, airports);
+  if (airports.length > 0) {
+    await persistDestinationAirports(destinationId, airports);
+  }
   return airports;
+}
+
+async function queryAirportsInBBox(
+  supabase: ReturnType<typeof createAdminClient>,
+  queryBbox: BoundingBox,
+): Promise<AirportRow[]> {
+  const { data } = await supabase
+    .from("airports")
+    .select("*")
+    .gte("lat", queryBbox.south)
+    .lte("lat", queryBbox.north)
+    .gte("lon", queryBbox.west)
+    .lte("lon", queryBbox.east)
+    .eq("scheduled_service", true)
+    .limit(50);
+  return data ?? [];
 }
 
 function toDestinationAirport(

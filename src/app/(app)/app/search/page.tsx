@@ -1540,6 +1540,7 @@ function SearchPageContent() {
             return_date: trip.return_date,
             locale,
             with_kids: hasChildrenInPassengers(trip.passengers),
+            is_cycling: isCyclingTrip(trip),
           }),
         });
         if (!response.ok || cancelled) return;

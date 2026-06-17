@@ -70,6 +70,13 @@ export async function POST(request: Request) {
     destinationLabel: destination.name,
   });
 
+  const defaultOrigins = [...POLISH_AIRPORT_IATAS];
+  const origins = parsed.data.origins ?? defaultOrigins;
+  const maxOrigins =
+    parsed.data.max_origins ??
+    (parsed.data.origins ? parsed.data.origins.length : defaultOrigins.length);
+  const searchedOrigins = origins.slice(0, maxOrigins);
+
   if (destinationAirports.length === 0) {
     return NextResponse.json({
       result: {
@@ -82,16 +89,11 @@ export async function POST(request: Request) {
         destination_id: destination.id,
         destination_name: destination.name,
         destination_airports: [],
+        searched_origins: searchedOrigins,
         warning: "Brak lotnisk w pobliżu destynacji",
       },
     });
   }
-
-  const defaultOrigins = [...POLISH_AIRPORT_IATAS];
-  const origins = parsed.data.origins ?? defaultOrigins;
-  const maxOrigins =
-    parsed.data.max_origins ??
-    (parsed.data.origins ? parsed.data.origins.length : defaultOrigins.length);
 
   const destinations = destinationAirports
     .slice(0, parsed.data.max_destinations)
@@ -125,7 +127,7 @@ export async function POST(request: Request) {
       destination_id: destination.id,
       destination_name: destination.name,
       destination_airports: destinationAirports,
-      searched_origins: origins.slice(0, maxOrigins),
+      searched_origins: searchedOrigins,
     };
 
     return NextResponse.json({ result, meta });
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
           destination_id: destination.id,
           destination_name: destination.name,
           destination_airports: destinationAirports,
-          searched_origins: origins.slice(0, maxOrigins),
+          searched_origins: searchedOrigins,
           warning:
             "API niedostępne, pokazuję ostatnie znane ceny. Dane mogą być nieaktualne.",
           fallback_used: true,

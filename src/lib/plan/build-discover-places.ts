@@ -23,6 +23,10 @@ import type { TripDayTheme } from "@/lib/search/trip-rhythm";
 import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
 import type { Locale } from "@/i18n/config";
 import { curatedPickId } from "@/lib/plan/curated-day-trips";
+import {
+  CYCLING_REST_ACTIVITY_SLUGS,
+  isCyclingRestPick,
+} from "@/lib/plan/cycling-plan";
 
 export type PlaceCard = {
   id: string;
@@ -189,6 +193,7 @@ export function buildDiscoverPlaces({
   referencePoint,
   withKids = false,
   stayRadiusKm: stayRadiusKmParam,
+  cyclingRestMode = false,
 }: {
   pool: AttractionWithActivities[];
   catalog: TouristRegion[];
@@ -204,6 +209,8 @@ export function buildDiscoverPlaces({
   withKids?: boolean;
   /** Promień rejonu z wyszukiwania — ogranicza karty i sugestie do okolicy bazy. */
   stayRadiusKm?: number;
+  /** Kolarstwo: tylko plaże, punkty widokowe i słynne wjazdy (bez generycznych pętli). */
+  cyclingRestMode?: boolean;
 }): DiscoverPlacesResult {
   const regions = matchingRegionsForDestination(
     catalog,
@@ -244,6 +251,8 @@ export function buildDiscoverPlaces({
     const isPrimary = region.id === primaryRegion?.id;
 
     for (const pick of sortedPicks) {
+      if (cyclingRestMode && !isCyclingRestPick(pick)) continue;
+
       const key = normalizeName(pick.name_pl);
       if (seenNames.has(key)) continue;
 
@@ -261,6 +270,10 @@ export function buildDiscoverPlaces({
         recommended,
       );
       if (!card) continue;
+
+      if (cyclingRestMode && card.source === "pick" && card.id.startsWith("curated:") && card.theme !== "beach_relax") {
+        continue;
+      }
 
       seenNames.add(key);
       if (!seenIds.has(card.id)) {
@@ -283,6 +296,16 @@ export function buildDiscoverPlaces({
       primaryRegion?.id ?? "pool",
     );
     if (!card) continue;
+    if (cyclingRestMode) {
+      const slugs = a.activity_tags?.map((t) => t.activity_slug) ?? [];
+      const restOk =
+        card.theme === "beach_relax" ||
+        slugs.some((s) =>
+          (CYCLING_REST_ACTIVITY_SLUGS as readonly string[]).includes(s),
+        ) ||
+        slugs.includes("viewpoints");
+      if (!restOk) continue;
+    }
     seenIds.add(card.id);
     cards.push(card);
     extras += 1;

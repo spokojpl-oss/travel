@@ -245,6 +245,7 @@ export default function DestinationPage() {
             with_kids: hasChildrenInPassengers(trip.passengers),
             locale: "pl",
             region_context: planPayload.region ?? null,
+            is_cycling: isCyclingMode,
           }),
         });
 

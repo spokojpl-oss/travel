@@ -231,7 +231,7 @@ export function FlightsSection({
           <div>
             <h3 className="font-medium mb-1">{t("flights.destAirports")}</h3>
             <ul className="list-disc pl-5">
-              {results.meta.destination_airports.map((a) => (
+              {(results.meta.destination_airports ?? []).map((a) => (
                 <li key={a.iata_code}>
                   {a.iata_code} ({a.name}, {a.city ?? "-"}) –{" "}
                   {Math.round(a.distance_km)} km
@@ -240,9 +240,9 @@ export function FlightsSection({
             </ul>
             <p className="text-gray-600 mt-1">
               {t("flights.searchedFrom")}:{" "}
-              {results.meta.searched_origins
+              {(results.meta.searched_origins ?? [])
                 .map((iata) => polishAirportLabel(iata))
-                .join(", ")}
+                .join(", ") || "—"}
             </p>
           </div>
 

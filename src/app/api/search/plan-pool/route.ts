@@ -7,6 +7,7 @@ import {
   tripDaysFromDates,
 } from "@/lib/plan/build-plan-pool";
 import { buildDiscoverPlaces } from "@/lib/plan/build-discover-places";
+import { filterDiscoverForCyclingRest } from "@/lib/plan/cycling-plan";
 import { injectCuratedPicksForRegions } from "@/lib/plan/curated-day-trips";
 import { matchingRegionsForDestination } from "@/lib/plan/destination-story";
 import {
@@ -36,6 +37,7 @@ const bodySchema = z.object({
   return_date: z.string().nullable().optional(),
   with_kids: z.boolean().optional(),
   locale: z.enum(["pl", "en"]).optional(),
+  is_cycling: z.boolean().optional(),
   region_context: z
     .object({
       id: z.string().optional(),
@@ -204,12 +206,17 @@ export async function POST(request: Request) {
     referencePoint: anchorPoint,
     withKids: parsed.data.with_kids,
     stayRadiusKm: radii.stay_radius_km,
+    cyclingRestMode: parsed.data.is_cycling === true,
   });
+
+  const discoverFiltered = parsed.data.is_cycling
+    ? { ...discover, ...filterDiscoverForCyclingRest(discover, selectedRegions) }
+    : discover;
 
   return Response.json({
     cluster: enrichedCluster,
     attractionPool,
-    discover,
+    discover: discoverFiltered,
     tripDays,
     explorationScope: scope,
     exploreRadiusKm: radii.explore_radius_km,

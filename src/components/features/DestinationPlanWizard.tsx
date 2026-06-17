@@ -39,6 +39,7 @@ import {
   beachAttractionsFromPool,
   buildCyclingLodgingOptions,
   enhanceDiscoverForCycling,
+  filterDiscoverForCyclingRest,
   scoreCyclingLodgingOption,
   type CyclingTripAdvice,
 } from "@/lib/plan/cycling-plan";
@@ -103,25 +104,34 @@ export function DestinationPlanWizard({
   }, [matchedRegions, payload.cluster.center]);
 
   const discover = useMemo(() => {
-    if (payload.discover) return payload.discover;
-    return buildDiscoverPlaces({
-      pool: enrichedPool,
-      catalog: SEED_TOURIST_REGIONS,
-      destinationLabel: payload.destinationLabel ?? "",
-      touristRegionId: payload.touristRegionId,
-      touristRegionIds: payload.touristRegionIds,
-      regionContext: payload.region,
-      preferredActivities: payload.activities,
-      locale,
-      tripDays: payload.tripDays ?? 5,
-      explorationScope:
-        explorationScopeFromString(payload.explorationScope ?? null) ??
-        defaultExplorationScope(),
-      referencePoint: planAnchor,
-      withKids,
-      stayRadiusKm: payload.stayRadiusKm,
-    });
-  }, [payload, enrichedPool, locale, withKids, planAnchor, matchedRegions.length]);
+    const base =
+      payload.discover ??
+      buildDiscoverPlaces({
+        pool: enrichedPool,
+        catalog: SEED_TOURIST_REGIONS,
+        destinationLabel: payload.destinationLabel ?? "",
+        touristRegionId: payload.touristRegionId,
+        touristRegionIds: payload.touristRegionIds,
+        regionContext: payload.region,
+        preferredActivities: payload.activities,
+        locale,
+        tripDays: payload.tripDays ?? 5,
+        explorationScope:
+          explorationScopeFromString(payload.explorationScope ?? null) ??
+          defaultExplorationScope(),
+        referencePoint: planAnchor,
+        withKids,
+        stayRadiusKm: payload.stayRadiusKm,
+        cyclingRestMode: Boolean(payload.isCycling),
+      });
+
+    if (!payload.isCycling) return base;
+
+    return {
+      ...base,
+      ...filterDiscoverForCyclingRest(base, matchedRegions),
+    };
+  }, [payload, enrichedPool, locale, withKids, planAnchor, matchedRegions]);
 
   const placeCards = discover.placeCards;
   const story = discover.story;

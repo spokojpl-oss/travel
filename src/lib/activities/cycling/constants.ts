@@ -31,14 +31,14 @@ export const CYCLING_TAXONOMY_SLUGS = [
   "cycling",
   "sandy_beaches",
   "rocky_beaches",
+  "viewpoints",
 ] as const;
 
-/** Domyślnie zaznaczone na kroku aktywności — reszta w „Inne aktywności”. */
+/** Domyślnie zaznaczone na kroku aktywności — plaże i widoki; reszta w „Inne aktywności”. */
 export const CYCLING_DEFAULT_ACTIVITY_SLUGS = [
-  "bike_rental",
-  "ebike_rental",
   "sandy_beaches",
   "rocky_beaches",
+  "viewpoints",
 ] as const;
 
 export function defaultCyclingActivitySlugs(): string[] {
@@ -49,7 +49,7 @@ const CYCLING_PRIMARY_ACTIVITY_SLUGS = new Set<string>(
   CYCLING_DEFAULT_ACTIVITY_SLUGS,
 );
 
-/** Grupy widoczne od razu vs zwinięte — tylko wypożyczalnie i plaże na wierzchu. */
+/** Grupy widoczne od razu vs zwinięte — plaże i punkty widokowe na wierzchu. */
 export function splitTaxonomyForCycling(
   groups: Array<{
     slug: string;
@@ -62,25 +62,56 @@ export function splitTaxonomyForCycling(
   optionalGroups: typeof groups;
 } {
   const primaryGroups = groups
-    .filter((g) => g.slug === "beaches" || g.slug === "cycling")
-    .map((g) => ({
-      ...g,
-      activities: g.activities.filter((a) =>
-        CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
-      ),
-    }))
+    .filter((g) => g.slug === "beaches" || g.slug === "nature" || g.slug === "cycling")
+    .map((g) => {
+      if (g.slug === "cycling") {
+        return {
+          ...g,
+          activities: g.activities.filter((a) =>
+            CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
+          ),
+        };
+      }
+      if (g.slug === "nature") {
+        return {
+          ...g,
+          activities: g.activities.filter((a) => a.slug === "viewpoints"),
+        };
+      }
+      return {
+        ...g,
+        activities: g.activities.filter((a) =>
+          CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
+        ),
+      };
+    })
     .filter((g) => g.activities.length > 0);
 
   const optionalGroups = groups
-    .filter((g) => g.slug !== "beaches")
     .map((g) => {
-      if (g.slug !== "cycling") return g;
-      return {
-        ...g,
-        activities: g.activities.filter(
-          (a) => !CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
-        ),
-      };
+      if (g.slug === "beaches") {
+        return {
+          ...g,
+          activities: g.activities.filter(
+            (a) => !CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
+          ),
+        };
+      }
+      if (g.slug === "nature") {
+        return {
+          ...g,
+          activities: g.activities.filter((a) => a.slug !== "viewpoints"),
+        };
+      }
+      if (g.slug === "cycling") {
+        return {
+          ...g,
+          activities: g.activities.filter(
+            (a) => !CYCLING_PRIMARY_ACTIVITY_SLUGS.has(a.slug),
+          ),
+        };
+      }
+      return g;
     })
     .filter((g) => g.activities.length > 0);
 
