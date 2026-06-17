@@ -57,7 +57,8 @@ export function isPlausibleCyclingRoute({
   return true;
 }
 
-export function isPlausibleStoredRoute(
+/** Czy start trasy leży w rejonie (z tolerancją jak przy generowaniu ORS). */
+export function storedRouteMatchesRegionCenter(
   distanceM: number,
   coordinates: Array<{ lat: number; lng: number }>,
   centerLat: number,
@@ -67,12 +68,29 @@ export function isPlausibleStoredRoute(
   if (distanceM > 250_000) return false;
   if (coordinates.length < 2) return false;
 
-  const maxFromCenter = maxDistanceFromPointM(
-    coordinates.map((p) => [p.lng, p.lat]),
+  const start = coordinates[0]!;
+  const startDistM = haversineM(start.lat, start.lng, centerLat, centerLng);
+  const allowedStartRadiusM = Math.max(
+    maxRadiusKm * 1000,
+    Math.min(distanceM * 0.45 + 8_000, maxRadiusKm * 1000 + 5_000),
+  );
+  return startDistM <= allowedStartRadiusM;
+}
+
+export function isPlausibleStoredRoute(
+  distanceM: number,
+  coordinates: Array<{ lat: number; lng: number }>,
+  centerLat: number,
+  centerLng: number,
+  maxRadiusKm = 35,
+): boolean {
+  return storedRouteMatchesRegionCenter(
+    distanceM,
+    coordinates,
     centerLat,
     centerLng,
+    maxRadiusKm,
   );
-  return maxFromCenter <= maxRadiusKm * 1000;
 }
 
 export type RouteRegionCenter = {
@@ -81,7 +99,7 @@ export type RouteRegionCenter = {
   radiusKm: number;
 };
 
-/** Trasa pasuje, jeśli leży w promieniu co najmniej jednego wybranego rejonu. */
+/** Trasa pasuje, jeśli start leży w promieniu co najmniej jednego wybranego rejonu. */
 export function isPlausibleStoredRouteForRegions(
   distanceM: number,
   coordinates: Array<{ lat: number; lng: number }>,
@@ -89,7 +107,7 @@ export function isPlausibleStoredRouteForRegions(
 ): boolean {
   if (regions.length === 0) return true;
   return regions.some((region) =>
-    isPlausibleStoredRoute(
+    storedRouteMatchesRegionCenter(
       distanceM,
       coordinates,
       region.lat,

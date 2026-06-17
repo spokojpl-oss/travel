@@ -30,6 +30,10 @@ import {
   buildRegionBatchTargets,
 } from "@/lib/activities/cycling/route-distribution";
 import {
+  buildRegionTopUpTargets,
+  formatRegionBatchSummary,
+} from "@/lib/activities/cycling/region-route-balance";
+import {
   isPlausibleStoredRoute,
   isPlausibleStoredRouteForRegions,
 } from "@/lib/activities/cycling/route-validation";
@@ -43,6 +47,8 @@ const ROUTES_FETCH_LIMIT = 50;
 type GenerateRouteOptions = {
   count?: number;
   mode?: "destination" | "regions";
+  /** Uzupełnij tylko brakujące trasy w rejonach (startowy seed). */
+  topUpOnly?: boolean;
 };
 
 type CyclingActivityContextValue = {
@@ -290,17 +296,6 @@ export function CyclingActivityProvider({
     runKomootScrapeInBackground,
   ]);
 
-  const fetchAllRouteCount = useCallback(async () => {
-    const params = new URLSearchParams({
-      destinationId,
-      limit: String(ROUTES_FETCH_LIMIT),
-    });
-    const res = await fetch(`/api/activities/cycling/routes?${params}`);
-    if (!res.ok) return 0;
-    const data = (await res.json()) as { routes: ActivityRoute[] };
-    return (data.routes ?? []).length;
-  }, [destinationId]);
-
   const generateRoutes = useCallback(
     async (options?: GenerateRouteOptions) => {
       const destCenter = destinationCenter ?? routeCenter;
@@ -323,15 +318,24 @@ export function CyclingActivityProvider({
       let summary: string | null = null;
 
       if (mode === "regions" && resolvedRegionCenters.length > 0) {
-        const targets = buildRegionBatchTargets(
-          resolvedRegionCenters.map((r) => ({
-            centerLat: r.lat,
-            centerLng: r.lng,
-            maxRadiusKm: r.radiusKm ?? regionRadiusKm,
-            label: r.label,
-          })),
-          totalCount,
-        );
+        const regionInputs = resolvedRegionCenters.map((r) => ({
+          centerLat: r.lat,
+          centerLng: r.lng,
+          maxRadiusKm: r.radiusKm ?? regionRadiusKm,
+          label: r.label,
+        }));
+
+        const targets =
+          options?.topUpOnly === true
+            ? buildRegionTopUpTargets(
+                routes,
+                resolvedRegionCenters,
+                totalCount,
+              )
+            : buildRegionBatchTargets(regionInputs, totalCount);
+
+        if (targets.length === 0) return;
+
         regionsPayload = targets.map((t) => ({
           centerLat: t.centerLat,
           centerLng: t.centerLng,
@@ -376,6 +380,28 @@ export function CyclingActivityProvider({
               : "Generowanie tras nie powiodło się",
           );
         }
+        const batch = (await res.json()) as {
+          created?: number;
+          failed?: number;
+          regions?: Array<{ label?: string; requested: number; created: number }>;
+        };
+        const batchSummary = formatRegionBatchSummary(batch.regions ?? []);
+        if (batchSummary) setRegionBatchSummary(batchSummary);
+
+        const incomplete = (batch.regions ?? []).filter(
+          (region) => region.created < region.requested,
+        );
+        if (incomplete.length > 0) {
+          setError(
+            `Wygenerowano ${batch.created ?? 0} tras. Brakuje w: ${incomplete
+              .map(
+                (region) =>
+                  `${region.label ?? "rejon"} (${region.created}/${region.requested})`,
+              )
+              .join(", ")}.`,
+          );
+        }
+
         await refreshRoutes({ silent: true });
         runOsmScrapeInBackground();
       } catch (e) {
@@ -403,24 +429,37 @@ export function CyclingActivityProvider({
 
     seededDestinationRef.current = destinationId;
 
-    await refreshRoutes();
+    const currentRoutes = await refreshRoutes();
     runOsmScrapeInBackground();
 
-    const totalInDb = await fetchAllRouteCount();
-    if (totalInDb >= INITIAL_DESTINATION_ROUTE_COUNT) return;
+    if (resolvedRegionCenters.length > 1) {
+      const topUp = buildRegionTopUpTargets(
+        currentRoutes,
+        resolvedRegionCenters,
+        INITIAL_DESTINATION_ROUTE_COUNT,
+      );
+      if (topUp.length === 0) return;
+      await generateRoutes({
+        count: INITIAL_DESTINATION_ROUTE_COUNT,
+        mode: "regions",
+        topUpOnly: true,
+      });
+      return;
+    }
+
+    if (currentRoutes.length >= INITIAL_DESTINATION_ROUTE_COUNT) return;
 
     await generateRoutes({
       count: INITIAL_DESTINATION_ROUTE_COUNT,
-      mode: resolvedRegionCenters.length > 1 ? "regions" : "destination",
+      mode: "destination",
     });
   }, [
     destinationId,
     destinationCenter,
     routeCenter,
-    resolvedRegionCenters.length,
+    resolvedRegionCenters,
     generateRoutes,
     refreshRoutes,
-    fetchAllRouteCount,
     runOsmScrapeInBackground,
   ]);
 

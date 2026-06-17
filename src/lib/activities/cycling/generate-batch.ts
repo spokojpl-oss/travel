@@ -40,6 +40,12 @@ const ROUTE_PRESET_TEMPLATES: Array<{
   { targetDistanceKm: 65, activityType: "cycling_touring" },
 ];
 
+export type RegionBatchResult = {
+  label?: string;
+  requested: number;
+  created: number;
+};
+
 export function buildRoutePresets(
   count: number,
   startIndex = 0,
@@ -53,27 +59,6 @@ export function buildRoutePresets(
       targetDistanceKm: template.targetDistanceKm + cycle * 4,
     };
   });
-}
-
-async function runPool<T, R>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-
-  async function runWorker() {
-    while (nextIndex < items.length) {
-      const i = nextIndex++;
-      results[i] = await worker(items[i]!, i);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker()),
-  );
-  return results;
 }
 
 type RouteJob = {
@@ -119,41 +104,18 @@ async function hasSimilarStoredRoute(
   return false;
 }
 
-export async function generateCyclingRoutesBatch({
-  destinationId,
-  regions,
-  concurrency = 5,
-  presetStartIndex = 0,
-}: {
-  destinationId: string;
-  regions: CyclingRouteRegionTarget[];
-  concurrency?: number;
-  presetStartIndex?: number;
-}): Promise<{ created: number; failed: number; routeIds: string[] }> {
-  const supabase = createAdminClient();
+const MAX_ROUTE_ATTEMPTS = 8;
 
-  const jobs: RouteJob[] = [];
-  let presetCursor = presetStartIndex;
-
-  for (const region of regions) {
-    const presets = buildRoutePresets(region.count, presetCursor);
-    presetCursor += region.count;
-    const maxRadiusKm = region.maxRadiusKm ?? DEFAULT_REGION_RADIUS_KM;
-
-    for (let i = 0; i < presets.length; i++) {
-      jobs.push({
-        preset: presets[i]!,
-        centerLat: region.centerLat,
-        centerLng: region.centerLng,
-        maxRadiusKm,
-        label: region.label,
-        globalIndex: jobs.length,
-      });
-    }
-  }
-
-  const outcomes = await runPool(jobs, concurrency, async (job) => {
+async function tryCreateRouteJob(
+  supabase: ReturnType<typeof createAdminClient>,
+  destinationId: string,
+  job: RouteJob,
+  presetStartIndex: number,
+): Promise<{ ok: true; id: string } | { ok: false }> {
+  for (let attempt = 0; attempt < MAX_ROUTE_ATTEMPTS; attempt++) {
     try {
+      const seed =
+        presetStartIndex + job.globalIndex * 17 + attempt * 31 + 1;
       const route = await generateCyclingRoute({
         startLat: job.centerLat,
         startLng: job.centerLng,
@@ -161,11 +123,11 @@ export async function generateCyclingRoutesBatch({
         activityType: job.preset.activityType,
         loop: true,
         maxRadiusKm: job.maxRadiusKm,
-        seed: presetStartIndex + job.globalIndex + 1,
+        seed,
       });
 
       const geometryWkt = lineStringWkt(route.geometryGeoJson.coordinates);
-      if (!geometryWkt) return { ok: false as const };
+      if (!geometryWkt) continue;
 
       const duplicate = await hasSimilarStoredRoute(
         supabase,
@@ -175,7 +137,7 @@ export async function generateCyclingRoutesBatch({
         route.snappedLat,
         route.snappedLng,
       );
-      if (duplicate) return { ok: false as const, duplicate: true as const };
+      if (duplicate) continue;
 
       const typeLabel = job.preset.activityType.replace("cycling_", "");
       const regionSuffix = job.label ? ` · ${job.label}` : "";
@@ -201,21 +163,80 @@ export async function generateCyclingRoutesBatch({
         .select("id")
         .single();
 
-      if (error || !data?.id) return { ok: false as const };
-      return { ok: true as const, id: data.id };
+      if (error || !data?.id) continue;
+      return { ok: true, id: data.id };
     } catch {
-      return { ok: false as const };
+      /* spróbuj inny seed / profil ORS */
     }
-  });
+  }
 
-  const routeIds = outcomes
-    .filter((o): o is { ok: true; id: string } => o.ok)
-    .map((o) => o.id);
+  return { ok: false };
+}
+
+export async function generateCyclingRoutesBatch({
+  destinationId,
+  regions,
+  presetStartIndex = 0,
+}: {
+  destinationId: string;
+  regions: CyclingRouteRegionTarget[];
+  concurrency?: number;
+  presetStartIndex?: number;
+}): Promise<{
+  created: number;
+  failed: number;
+  routeIds: string[];
+  regions: RegionBatchResult[];
+}> {
+  const supabase = createAdminClient();
+  const routeIds: string[] = [];
+  const regionResults: RegionBatchResult[] = [];
+  let globalIndex = 0;
+  let presetCursor = presetStartIndex;
+
+  for (const region of regions) {
+    const presets = buildRoutePresets(region.count, presetCursor);
+    presetCursor += region.count;
+    const maxRadiusKm = region.maxRadiusKm ?? DEFAULT_REGION_RADIUS_KM;
+    let regionCreated = 0;
+
+    for (const preset of presets) {
+      const job: RouteJob = {
+        preset,
+        centerLat: region.centerLat,
+        centerLng: region.centerLng,
+        maxRadiusKm,
+        label: region.label,
+        globalIndex,
+      };
+      globalIndex += 1;
+
+      const outcome = await tryCreateRouteJob(
+        supabase,
+        destinationId,
+        job,
+        presetStartIndex,
+      );
+      if (outcome.ok) {
+        routeIds.push(outcome.id);
+        regionCreated += 1;
+      }
+    }
+
+    regionResults.push({
+      label: region.label,
+      requested: presets.length,
+      created: regionCreated,
+    });
+  }
+
+  const requestedTotal = regionResults.reduce((sum, r) => sum + r.requested, 0);
 
   return {
     created: routeIds.length,
-    failed: outcomes.length - routeIds.length,
+    failed: requestedTotal - routeIds.length,
     routeIds,
+    regions: regionResults,
   };
 }
 
@@ -227,7 +248,6 @@ export async function generateCyclingRoutesAtCenter({
   count = BATCH_ROUTE_COUNT,
   maxRadiusKm = DEFAULT_REGION_RADIUS_KM,
   presetStartIndex = 0,
-  concurrency = 5,
 }: {
   destinationId: string;
   centerLat: number;
@@ -236,11 +256,15 @@ export async function generateCyclingRoutesAtCenter({
   maxRadiusKm?: number;
   presetStartIndex?: number;
   concurrency?: number;
-}): Promise<{ created: number; failed: number; routeIds: string[] }> {
+}): Promise<{
+  created: number;
+  failed: number;
+  routeIds: string[];
+  regions: RegionBatchResult[];
+}> {
   return generateCyclingRoutesBatch({
     destinationId,
     regions: [{ centerLat, centerLng, count, maxRadiusKm }],
-    concurrency,
     presetStartIndex,
   });
 }
