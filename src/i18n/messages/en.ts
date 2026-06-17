@@ -498,6 +498,22 @@ export const en: Messages = {
   destination: {
     cyclingRoutesTitle: "Cycling routes in your plan",
     cyclingRouteOpenMaps: "Route start in Google Maps",
+    cyclingSummaryTitle: "Summary",
+    cyclingSummarySubtitle:
+      "Lodging base, selected cycling routes, places on the map, and driving distances — all in one place.",
+    cyclingSummaryBase: "Lodging base",
+    cyclingSummaryRoutes: "Cycling routes",
+    cyclingSummaryRoutesHint: "{km} km of cycling planned",
+    cyclingSummaryNoRoutes: "Add routes in search",
+    cyclingSummaryElevation: "Elevation gain",
+    cyclingSummaryElevationHint: "Total elevation of selected routes",
+    cyclingSummaryPlaces: "Places in plan",
+    cyclingSummaryTripDays: "Trip: {n} days",
+    cyclingSummaryMapTitle: "Plan map",
+    cyclingSummarySelectedPlaces: "Selected places",
+    cyclingSummaryAiTitle: "Trip overview",
+    cyclingSummaryWhyMatch: "Why it fits:",
+    cyclingSummaryTips: "Local tips",
   },
   cycling: {
     komootOpenTour: "Open in Komoot",

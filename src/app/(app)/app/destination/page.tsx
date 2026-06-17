@@ -30,8 +30,8 @@ import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
+import { CyclingTripSummarySection } from "@/components/features/CyclingTripSummarySection";
 import { LocalServicesSection } from "@/components/features/LocalServicesSection";
-import { CyclingRoutesPlanLinks } from "@/components/features/CyclingRoutesPlanLinks";
 import { useT } from "@/i18n/locale-provider";
 
 type BuildEvent = {
@@ -366,7 +366,7 @@ export default function DestinationPage() {
             adults: passengers.adults,
             children_ages: passengers.childAges,
           },
-          mode: "family",
+          mode: isCyclingMode || planPayload?.isCycling ? "cycling" : "family",
         }),
       });
 
@@ -493,7 +493,16 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && mapData && (
+      {planComplete && isCyclingMode && cluster && planPayload && (
+        <CyclingTripSummarySection
+          cluster={cluster}
+          payload={planPayload}
+          summary={summary}
+          summaryLoading={isBuilding && !summary}
+        />
+      )}
+
+      {planComplete && !isCyclingMode && mapData && (
         <section className="mb-8">
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
@@ -517,7 +526,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && summary && (
+      {planComplete && !isCyclingMode && summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -593,7 +602,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && isBuilding && !summary && (
+      {planComplete && !isCyclingMode && isBuilding && !summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -671,10 +680,6 @@ export default function DestinationPage() {
           />
         </ErrorBoundary>
       )}
-
-      {planComplete && isCyclingMode && planPayload?.selectedCyclingRoutes?.length ? (
-        <CyclingRoutesPlanLinks routes={planPayload.selectedCyclingRoutes} />
-      ) : null}
 
       {planComplete && isComplete && destination && (
         <p className="flex items-center gap-2 text-sm text-success">

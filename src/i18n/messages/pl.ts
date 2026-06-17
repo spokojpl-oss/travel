@@ -498,6 +498,22 @@ export const pl = {
   destination: {
     cyclingRoutesTitle: "Trasy rowerowe w planie",
     cyclingRouteOpenMaps: "Start trasy w Google Maps",
+    cyclingSummaryTitle: "Podsumowanie",
+    cyclingSummarySubtitle:
+      "Baza noclegowa, wybrane trasy rowerowe, miejsca na mapie i odległości samochodem — wszystko w jednym miejscu.",
+    cyclingSummaryBase: "Baza noclegowa",
+    cyclingSummaryRoutes: "Trasy rowerowe",
+    cyclingSummaryRoutesHint: "Łącznie {km} km roweru w planie",
+    cyclingSummaryNoRoutes: "Dodaj trasy w wyszukiwarce",
+    cyclingSummaryElevation: "Przewyższenie",
+    cyclingSummaryElevationHint: "Suma przewyższeń wybranych tras",
+    cyclingSummaryPlaces: "Miejsca w planie",
+    cyclingSummaryTripDays: "Wyjazd: {n} dni",
+    cyclingSummaryMapTitle: "Mapa planu",
+    cyclingSummarySelectedPlaces: "Wybrane miejsca",
+    cyclingSummaryAiTitle: "Opis wyjazdu",
+    cyclingSummaryWhyMatch: "Dlaczego pasuje:",
+    cyclingSummaryTips: "Lokalne wskazówki",
   },
   cycling: {
     komootOpenTour: "Otwórz w Komoot",
