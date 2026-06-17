@@ -10,6 +10,7 @@ import { SEED_TOURIST_REGIONS_CYCLING } from "./tourist-regions-seed-cycling";
 import { SEED_TOURIST_REGIONS_CYCLING_EUROPE } from "./tourist-regions-seed-cycling-europe";
 import { SEED_TOURIST_REGIONS_CYCLING_MECCA } from "./tourist-regions-seed-cycling-mecca";
 import { SEED_TOURIST_REGIONS_PORTUGAL } from "./tourist-regions-seed-portugal";
+import { SEED_TOURIST_REGIONS_CATALOG } from "./tourist-regions-seed-catalog";
 
 export const SEED_TOURIST_REGIONS_RAW: TouristRegion[] = [
   {
@@ -857,6 +858,7 @@ export const SEED_TOURIST_REGIONS_RAW: TouristRegion[] = [
   ...SEED_TOURIST_REGIONS_CYCLING,
   ...SEED_TOURIST_REGIONS_CYCLING_EUROPE,
   ...SEED_TOURIST_REGIONS_CYCLING_MECCA,
+  ...SEED_TOURIST_REGIONS_CATALOG,
 ] as TouristRegion[];
 
 /** Ostatni wpis wygrywa przy tym samym `id`; przy konflikcie `slug` zostaje pierwszy. */

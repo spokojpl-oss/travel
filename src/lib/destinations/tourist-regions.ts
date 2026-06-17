@@ -3,6 +3,7 @@ import type { TripDayTheme, TripRhythm } from "@/lib/search/trip-rhythm";
 import { activeThemes } from "@/lib/search/trip-rhythm";
 import { isCompactIslandDestination } from "@/lib/search/destination-size";
 import { distanceKm } from "@/lib/search/geo-clustering";
+import { DESTINATION_LABEL_ALIASES } from "@/lib/destinations/destination-label-aliases";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 
 export type RegionCharacter = "resort" | "historic" | "wild" | "mixed";
@@ -122,32 +123,15 @@ function transliterateGreek(text: string): string {
   return [...text].map((char) => map[char] ?? char).join("");
 }
 
-/** Polskie nazwy miast → dodatkowe klucze dopasowania (EN + lokalne). */
-const DESTINATION_LABEL_ALIASES: Record<string, string[]> = {
-  alikante: ["alicante", "costa blanca", "comunidad valenciana", "wspolnota walencka"],
-  walencja: ["valencia", "comunidad valenciana"],
-  majorka: ["mallorca", "majorca", "baleares"],
-  lizbona: ["lisbon", "lisboa"],
-  madryt: ["madrid"],
-  barcelona: ["catalonia", "katalonia"],
-  sewilla: ["seville", "sevilla", "andaluzja"],
-  granada: ["andaluzja", "sierra nevada"],
-  malaga: ["malaga", "costa del sol"],
-  kreta: ["crete"],
-  cypr: ["cyprus"],
-  korfu: ["corfu"],
-  rodos: ["rhodes"],
-  dubrownik: ["dubrovnik"],
-  split: ["dalmatia", "dalmacja"],
-};
-
 const CYCLING_GEO_RADIUS_KM = 110;
+const FAMILY_GEO_RADIUS_KM = 90;
 
 export function isCyclingTouristRegion(region: TouristRegion): boolean {
   return (
     region.slug.includes("cycling") ||
     region.id.startsWith("cy-") ||
-    region.id.includes("-cycling")
+    region.id.includes("-cycling") ||
+    region.id.startsWith("gr-crete-")
   );
 }
 
@@ -420,13 +404,13 @@ export function findTouristRegionsInCatalog(
 
   let pool = labelMatched;
 
-  if (cycling && coords) {
+  if (coords && (cycling || pool.length < 4)) {
+    const radiusKm = cycling ? CYCLING_GEO_RADIUS_KM : FAMILY_GEO_RADIUS_KM;
     const geoMatched = catalog.filter((r) => {
       if (matchedIds.has(r.id)) return false;
-      if (!isCyclingTouristRegion(r)) return false;
+      if (cycling && !isCyclingTouristRegion(r)) return false;
       return (
-        distanceKm(coords, { lat: r.center_lat, lon: r.center_lon }) <=
-        CYCLING_GEO_RADIUS_KM
+        distanceKm(coords, { lat: r.center_lat, lon: r.center_lon }) <= radiusKm
       );
     });
     pool = [...pool, ...geoMatched];

@@ -17,6 +17,7 @@
     "list:cycling-destinations": "node_modules/.bin/tsx --env-file=.env.local scripts/list-cycling-destinations.ts",
     "seed:europe": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-europe-climate.ts",
     "seed:tourist-regions": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-tourist-regions.ts",
+    "generate:catalog-regions": "node_modules/.bin/tsx scripts/generate-catalog-region-seeds.ts",
     "generate:airports-sql": "node scripts/generate-airports-sql.mjs",
     "generate:icons": "node scripts/generate-icons.mjs"
   },

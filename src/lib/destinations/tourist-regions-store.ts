@@ -18,12 +18,14 @@ function resolveTouristRegionLimit(
     rhythm.preset === "cycling_only" || rhythm.preset === "cycling_beach_mix";
 
   if (norm.includes("kreta") || norm.includes("crete")) return 20;
-  if (norm.includes("cypr") || norm.includes("cyprus")) return 11;
+  if (norm.includes("cypr") || norm.includes("cyprus")) return 12;
   if (
     norm.includes("mallorca") ||
     norm.includes("majorka") ||
     norm.includes("sycylia") ||
-    norm.includes("sicily")
+    norm.includes("sicily") ||
+    norm.includes("sardynia") ||
+    norm.includes("sardinia")
   ) {
     return 15;
   }
@@ -35,7 +37,7 @@ function resolveTouristRegionLimit(
     return 15;
   }
   if (cycling) return 12;
-  return 8;
+  return 10;
 }
 
 const CACHE_TTL_MS = 60_000;
