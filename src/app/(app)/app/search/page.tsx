@@ -26,10 +26,12 @@ import {
 } from "@/lib/activities/cycling/constants";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import { beachAttractionsFromPool, isBeachAttraction } from "@/lib/plan/cycling-plan";
+import { destinationSupportsBeachRelax } from "@/lib/destinations/coastal-access";
 import {
   defaultRhythmForTrip,
   hasChildrenInPassengers,
   isGroupInRhythm,
+  sanitizeRhythmForDestination,
   suggestActivitiesFromRhythm,
   type TripRhythm,
 } from "@/lib/search/trip-rhythm";
@@ -353,6 +355,8 @@ function SearchPageContent() {
             {
               includeKids: hasChildrenInPassengers(merged.passengers),
               cycling: isCyclingTrip(merged),
+              destinationLabel:
+                merged.destination_label ?? merged.destination ?? "",
             },
           ),
         });
@@ -749,8 +753,19 @@ function SearchPageContent() {
   }
 
   function updateRhythm(rhythm: TripRhythm) {
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const totalDays = daysBetweenIso(
+      trip.departure_date,
+      trip.return_date ?? trip.departure_date,
+    );
+    const sanitized = sanitizeRhythmForDestination(rhythm, totalDays, label);
     setTrip((prev) => {
-      const next = { ...prev, trip_rhythm: rhythm, tourist_region_id: null, tourist_region_ids: [] };
+      const next = {
+        ...prev,
+        trip_rhythm: sanitized,
+        tourist_region_id: null,
+        tourist_region_ids: [],
+      };
       syncUrl(next, step);
       return next;
     });
@@ -784,6 +799,8 @@ function SearchPageContent() {
           defaultRhythmForTrip(prev.departure_date, prev.return_date, {
             includeKids: hasChildrenInPassengers(prev.passengers),
             cycling: isCyclingTrip(prev),
+            destinationLabel:
+              prev.destination_label ?? prev.destination ?? "",
           }),
       };
       syncUrl(next, 4);
@@ -1163,6 +1180,9 @@ function SearchPageContent() {
   ]);
 
   const cyclingBeachAttractions = useMemo(() => {
+    const label = trip.destination_label ?? trip.destination ?? "";
+    if (!destinationSupportsBeachRelax(label)) return [];
+
     const pool =
       planPayload?.attractionPool ??
       results?.clusters.flatMap((c) => c.attractions) ??
@@ -1670,6 +1690,8 @@ function SearchPageContent() {
                 trip_rhythm: defaultRhythmForTrip(prev.departure_date, prev.return_date, {
                   includeKids: hasChildrenInPassengers(prev.passengers),
                   cycling: isCyclingTrip(prev),
+                  destinationLabel:
+                    prev.destination_label ?? prev.destination ?? "",
                 }),
               };
               syncUrl(next, s);
@@ -1778,6 +1800,7 @@ function SearchPageContent() {
           onChange={updateRhythm}
           onContinue={goAfterRhythmStep}
           isCycling={isCyclingTrip(trip)}
+          destinationLabel={trip.destination_label ?? trip.destination ?? ""}
           continueLabel={
             skipRegionsStep ? t("rhythm.continueActivities") : undefined
           }

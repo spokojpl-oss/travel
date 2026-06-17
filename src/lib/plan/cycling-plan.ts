@@ -12,6 +12,11 @@ import type { PlaceCard } from "@/lib/plan/build-discover-places";
 import type { ActivityRoute } from "@/types/activities";
 import type { AttractionWithActivities, GeoPoint } from "@/types/domain";
 import type { TouristRegion } from "@/lib/destinations/tourist-regions";
+import {
+  destinationHasSeaAccess,
+  destinationSupportsBeachRelax,
+  resolveWaterRecreationKind,
+} from "@/lib/destinations/coastal-access";
 
 export const BEACH_ACTIVITY_SLUGS = ["sandy_beaches", "rocky_beaches"] as const;
 
@@ -278,6 +283,7 @@ export function scoreCyclingLodgingOption(
   beaches: AttractionWithActivities[],
   regions: TouristRegion[],
   locale: "pl" | "en",
+  options?: { destinationLabel?: string },
 ): CyclingLodgingScore {
   const pl = locale !== "en";
   const description = pl ? option.description_pl : option.description_en;
@@ -285,6 +291,7 @@ export function scoreCyclingLodgingOption(
   let score = 0;
   const reasonsPl: string[] = [];
   const reasonsEn: string[] = [];
+  const hasSea = destinationHasSeaAccess(options?.destinationLabel ?? "");
 
   const parentRegion =
     regions.find((r) => r.id === option.parentRegion.id) ?? null;
@@ -293,7 +300,10 @@ export function scoreCyclingLodgingOption(
     ? routes.filter((r) => routeInRegion(r, parentRegion))
     : routes;
 
-  if (isCoastalLodgingHint(description) || isCoastalLodgingHint(option.name)) {
+  if (
+    hasSea &&
+    (isCoastalLodgingHint(description) || isCoastalLodgingHint(option.name))
+  ) {
     score += 30;
     reasonsPl.push("blisko morza");
     reasonsEn.push("near the sea");
@@ -312,15 +322,21 @@ export function scoreCyclingLodgingOption(
     }
   }
 
-  if (beaches.length > 0) {
+  if (beaches.length > 0 && destinationSupportsBeachRelax(options?.destinationLabel ?? "")) {
     const beachDists = beaches.map((b) =>
       distanceKm(origin, { lat: Number(b.lat), lon: Number(b.lon) }),
     );
     const nearestBeach = Math.min(...beachDists);
     if (nearestBeach < 8) {
       score += 20 - nearestBeach;
-      reasonsPl.push(`plaża ~${nearestBeach.toFixed(0)} km`);
-      reasonsEn.push(`beach ~${nearestBeach.toFixed(0)} km`);
+      const waterKind = resolveWaterRecreationKind(options?.destinationLabel ?? "");
+      if (waterKind === "lake") {
+        reasonsPl.push(`nad wodą ~${nearestBeach.toFixed(0)} km`);
+        reasonsEn.push(`water ~${nearestBeach.toFixed(0)} km`);
+      } else {
+        reasonsPl.push(`plaża ~${nearestBeach.toFixed(0)} km`);
+        reasonsEn.push(`beach ~${nearestBeach.toFixed(0)} km`);
+      }
     }
   }
 
@@ -339,6 +355,7 @@ export function buildCyclingLodgingOptions(
     locale?: "pl" | "en";
     stayRadiusKm?: number;
     routes?: ActivityRoute[];
+    destinationLabel?: string;
   },
 ): LodgingAreaOption[] {
   if (regions.length === 0) return [];
@@ -359,6 +376,7 @@ export function buildCyclingLodgingOptions(
       options.attractions?.filter(isBeachAttraction) ?? [],
       regions,
       options.locale ?? "pl",
+      { destinationLabel: options.destinationLabel },
     ),
   );
   scored.sort((a, b) => b.score - a.score);
@@ -382,12 +400,14 @@ export function assessCyclingTripLogistics({
   tripDays,
   hasRentalCar,
   beachCount,
+  destinationLabel = "",
 }: {
   regions: TouristRegion[];
   routes: ActivityRoute[];
   tripDays: number;
   hasRentalCar?: boolean;
   beachCount?: number;
+  destinationLabel?: string;
 }): CyclingTripAdvice | null {
   if (regions.length < 2) return null;
 
@@ -412,9 +432,14 @@ export function assessCyclingTripLogistics({
 
   const nightsPerRegion = Math.floor(tripDays / Math.max(regions.length, 1));
   const suggestsMultiBase = regions.length >= 2 && nightsPerRegion < 3;
+  const hasSea = destinationHasSeaAccess(destinationLabel);
+  const effectiveBeachCount = hasSea || destinationSupportsBeachRelax(destinationLabel)
+    ? (beachCount ?? 0)
+    : 0;
+
   const suggestsCar =
     !hasRentalCar &&
-    (spreadKm > 20 || regionsWithRoutes.length >= 2 || (beachCount ?? 0) > 0);
+    (spreadKm > 20 || regionsWithRoutes.length >= 2 || effectiveBeachCount > 0);
 
   const minBases = suggestsMultiBase
     ? Math.min(regionsWithRoutes.length || regions.length, 2)
@@ -437,24 +462,33 @@ export function assessCyclingTripLogistics({
   }
 
   if (suggestsCar) {
+    const beachNotePl = effectiveBeachCount > 0 ? " (i po plażach)" : "";
+    const beachNoteEn = effectiveBeachCount > 0 ? " (and beaches)" : "";
     return {
       level: "info",
       titlePl: "Trasy w kilku rejonach — auto się przyda",
       titleEn: "Routes in several regions — a car helps",
-      bodyPl: `Rowery w ${regionsWithRoutes.length || regions.length} rejonach to ok. 40–60 km dziennie, ale dojazd między startami tras (i po plażach) będzie wygodniejszy samochodem${hasRentalCar ? " — masz już wynajem w planie" : " — rozważ wynajem na miejscu"}.`,
-      bodyEn: `Cycling in ${regionsWithRoutes.length || regions.length} regions works. Expect 40–60 km daily, but driving between route starts (and beaches) is easier by car${hasRentalCar ? " — rental already in your plan" : " — consider local rental"}.`,
+      bodyPl: `Rowery w ${regionsWithRoutes.length || regions.length} rejonach to ok. 40–60 km dziennie, ale dojazd między startami tras${beachNotePl} będzie wygodniejszy samochodem${hasRentalCar ? " — masz już wynajem w planie" : " — rozważ wynajem na miejscu"}.`,
+      bodyEn: `Cycling in ${regionsWithRoutes.length || regions.length} regions works. Expect 40–60 km daily, but driving between route starts${beachNoteEn} is easier by car${hasRentalCar ? " — rental already in your plan" : " — consider local rental"}.`,
       suggestsCar: true,
       suggestsMultiBase: false,
       minBasesRecommended: 1,
     };
   }
 
+  const baseHintPl = hasSea
+    ? "2 bazy noclegowe blisko morza — bliżej startów tras i plaż."
+    : "2 bazy noclegowe w wybranych rejonach — bliżej startów tras.";
+  const baseHintEn = hasSea
+    ? "2 coastal lodging bases — closer to route starts and beaches."
+    : "2 lodging bases in your regions — closer to route starts.";
+
   return {
     level: "info",
     titlePl: "Wiele rejonów — jedna baza możliwa, ale ciasno",
     titleEn: "Multiple regions — one base is tight",
-    bodyPl: `Przy ${tripDays} dniach i ${regions.length} rejonach rozważ 2 bazy noclegowe blisko morza — bliżej startów tras i plaż. Ty wybierasz, które trasy i którą bazę zostawić.`,
-    bodyEn: `With ${tripDays} days and ${regions.length} regions, consider 2 coastal bases — closer to route starts and beaches. You choose which routes and base to keep.`,
+    bodyPl: `Przy ${tripDays} dniach i ${regions.length} rejonach rozważ ${baseHintPl} Ty wybierasz, które trasy i którą bazę zostawić.`,
+    bodyEn: `With ${tripDays} days and ${regions.length} regions, consider ${baseHintEn} You choose which routes and base to keep.`,
     suggestsCar: false,
     suggestsMultiBase: true,
     minBasesRecommended: minBases,

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/activities/ActivityPanel";
 import { SkeletonList } from "@/components/ui/Skeleton";
-import { useT } from "@/i18n/locale-provider";
+import { useLocale, useT } from "@/i18n/locale-provider";
 import type { ActivityRoute } from "@/types/activities";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import {
@@ -12,6 +12,10 @@ import {
 } from "@/lib/activities/cycling/route-distribution";
 import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { AttractionWithActivities } from "@/types/domain";
+import {
+  destinationUsesCoastalRouteSplit,
+  resolveWaterRecreationKind,
+} from "@/lib/destinations/coastal-access";
 
 export function CyclingSearchPanel({
   destinationLabel,
@@ -35,6 +39,10 @@ export function CyclingSearchPanel({
   onTogglePlanRoute?: (route: ActivityRoute) => void;
 }) {
   const t = useT();
+  const { locale } = useLocale();
+  const pl = locale !== "en";
+  const waterKind = resolveWaterRecreationKind(destinationLabel);
+  const useCoastalSplit = destinationUsesCoastalRouteSplit(destinationLabel);
   const [destinationId, setDestinationId] = useState<string | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,17 +119,28 @@ export function CyclingSearchPanel({
       </h2>
       {regionCenters.length === 1 && (
         <p className="mb-4 text-sm text-text-secondary">
-          Trasy w promieniu ±
-          {regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu
-          — ok. 2/3 nad morzem i 1/3 w głąb lądu.
+          {useCoastalSplit
+            ? pl
+              ? `Trasy w promieniu ±${regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu — ok. 2/3 nad morzem i 1/3 w głąb lądu.`
+              : `Routes within ±${regionCenters[0]?.radiusKm ?? regionRadiusKm} km of your region — about 2/3 coastal and 1/3 inland.`
+            : pl
+              ? `Trasy w promieniu ±${regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu — mix tras w rejonie i wypadów w głąb lądu.`
+              : `Routes within ±${regionCenters[0]?.radiusKm ?? regionRadiusKm} km — mix of local loops and inland outings.`}
         </p>
       )}
       {regionCenters.length > 1 && regionBatchSplit && (
         <p className="mb-4 text-sm text-text-secondary">
-          {regionCenters.length} wybrane rejony — startowo 20 tras dla całej
-          destynacji, potem po {BATCH_ROUTE_COUNT} tras na partię (
-          {regionBatchSplit} na rejon). W każdym rejonie: 2 trasy przy morzu na
-          1 w głąb lądu.
+          {useCoastalSplit
+            ? pl
+              ? `${regionCenters.length} wybrane rejony — startowo 20 tras dla całej destynacji, potem po ${BATCH_ROUTE_COUNT} tras na partię (${regionBatchSplit} na rejon). W każdym rejonie: 2 trasy przy morzu na 1 w głąb lądu.`
+              : `${regionCenters.length} regions selected — 20 routes for the destination first, then ${BATCH_ROUTE_COUNT} per batch (${regionBatchSplit} per region). Per region: 2 coastal routes to 1 inland.`
+            : waterKind === "lake"
+              ? pl
+                ? `${regionCenters.length} wybrane rejony — startowo 20 tras dla całej destynacji, potem po ${BATCH_ROUTE_COUNT} tras na partię (${regionBatchSplit} na rejon). W każdym rejonie: 2 trasy przy jeziorach na 1 w głąb lądu.`
+                : `${regionCenters.length} regions — 20 routes initially, then ${BATCH_ROUTE_COUNT} per batch (${regionBatchSplit} per region). Per region: 2 lake-side routes to 1 inland.`
+              : pl
+                ? `${regionCenters.length} wybrane rejony — startowo 20 tras dla całej destynacji, potem po ${BATCH_ROUTE_COUNT} tras na partię (${regionBatchSplit} na rejon). W każdym rejonie: 2 trasy w rejonie na 1 w głąb lądu.`
+                : `${regionCenters.length} regions — 20 routes initially, then ${BATCH_ROUTE_COUNT} per batch (${regionBatchSplit} per region). Per region: 2 local routes to 1 inland.`}
         </p>
       )}
 

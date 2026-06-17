@@ -1,6 +1,11 @@
 import type { Locale } from "@/i18n/config";
 import type { WeatherSummary } from "@/types/domain";
 import { daysBetweenIso } from "@/lib/search/trip-context";
+import {
+  destinationHasSeaAccess,
+  destinationSupportsBeachRelax,
+  resolveWaterRecreationKind,
+} from "@/lib/destinations/coastal-access";
 
 export type TripDayTheme =
   | "beach_relax"
@@ -183,7 +188,7 @@ function distributeDays(
 export function applyRhythmPreset(
   preset: TripRhythmPreset,
   totalDays: number,
-  options?: { includeKids?: boolean },
+  options?: { includeKids?: boolean; destinationLabel?: string },
 ): TripRhythm {
   const ratios = { ...PRESET_RATIOS[preset] };
   if (options?.includeKids && preset === "balanced" && totalDays >= 5) {
@@ -192,20 +197,77 @@ export function applyRhythmPreset(
       ratios.beach_relax -= 1;
     }
   }
-  return { preset, days: distributeDays(ratios, totalDays) };
+  const days = distributeDays(ratios, totalDays);
+  return sanitizeRhythmForDestination(
+    { preset, days },
+    totalDays,
+    options?.destinationLabel,
+  );
+}
+
+function redistributeBeachDays(
+  days: Record<TripDayTheme, number>,
+): Record<TripDayTheme, number> {
+  const beachDays = days.beach_relax;
+  if (beachDays <= 0) return days;
+  const next = { ...days, beach_relax: 0 };
+  next.nature += Math.ceil(beachDays / 2);
+  next.active_outdoor += Math.floor(beachDays / 2);
+  if (next.nature + next.active_outdoor < beachDays) {
+    next.free += beachDays - next.nature - next.active_outdoor;
+  }
+  return next;
+}
+
+export function sanitizeRhythmForDestination(
+  rhythm: TripRhythm,
+  totalDays: number,
+  destinationLabel?: string,
+): TripRhythm {
+  if (!destinationLabel || destinationSupportsBeachRelax(destinationLabel)) {
+    return rhythm;
+  }
+
+  let days = redistributeBeachDays(rhythm.days);
+  let preset = rhythm.preset;
+
+  if (preset === "beach_focus" || preset === "cycling_beach_mix") {
+    preset = preset === "cycling_beach_mix" ? "cycling_only" : "balanced";
+    days = distributeDays(PRESET_RATIOS[preset], totalDays);
+  }
+
+  return { days, preset };
 }
 
 export function defaultRhythmForTrip(
   departureDate: string,
   returnDate: string | null,
-  options?: { includeKids?: boolean; cycling?: boolean },
+  options?: {
+    includeKids?: boolean;
+    cycling?: boolean;
+    destinationLabel?: string;
+  },
 ): TripRhythm {
   const totalDays = daysBetweenIso(
     departureDate,
     returnDate ?? departureDate,
   );
-  const preset = options?.cycling ? "cycling_beach_mix" : "balanced";
-  return applyRhythmPreset(preset, totalDays, options);
+  const label = options?.destinationLabel ?? "";
+  const cycling = options?.cycling ?? false;
+  const waterKind = resolveWaterRecreationKind(label);
+
+  let preset: TripRhythmPreset;
+  if (cycling) {
+    preset =
+      waterKind === "none" ? "cycling_only" : "cycling_beach_mix";
+  } else {
+    preset = "balanced";
+  }
+
+  return applyRhythmPreset(preset, totalDays, {
+    includeKids: options?.includeKids,
+    destinationLabel: label,
+  });
 }
 
 export function normalizeRhythm(
@@ -367,23 +429,66 @@ export function hasChildrenInPassengers(passengers?: string): boolean {
 
 export function adjustableThemes(options?: {
   includeKids?: boolean;
+  destinationLabel?: string;
 }): TripDayTheme[] {
-  const base: TripDayTheme[] = [
-    "beach_relax",
-    "city_culture",
-    "active_outdoor",
-    "nature",
-    "free",
-  ];
+  const supportsBeach =
+    !options?.destinationLabel ||
+    destinationSupportsBeachRelax(options.destinationLabel);
+
+  const base: TripDayTheme[] = supportsBeach
+    ? ["beach_relax", "city_culture", "active_outdoor", "nature", "free"]
+    : ["city_culture", "active_outdoor", "nature", "free"];
+
   if (options?.includeKids) {
-    return [
-      "beach_relax",
-      "city_culture",
-      "active_outdoor",
-      "nature",
-      "kids",
-      "free",
-    ];
+    return supportsBeach
+      ? [
+          "beach_relax",
+          "city_culture",
+          "active_outdoor",
+          "nature",
+          "kids",
+          "free",
+        ]
+      : ["city_culture", "active_outdoor", "nature", "kids", "free"];
   }
   return base;
+}
+
+export function rhythmPresetsForDestination(options: {
+  isCycling: boolean;
+  destinationLabel?: string;
+}): TripRhythmPreset[] {
+  const label = options.destinationLabel ?? "";
+  const supportsBeach = destinationSupportsBeachRelax(label);
+  const hasSea = destinationHasSeaAccess(label);
+
+  if (options.isCycling) {
+    return supportsBeach
+      ? ["cycling_beach_mix", "cycling_only"]
+      : ["cycling_only"];
+  }
+
+  if (!hasSea && !supportsBeach) {
+    return ["balanced", "culture_focus", "active"];
+  }
+  if (!hasSea && supportsBeach) {
+    return ["balanced", "culture_focus", "active"];
+  }
+  return ["beach_focus", "balanced", "culture_focus", "active"];
+}
+
+export function beachThemeDescKey(
+  destinationLabel?: string,
+): "rhythm.themeBeachDesc" | "rhythm.themeBeachDescLake" {
+  return resolveWaterRecreationKind(destinationLabel ?? "") === "lake"
+    ? "rhythm.themeBeachDescLake"
+    : "rhythm.themeBeachDesc";
+}
+
+export function cyclingBeachMixDescKey(
+  destinationLabel?: string,
+): "rhythm.presetCyclingBeachMixDesc" | "rhythm.presetCyclingBeachMixDescLake" {
+  return resolveWaterRecreationKind(destinationLabel ?? "") === "lake"
+    ? "rhythm.presetCyclingBeachMixDescLake"
+    : "rhythm.presetCyclingBeachMixDesc";
 }

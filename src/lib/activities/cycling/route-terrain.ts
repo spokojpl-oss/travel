@@ -139,9 +139,16 @@ export function classifyRouteTerrain(
 export function expandRegionTargetsWithTerrain(
   targets: CyclingRouteRegionTarget[],
   beachesByRegion?: Map<string, GeoPoint[]>,
+  options?: { useCoastalSplit?: boolean },
 ): CyclingRouteRegionTarget[] {
+  const useCoastalSplit = options?.useCoastalSplit !== false;
+
   return targets.flatMap((target) => {
     if (target.terrain === "inland" || target.terrain === "coastal") {
+      return [target];
+    }
+
+    if (!useCoastalSplit) {
       return [target];
     }
 
@@ -203,8 +210,11 @@ export function buildTerrainAwareTopUpTargets(
   regionCenters: CyclingRegionCenter[],
   targetTotal: number,
   allBeaches: GeoPoint[] = [],
+  options?: { useCoastalSplit?: boolean },
 ): CyclingRouteRegionTarget[] {
   if (regionCenters.length === 0) return [];
+
+  const useCoastalSplit = options?.useCoastalSplit !== false;
 
   const perRegionDesired = Array.from(
     { length: regionCenters.length },
@@ -265,6 +275,21 @@ export function buildTerrainAwareTopUpTargets(
     }
 
     const desiredTotal = perRegionDesired[i] ?? 0;
+
+    if (!useCoastalSplit) {
+      const need = Math.max(0, desiredTotal - inRegion.length);
+      if (need > 0) {
+        targets.push({
+          centerLat: region.lat,
+          centerLng: region.lng,
+          count: need,
+          maxRadiusKm: region.radiusKm,
+          label: region.label,
+        });
+      }
+      continue;
+    }
+
     const { coastal: targetCoastal, inland: targetInland } =
       splitCoastalInlandCounts(Math.max(desiredTotal, coastal + inland));
 

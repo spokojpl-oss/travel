@@ -35,6 +35,10 @@ import {
   inlandScrapeCentersFromRegions,
 } from "@/lib/activities/cycling/route-terrain";
 import {
+  destinationSupportsBeachRelax,
+  destinationUsesCoastalRouteSplit,
+} from "@/lib/destinations/coastal-access";
+import {
   formatRegionBatchSummary,
 } from "@/lib/activities/cycling/region-route-balance";
 import {
@@ -156,6 +160,14 @@ export function CyclingActivityProvider({
   const [generatingCount, setGeneratingCount] = useState(0);
   const [regionBatchSummary, setRegionBatchSummary] = useState<string | null>(
     null,
+  );
+  const useCoastalSplit = useMemo(
+    () => destinationUsesCoastalRouteSplit(destinationLabel ?? ""),
+    [destinationLabel],
+  );
+  const supportsBeachRelax = useMemo(
+    () => destinationSupportsBeachRelax(destinationLabel ?? ""),
+    [destinationLabel],
   );
   const seededDestinationRef = useRef<string | null>(null);
   const scrapeStartedRef = useRef(false);
@@ -429,12 +441,14 @@ export function CyclingActivityProvider({
                 resolvedRegionCenters,
                 totalCount,
                 beachPoints,
+                { useCoastalSplit },
               )
             : buildRegionBatchTargets(regionInputs, totalCount);
 
         const targets = expandRegionTargetsWithTerrain(
           baseTargets,
           beachesByRegion,
+          { useCoastalSplit },
         );
 
         if (targets.length === 0) return;
@@ -450,8 +464,13 @@ export function CyclingActivityProvider({
         summary = targets
           .map((t) => {
             if (!t.label || t.count <= 0) return null;
-            const kind =
-              t.terrain === "inland" ? "ląd" : "morze";
+            const kind = useCoastalSplit
+              ? t.terrain === "inland"
+                ? "ląd"
+                : "morze"
+              : t.terrain === "inland"
+                ? "ląd"
+                : "rejon";
             return `${t.label} (${kind}): ${t.count}`;
           })
           .filter(Boolean)
@@ -467,6 +486,7 @@ export function CyclingActivityProvider({
             },
           ],
           beachesByRegion,
+          { useCoastalSplit },
         );
         regionsPayload = expanded.map((t) => ({
           centerLat: t.centerLat,
@@ -542,6 +562,7 @@ export function CyclingActivityProvider({
       beachPoints,
       beachesByRegion,
       runOsmScrapeInBackground,
+      useCoastalSplit,
     ],
   );
 
@@ -611,8 +632,11 @@ export function CyclingActivityProvider({
   );
 
   const relevantBeaches = useMemo(
-    () => beachesRelevantToRoutes(routes, beachAttractions),
-    [routes, beachAttractions],
+    () =>
+      supportsBeachRelax
+        ? beachesRelevantToRoutes(routes, beachAttractions)
+        : [],
+    [routes, beachAttractions, supportsBeachRelax],
   );
 
   const displayRoutes = useMemo(

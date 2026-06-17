@@ -43,6 +43,10 @@ import {
   scoreCyclingLodgingOption,
   type CyclingTripAdvice,
 } from "@/lib/plan/cycling-plan";
+import {
+  destinationHasSeaAccess,
+  destinationSupportsBeachRelax,
+} from "@/lib/destinations/coastal-access";
 import { useLocale } from "@/i18n/locale-provider";
 import type { GeoCluster } from "@/types/domain";
 
@@ -143,14 +147,20 @@ export function DestinationPlanWizard({
   const cyclingRoutes = payload.selectedCyclingRoutes ?? [];
   const isCyclingMode = Boolean(payload.isCycling || cyclingRoutes.length > 0);
 
+  const destinationLabel = payload.destinationLabel ?? "";
+  const supportsBeachRelax = destinationSupportsBeachRelax(destinationLabel);
+  const hasSeaAccess = destinationHasSeaAccess(destinationLabel);
+
   const beachAttractions = useMemo(
     () =>
-      beachAttractionsFromPool(
-        enrichedPool,
-        payload.activities,
-        matchedRegions,
-      ),
-    [enrichedPool, payload.activities, matchedRegions],
+      supportsBeachRelax
+        ? beachAttractionsFromPool(
+            enrichedPool,
+            payload.activities,
+            matchedRegions,
+          )
+        : [],
+    [enrichedPool, payload.activities, matchedRegions, supportsBeachRelax],
   );
 
   const cyclingAdvice = useMemo((): CyclingTripAdvice | null => {
@@ -161,6 +171,7 @@ export function DestinationPlanWizard({
       tripDays,
       hasRentalCar: payload.hasRentalCar,
       beachCount: beachAttractions.length,
+      destinationLabel,
     });
   }, [
     isCyclingMode,
@@ -169,6 +180,7 @@ export function DestinationPlanWizard({
     tripDays,
     payload.hasRentalCar,
     beachAttractions.length,
+    destinationLabel,
   ]);
 
   const cyclingDiscover = useMemo(() => {
@@ -262,6 +274,7 @@ export function DestinationPlanWizard({
         locale,
         stayRadiusKm: payload.stayRadiusKm,
         routes: cyclingRoutes,
+        destinationLabel,
       });
     }
 
@@ -343,6 +356,7 @@ export function DestinationPlanWizard({
         beachAttractions,
         matchedRegions,
         locale,
+        { destinationLabel },
       ),
     );
     return new Map(scores.map((s) => [s.option.id, s]));
@@ -598,9 +612,17 @@ export function DestinationPlanWizard({
             <CardBody className="space-y-4">
               <p className="text-sm leading-relaxed text-text-secondary">
                 {isCyclingMode
-                  ? pl
-                    ? "Baza noclegowa w rejonie tras rowerowych — najlepiej blisko morza i startów tras. Ty wybierasz ostatecznie; poniżej odległości do plaż, tras i lotniska."
-                    : "Lodging in your cycling regions — ideally near the sea and route starts. You choose; distances to beaches, routes and airport below."
+                  ? hasSeaAccess
+                    ? pl
+                      ? "Baza noclegowa w rejonie tras rowerowych — najlepiej blisko morza i startów tras. Ty wybierasz ostatecznie; poniżej odległości do plaż, tras i lotniska."
+                      : "Lodging in your cycling regions — ideally near the sea and route starts. You choose; distances to beaches, routes and airport below."
+                    : supportsBeachRelax
+                      ? pl
+                        ? "Baza noclegowa w rejonie tras rowerowych — blisko startów tras i jezior. Ty wybierasz ostatecznie; poniżej odległości do wody, tras i lotniska."
+                        : "Lodging in your cycling regions — near route starts and lakes. You choose; distances to water, routes and airport below."
+                      : pl
+                        ? "Baza noclegowa w rejonie tras rowerowych — blisko startów tras. Ty wybierasz ostatecznie; poniżej odległości do tras i lotniska."
+                        : "Lodging in your cycling regions — near route starts. You choose; distances to routes and airport below."
                   : pl
                     ? "Twój wybrany rejon podzielony na miejsca noclegowe — kliknij na mapie lub poniżej. Potem wyszukaj hotel na Booking w tej okolicy."
                     : "Your region split into lodging areas — click on the map or below. Then search Booking in that area."}
