@@ -81,12 +81,14 @@ export function CyclingRouteCard({
   route,
   selected,
   inPlan,
+  compact = false,
   onSelect,
   onTogglePlan,
 }: {
   route: ActivityRoute;
   selected: boolean;
   inPlan: boolean;
+  compact?: boolean;
   onSelect: () => void;
   onTogglePlan: () => void;
 }) {
@@ -100,7 +102,7 @@ export function CyclingRouteCard({
       )}
       onClick={onSelect}
     >
-      <CardBody className="space-y-3">
+      <CardBody className={cn(compact ? "space-y-2 p-3" : "space-y-3")}>
         <div className="flex items-start justify-between gap-2">
           <div>
             <h3 className="font-display text-base font-bold text-text-primary">

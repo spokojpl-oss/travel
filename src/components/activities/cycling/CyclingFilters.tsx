@@ -1,43 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   CYCLING_ACTIVITY_TYPES,
-  CYCLING_DIFFICULTIES,
   CYCLING_TYPE_LABELS,
-  DIFFICULTY_LABELS,
 } from "@/lib/activities/cycling/constants";
 import type { ActivityComponentProps } from "@/lib/activities/registry";
 import { useCyclingActivity } from "./CyclingActivityContext";
-import type { ActivityDifficulty, ActivityType } from "@/types/activities";
+import type { ActivityType } from "@/types/activities";
 
 export function CyclingFilters({ destinationId }: ActivityComponentProps) {
   const { filters, setFilters, refreshRoutes } = useCyclingActivity();
 
   useEffect(() => {
     void refreshRoutes();
-  }, [destinationId, filters, refreshRoutes]);
-
-  function toggleDifficulty(level: ActivityDifficulty) {
-    const current = new Set(filters.difficulty ?? []);
-    if (current.has(level)) current.delete(level);
-    else current.add(level);
-    setFilters({
-      ...filters,
-      difficulty: current.size > 0 ? [...current] : undefined,
-    });
-  }
+  }, [filters, refreshRoutes]);
 
   return (
-    <Card>
-      <CardHeader title="Filtry" />
-      <CardBody className="space-y-5">
-        <div>
-          <p className="mb-2 text-sm font-medium text-text-primary">Typ trasy</p>
-          <div className="flex flex-wrap gap-2">
+    <div className="rounded-xl border border-border-default bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div className="min-w-[200px] flex-1">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Typ trasy
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             <Button
               size="sm"
               variant={!filters.activityType ? "primary" : "ghost"}
@@ -63,10 +50,10 @@ export function CyclingFilters({ destinationId }: ActivityComponentProps) {
           </div>
         </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-primary">
-            Min. dystans: {Math.round((filters.minDistanceM ?? 0) / 1000)} km
-          </label>
+        <label className="min-w-[140px] flex-1">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Min. {Math.round((filters.minDistanceM ?? 0) / 1000)} km
+          </span>
           <input
             type="range"
             min={0}
@@ -81,15 +68,15 @@ export function CyclingFilters({ destinationId }: ActivityComponentProps) {
             }
             className="w-full accent-brand-700"
           />
-        </div>
+        </label>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-primary">
-            Max. dystans:{" "}
+        <label className="min-w-[140px] flex-1">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Max.{" "}
             {filters.maxDistanceM
               ? `${Math.round(filters.maxDistanceM / 1000)} km`
-              : "bez limitu"}
-          </label>
+              : "∞ km"}
+          </span>
           <input
             type="range"
             min={10}
@@ -104,15 +91,15 @@ export function CyclingFilters({ destinationId }: ActivityComponentProps) {
             }
             className="w-full accent-brand-700"
           />
-        </div>
+        </label>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-primary">
-            Max. przewyższenie:{" "}
+        <label className="min-w-[140px] flex-1">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Przewyższenie{" "}
             {filters.maxElevationGain
               ? `${filters.maxElevationGain} m`
-              : "bez limitu"}
-          </label>
+              : "∞"}
+          </span>
           <input
             type="range"
             min={0}
@@ -127,29 +114,8 @@ export function CyclingFilters({ destinationId }: ActivityComponentProps) {
             }
             className="w-full accent-brand-700"
           />
-        </div>
-
-        <div>
-          <p className="mb-2 text-sm font-medium text-text-primary">Trudność</p>
-          <div className="flex flex-wrap gap-2">
-            {CYCLING_DIFFICULTIES.map((level) => {
-              const active = filters.difficulty?.includes(level);
-              return (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => toggleDifficulty(level)}
-                  className="rounded-full"
-                >
-                  <Badge variant={active ? "accent" : "outline"}>
-                    {DIFFICULTY_LABELS[level]}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </CardBody>
-    </Card>
+        </label>
+      </div>
+    </div>
   );
 }

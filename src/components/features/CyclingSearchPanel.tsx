@@ -69,12 +69,9 @@ export function CyclingSearchPanel({
 
   return (
     <section className="mb-10">
-      <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
+      <h2 className="font-display mb-6 text-xl font-bold text-text-primary">
         {t("search.cyclingRoutesTitle")}
       </h2>
-      <p className="mb-6 text-sm text-text-secondary">
-        {t("search.cyclingRoutesSubtitle")}
-      </p>
 
       {loading && <SkeletonList count={4} />}
       {error && !loading && (

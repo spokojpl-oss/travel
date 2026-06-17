@@ -22,10 +22,7 @@ export function ActivityPanel({
   const { Filters, RoutesList } = mod;
 
   const content = (
-    <section
-      aria-label={`Trasy: ${mod.label}`}
-      className="grid gap-4 lg:grid-cols-[280px_1fr]"
-    >
+    <section aria-label={`Trasy: ${mod.label}`} className="flex flex-col gap-4">
       <Filters destinationId={destinationId} />
       <RoutesList destinationId={destinationId} />
     </section>
