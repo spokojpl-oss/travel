@@ -1,8 +1,7 @@
 import type { ActivityCategory, ActivityRoute } from "@/types/activities";
 import type { CyclingRouteFilters } from "@/lib/activities/cycling/types";
 import {
-  lineStringGeoJson,
-  pointGeoJson,
+  ewkbToGeoJson,
   wktLineStringToGeoJson,
   wktPointToGeoJson,
 } from "@/lib/activities/cycling/geometry";
@@ -58,10 +57,15 @@ export function parseRouteGeometry(
       try {
         value = JSON.parse(geometry) as unknown;
       } catch {
-        /* fall through to WKT */
+        /* fall through to WKT / EWKB */
       }
     }
     if (typeof value === "string") {
+      const ewkb = ewkbToGeoJson(value);
+      if (ewkb?.type === "LineString") {
+        return ewkb.coordinates.map(([lng, lat]) => ({ lat, lng }));
+      }
+
       const geo = wktLineStringToGeoJson(value);
       if (geo) {
         return geo.coordinates.map(([lng, lat]) => ({ lat, lng }));
@@ -88,10 +92,28 @@ export function parseRouteStartPoint(
   if (!startPoint) return null;
 
   if (typeof startPoint === "string") {
-    const match = startPoint.match(/POINT\s*\(([^)]+)\)/i);
-    if (match) {
-      const [lng, lat] = match[1]!.trim().split(/\s+/).map(Number);
-      return { lat, lng };
+    if (startPoint.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(startPoint) as {
+          type?: string;
+          coordinates?: number[];
+        };
+        if (parsed.type === "Point" && Array.isArray(parsed.coordinates)) {
+          return { lat: parsed.coordinates[1]!, lng: parsed.coordinates[0]! };
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    const ewkb = ewkbToGeoJson(startPoint);
+    if (ewkb?.type === "Point") {
+      return { lat: ewkb.coordinates[1], lng: ewkb.coordinates[0] };
+    }
+
+    const geo = wktPointToGeoJson(startPoint);
+    if (geo) {
+      return { lat: geo.coordinates[1], lng: geo.coordinates[0] };
     }
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateCyclingRoute } from "@/lib/activities/cycling/ors-client";
-import { pointGeoJson } from "@/lib/activities/cycling/geometry";
+import { lineStringWkt, pointWkt } from "@/lib/activities/cycling/geometry";
 import type { Json } from "@/types/database";
 
 const Body = z.object({
@@ -39,6 +39,15 @@ export async function POST(
   try {
     const route = await generateCyclingRoute(parsed.data);
 
+    const startPointWkt = pointWkt(route.snappedLng, route.snappedLat);
+    const geometryWkt = lineStringWkt(route.geometryGeoJson.coordinates);
+    if (!geometryWkt) {
+      return NextResponse.json(
+        { error: "Wygenerowana trasa ma nieprawidłową geometrię (za mało punktów)." },
+        { status: 500 },
+      );
+    }
+
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("activity_routes")
@@ -53,11 +62,8 @@ export async function POST(
         elevation_loss_m: route.elevation_loss_m,
         surface_mix: route.surface_mix,
         is_loop: parsed.data.loop,
-        start_point: pointGeoJson(
-          route.snappedLng,
-          route.snappedLat,
-        ) as unknown as Json,
-        geometry: route.geometryGeoJson as unknown as Json,
+        start_point: startPointWkt,
+        geometry: geometryWkt,
         elevation_profile: route.elevation_profile as unknown as Json,
       })
       .select()
