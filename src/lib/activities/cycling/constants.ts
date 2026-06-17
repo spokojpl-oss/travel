@@ -23,6 +23,13 @@ export const DIFFICULTY_LABELS: Record<ActivityDifficulty, string> = {
   expert: "Ekspert",
 };
 
+/** Slugi taksonomii używane w flow kolarstwa (build + wyszukiwanie regionów). */
+export const CYCLING_TAXONOMY_SLUGS = [
+  "mountain_biking",
+  "bike_rental",
+  "cycling",
+] as const;
+
 export const CYCLING_DIFFICULTIES: ActivityDifficulty[] = [
   "easy",
   "moderate",

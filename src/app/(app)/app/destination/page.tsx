@@ -12,7 +12,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { SkeletonList } from "@/components/ui/Skeleton";
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
@@ -31,8 +31,8 @@ import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 import { LocalServicesSection } from "@/components/features/LocalServicesSection";
-import { ActivityModeToggle } from "@/components/activities/ActivityModeToggle";
 import { ActivityPanel } from "@/components/activities/ActivityPanel";
+import { CYCLING_TAXONOMY_SLUGS } from "@/lib/activities/cycling/constants";
 
 type BuildEvent = {
   type: string;
@@ -97,6 +97,7 @@ export default function DestinationPage() {
   const clusterData = searchParams.get("cluster");
   const activitiesParam = searchParams.get("activities");
   const activityMode = searchParams.get("activity") ?? undefined;
+  const isCyclingMode = activityMode === "cycling";
 
   const trip = useMemo(
     () =>
@@ -179,14 +180,48 @@ export default function DestinationPage() {
     }
 
     if (!parsedCluster || !activities?.length) {
-      setError(
-        "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
-      );
-      return;
+      if (isCyclingMode) {
+        activities = [...CYCLING_TAXONOMY_SLUGS];
+        if (!parsedCluster) {
+          setError(
+            "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
+          );
+          return;
+        }
+      } else {
+        setError(
+          "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
+        );
+        return;
+      }
     }
 
     startedRef.current = true;
     setSelectedActivities(activities);
+
+    const basePayload =
+      storedPayload ?? {
+        cluster: parsedCluster,
+        activities,
+        attractionPool: parsedCluster.attractions,
+      };
+
+    if (isCyclingMode && !basePayload.planComplete) {
+      const cyclingPayload: DestinationBuildPayload = {
+        ...basePayload,
+        planComplete: true,
+        selectedAttractionIds: [],
+      };
+      const finalCluster = applyPlanToCluster(cyclingPayload);
+      if (buildId) {
+        storeDestinationBuildPayload(buildId, cyclingPayload);
+      }
+      setPlanPayload(cyclingPayload);
+      setPlanComplete(true);
+      setCluster(finalCluster);
+      void startBuild(finalCluster, activities);
+      return;
+    }
 
     if (storedPayload?.planComplete) {
       const finalCluster = applyPlanToCluster(storedPayload);
@@ -205,7 +240,7 @@ export default function DestinationPage() {
       },
     );
     setCluster(parsedCluster);
-  }, [buildId, clusterData, activitiesParam]);
+  }, [buildId, clusterData, activitiesParam, isCyclingMode]);
 
   useEffect(() => {
     if (!planPayload || planPayload.planComplete || planPayload.poolEnriched) {
@@ -437,32 +472,35 @@ export default function DestinationPage() {
       </button>
 
       <header className="mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-text-primary">
-              {pageTitle}
-            </h1>
-            {destination && (
-              <p className="mt-2 text-sm text-text-secondary">
-                {destination.country_code} · {destination.destination_type} ·{" "}
-                {destination.timezone}
-              </p>
-            )}
-            {isBuilding && !destination && planComplete && (
-              <p className="mt-2 text-sm text-text-secondary">
-                Przygotowujemy opis, pogodę i oferty podróży…
-              </p>
-            )}
-          </div>
-          {(planPayload || planComplete) && (
-            <Suspense fallback={null}>
-              <ActivityModeToggle currentActivity={activityMode} />
-            </Suspense>
-          )}
-        </div>
+        <h1 className="font-display text-3xl font-bold text-text-primary">
+          {pageTitle}
+        </h1>
+        {isCyclingMode && (
+          <p className="mt-2 text-sm font-medium text-brand-700">Kolarstwo</p>
+        )}
+        {destination && (
+          <p className="mt-2 text-sm text-text-secondary">
+            {destination.country_code} · {destination.destination_type} ·{" "}
+            {destination.timezone}
+          </p>
+        )}
+        {isBuilding && !destination && planComplete && (
+          <p className="mt-2 text-sm text-text-secondary">
+            Przygotowujemy opis, pogodę i oferty podróży…
+          </p>
+        )}
       </header>
 
-      {!planComplete && planPayload && !planEnriching && (
+      {planComplete && destination && isCyclingMode && (
+        <section className="mb-8">
+          <ActivityPanel
+            activity={activityMode}
+            destinationId={destination.id}
+          />
+        </section>
+      )}
+
+      {!isCyclingMode && !planComplete && planPayload && !planEnriching && (
         <DestinationPlanWizard
           payload={planPayload}
           withKids={hasChildrenInPassengers(trip.passengers)}
@@ -476,7 +514,7 @@ export default function DestinationPage() {
         />
       )}
 
-      {!planComplete && planEnriching && (
+      {!isCyclingMode && !planComplete && planEnriching && (
         <Card>
           <CardBody>
             <SkeletonList count={4} />
@@ -487,7 +525,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && mapData && (
+      {!isCyclingMode && planComplete && mapData && (
         <section className="mb-8">
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
@@ -496,24 +534,12 @@ export default function DestinationPage() {
         </section>
       )}
 
-      {planComplete && activityMode && !destination && (
+      {planComplete && isCyclingMode && !destination && (
         <Card className="mb-8">
           <CardBody className="text-sm text-text-secondary">
-            <p>
-              Tryb <strong>{activityMode}</strong> — czekamy na zapis destynacji w
-              bazie. Za chwilę pojawią się trasy.
-            </p>
+            <p>Ładujemy trasy rowerowe dla tej destynacji…</p>
           </CardBody>
         </Card>
-      )}
-
-      {planComplete && destination && activityMode && (
-        <section className="mb-8">
-          <ActivityPanel
-            activity={activityMode}
-            destinationId={destination.id}
-          />
-        </section>
       )}
 
       {planComplete && buildWarnings.length > 0 && (
@@ -531,7 +557,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && summary && (
+      {planComplete && !isCyclingMode && summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -616,7 +642,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && googlePlaces.length > 0 && selectedActivities.length > 0 && (
+      {planComplete && !isCyclingMode && googlePlaces.length > 0 && selectedActivities.length > 0 && (
         <LocalServicesSection
           places={googlePlaces}
           selectedActivities={selectedActivities}

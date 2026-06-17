@@ -15,6 +15,9 @@ import {
 } from "@/lib/search/trip-context";
 import { useT } from "@/i18n/locale-provider";
 
+const ACTIVITIES_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_ACTIVITIES !== "false";
+
 function HeroSearchContent({ compact = false }: { compact?: boolean }) {
   const t = useT();
   const router = useRouter();
@@ -26,6 +29,8 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
     id: string;
     name: string;
   } | null>(null);
+
+  const isCyclingTab = trip.activity === "cycling";
 
   useEffect(() => {
     const fromUrl = tripContextFromParams(searchParams);
@@ -59,19 +64,35 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
       .catch(() => {});
   }, [hydrated, searchParams]);
 
+  function selectDestinationTab() {
+    setTrip((prev) => ({
+      ...prev,
+      mode: "destination",
+      activity: null,
+      interests: "",
+    }));
+  }
+
+  function selectCyclingTab() {
+    setTrip((prev) => ({
+      ...prev,
+      mode: "destination",
+      activity: "cycling",
+      interests: "",
+    }));
+  }
+
   async function handleSearch() {
     setSubmitting(true);
-    const heroStart = Date.now();
     try {
       let nextTrip = { ...trip };
 
       if (
-        nextTrip.mode === "destination" &&
-        (nextTrip.destination_lat == null || nextTrip.destination_lon == null)
+        nextTrip.destination_lat == null ||
+        nextTrip.destination_lon == null
       ) {
         const label =
           nextTrip.destination_label ?? nextTrip.destination ?? "";
-        const geoStart = Date.now();
         const coords = await resolvePlaceCoords(label);
         if (coords) {
           nextTrip = {
@@ -103,11 +124,9 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
 
       const params = tripContextToParams({
         ...nextTrip,
-        interests: nextTrip.mode === "activities" ? nextTrip.interests : "",
-        destination:
-          nextTrip.mode === "destination"
-            ? nextTrip.destination_label
-            : nextTrip.destination,
+        mode: "destination",
+        interests: "",
+        destination: nextTrip.destination_label,
       });
       params.set("step", "2");
       router.push(`/app/search?${params.toString()}`);
@@ -176,7 +195,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
           </h1>
           {!compact && (
             <p className="mx-auto mt-4 max-w-2xl text-base text-white/70">
-              {t("hero.subtitle")}
+              {isCyclingTab ? t("hero.subtitleCycling") : t("hero.subtitle")}
             </p>
           )}
         </div>
@@ -184,25 +203,27 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         <div className="relative z-10 mx-auto max-w-4xl rounded-2xl bg-white p-1.5 shadow-hero">
           <div className="flex gap-1 border-b border-border-default px-3 pt-2">
             <TabButton
-              active={trip.mode === "destination"}
-              onClick={() => setTrip((t) => ({ ...t, mode: "destination" }))}
+              active={!isCyclingTab}
+              onClick={selectDestinationTab}
               label={t("hero.tabDestination")}
               icon="map-pin"
             />
-            <TabButton
-              active={trip.mode === "activities"}
-              onClick={() => setTrip((t) => ({ ...t, mode: "activities" }))}
-              label={t("hero.tabActivities")}
-              icon="target"
-            />
+            {ACTIVITIES_ENABLED && (
+              <TabButton
+                active={isCyclingTab}
+                onClick={selectCyclingTab}
+                label={t("hero.tabCycling")}
+                icon="target"
+              />
+            )}
           </div>
 
           <div className={cn("p-2", !compact && "md:p-3")}>
             <TripSearchForm
               trip={trip}
               onChange={setTrip}
-              showInterests={trip.mode === "activities"}
-              showDestination={trip.mode === "destination"}
+              showInterests={false}
+              showDestination
               groupSource={activeGroup}
               onClearGroupSource={() => setActiveGroup(null)}
               large={!compact}
@@ -219,7 +240,11 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
               )}
             >
               <Icon name="search" size={20} />
-              {submitting ? t("hero.searching") : t("hero.search")}
+              {submitting
+                ? t("hero.searching")
+                : isCyclingTab
+                  ? t("hero.searchCycling")
+                  : t("hero.search")}
             </button>
           </div>
         </div>

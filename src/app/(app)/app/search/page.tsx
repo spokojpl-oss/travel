@@ -51,6 +51,7 @@ import {
   formatTripDateRange,
   formatTravelSummary,
   hasTripParams,
+  isCyclingTrip,
   mergeTripContext,
   matchActivitySlugsFromText,
   daysBetweenIso,
@@ -60,6 +61,7 @@ import {
   type ExplorationScope,
   type TripContext,
 } from "@/lib/search/trip-context";
+import { CYCLING_TAXONOMY_SLUGS } from "@/lib/activities/cycling/constants";
 import {
   clearSearchRestoreState,
   consumeSearchRerunFlag,
@@ -309,8 +311,16 @@ function SearchPageContent() {
         merged.exploration_scope === "island" &&
         resolvedStep === 5
       ) {
-        resolvedStep = 6;
+        resolvedStep = isCyclingTrip(merged) ? 7 : 6;
       }
+
+      if (isCyclingTrip(merged)) {
+        setSelectedActivities(new Set(CYCLING_TAXONOMY_SLUGS));
+        if (resolvedStep === 6) {
+          resolvedStep = 7;
+        }
+      }
+
       setStep(resolvedStep);
 
       if (
@@ -332,6 +342,20 @@ function SearchPageContent() {
     setTrip(merged);
     setInitialized(true);
   }, [initialized, searchParams, locale]);
+
+  useEffect(() => {
+    if (!initialized || !isCyclingTrip(trip) || step !== 7) return;
+    if (results || isSearching) return;
+    if (!dataStatus?.search_ready) return;
+    goToCyclingResults();
+  }, [
+    initialized,
+    trip.activity,
+    step,
+    results,
+    isSearching,
+    dataStatus?.search_ready,
+  ]);
 
   useEffect(() => {
     if (!initialized || interestsMatchedRef.current || taxonomy.length === 0) return;
@@ -582,12 +606,14 @@ function SearchPageContent() {
   }
 
   const isDestinationFlow = trip.mode === "destination";
+  const isCyclingFlow = isCyclingTrip(trip);
   const skipRegionsStep = trip.exploration_scope === "island";
   const showScopeStep = isDestinationFlow && step === 2;
   const showOverviewStep = isDestinationFlow && step === 3;
   const showRhythmStep = isDestinationFlow && step === 4;
   const showRegionsStep = isDestinationFlow && step === 5 && !skipRegionsStep;
-  const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
+  const showActivitiesStep =
+    isDestinationFlow && !isCyclingFlow ? step === 6 : !isDestinationFlow && step === 2;
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
 
   const tripDays = useMemo(
@@ -761,6 +787,39 @@ function SearchPageContent() {
     syncUrl(trip, 5);
   }
 
+  function goToCyclingResults() {
+    const acts = [...CYCLING_TAXONOMY_SLUGS];
+    setSelectedActivities(new Set(acts));
+    setStep(7);
+    syncUrl(trip, 7);
+    void handleSearch({
+      ...getSearchParams(),
+      activities: acts,
+    });
+  }
+
+  function goToActivitiesStep() {
+    if (isCyclingFlow) {
+      goToCyclingResults();
+      return;
+    }
+
+    let nextActivities = selectedActivities;
+    if (trip.trip_rhythm && selectedActivities.size === 0) {
+      nextActivities = new Set(
+        suggestActivitiesFromRhythm({
+          rhythm: trip.trip_rhythm,
+          counts: activityCounts,
+          weather: discovery?.weather ?? null,
+          passengers: trip.passengers,
+        }),
+      );
+      setSelectedActivities(nextActivities);
+    }
+    setStep(6);
+    syncUrl(trip, 6);
+  }
+
   function centroidOfRegions(
     list: ScoredTouristRegion[],
   ): { lat: number; lon: number } | null {
@@ -826,25 +885,12 @@ function SearchPageContent() {
       setSelectedActivities(nextActivities);
     }
     setTrip(nextTrip);
-    setStep(6);
-    syncUrl(nextTrip, 6);
-  }
-
-  function goToActivitiesStep() {
-    let nextActivities = selectedActivities;
-    if (trip.trip_rhythm && selectedActivities.size === 0) {
-      nextActivities = new Set(
-        suggestActivitiesFromRhythm({
-          rhythm: trip.trip_rhythm,
-          counts: activityCounts,
-          weather: discovery?.weather ?? null,
-          passengers: trip.passengers,
-        }),
-      );
-      setSelectedActivities(nextActivities);
+    if (isCyclingFlow) {
+      goToCyclingResults();
+      return;
     }
     setStep(6);
-    syncUrl(trip, 6);
+    syncUrl(nextTrip, 6);
   }
 
   function goToScopeStep() {
@@ -1278,7 +1324,9 @@ function SearchPageContent() {
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
         {showResultsStep
-          ? t("search.titleResults")
+          ? isCyclingFlow
+            ? t("search.titleCyclingResults")
+            : t("search.titleResults")
           : showScopeStep
             ? t("search.titleScope")
             : showOverviewStep
@@ -1291,7 +1339,9 @@ function SearchPageContent() {
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
         {showResultsStep
-          ? t("search.subtitleResults")
+          ? isCyclingFlow
+            ? t("search.subtitleCyclingResults")
+            : t("search.subtitleResults")
           : showScopeStep
             ? t("search.subtitleScope")
             : showOverviewStep
@@ -1308,6 +1358,7 @@ function SearchPageContent() {
         tripMode={trip.mode}
         tripComplete
         skipRegionsStep={skipRegionsStep}
+        skipActivitiesStep={isCyclingFlow}
         onStep={(s) => {
           if (
             s === 5 &&

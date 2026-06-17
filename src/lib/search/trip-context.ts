@@ -15,8 +15,13 @@ export type { ExplorationScope };
 export type TravelMode = "car" | "train" | "bus" | "flight";
 export type VehicleSource = "own" | "rental";
 
+/** Tryb warstwy aktywności (np. kolarstwo) — osobno od mode wyszukiwania. */
+export type TripActivityMode = "cycling" | null;
+
 export type TripContext = {
   mode: "activities" | "destination";
+  /** Wybrany na hero: null = rodzinna destynacja, cycling = moduł kolarstwa. */
+  activity: TripActivityMode;
   interests: string;
   destination: string | null;
   destination_label: string | null;
@@ -173,6 +178,7 @@ export function defaultTripContext(): TripContext {
 
   return normalizeTripContext({
     mode: "destination",
+    activity: null,
     interests: "",
     destination: null,
     destination_label: null,
@@ -214,7 +220,13 @@ export function normalizeTripContext(trip: TripContext): TripContext {
     ...trip,
     tourist_region_ids: ids,
     tourist_region_id: ids[0] ?? null,
+    activity: trip.activity ?? null,
   };
+
+  if (synced.activity === "cycling") {
+    synced.mode = "destination";
+    synced.interests = "";
+  }
 
   let travel_mode = synced.travel_mode ?? inferTravelMode(synced) ?? "flight";
   if (travel_mode === "train" || travel_mode === "bus") {
@@ -283,6 +295,7 @@ export function formatTravelSummary(trip: TripContext): string {
 export function tripContextToParams(trip: TripContext): URLSearchParams {
   const p = new URLSearchParams();
   p.set("mode", trip.mode);
+  if (trip.activity) p.set("activity", trip.activity);
   if (trip.interests) p.set("interests", trip.interests);
   if (trip.destination) p.set("destination", trip.destination);
   if (trip.destination_label) p.set("destination_label", trip.destination_label);
@@ -320,6 +333,8 @@ export function tripContextFromParams(
   const partial: Partial<TripContext> = {};
   const mode = params.get("mode");
   if (mode === "activities" || mode === "destination") partial.mode = mode;
+  const activity = params.get("activity");
+  if (activity === "cycling") partial.activity = "cycling";
   const interests = params.get("interests");
   if (interests) partial.interests = interests;
   const destination = params.get("destination");
@@ -374,10 +389,15 @@ export function tripContextFromParams(
   return partial;
 }
 
+export function isCyclingTrip(trip: Pick<TripContext, "activity">): boolean {
+  return trip.activity === "cycling";
+}
+
 export function hasTripParams(params: URLSearchParams): boolean {
   return (
     params.has("from_date") ||
     params.has("mode") ||
+    params.has("activity") ||
     params.has("interests") ||
     params.has("destination") ||
     params.has("destination_label") ||

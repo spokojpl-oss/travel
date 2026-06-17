@@ -70,7 +70,13 @@ export function TripContextBar({
     });
   }
 
-  if (trip.mode === "activities" && trip.interests) {
+  if (trip.activity === "cycling") {
+    items.unshift({
+      icon: "target",
+      label: t("context.mode"),
+      value: t("hero.tabCycling"),
+    });
+  } else if (trip.mode === "activities" && trip.interests) {
     items.unshift({
       icon: "target",
       label: t("context.interests"),
@@ -116,6 +122,7 @@ export function SearchStepIndicator({
   tripComplete = false,
   tripMode = "activities",
   skipRegionsStep = false,
+  skipActivitiesStep = false,
 }: {
   step: SearchStep;
   onStep?: (s: SearchStep) => void;
@@ -123,6 +130,8 @@ export function SearchStepIndicator({
   tripMode?: "activities" | "destination";
   /** Ukryj krok „Region” gdy user wybrał całą wyspę. */
   skipRegionsStep?: boolean;
+  /** Ukryj krok „Aktywności” w flow kolarstwa. */
+  skipActivitiesStep?: boolean;
 }) {
   const t = useT();
 
@@ -143,14 +152,24 @@ export function SearchStepIndicator({
                   goto: 5 as SearchStep,
                 },
               ]),
+          ...(skipActivitiesStep
+            ? []
+            : [
+                {
+                  displayN: skipRegionsStep ? 5 : 6,
+                  label: t("steps.activities"),
+                  key: "activities",
+                  goto: 6 as SearchStep,
+                },
+              ]),
           {
-            displayN: skipRegionsStep ? 5 : 6,
-            label: t("steps.activities"),
-            key: "activities",
-            goto: 6 as SearchStep,
-          },
-          {
-            displayN: skipRegionsStep ? 6 : 7,
+            displayN: skipRegionsStep
+              ? skipActivitiesStep
+                ? 5
+                : 6
+              : skipActivitiesStep
+                ? 6
+                : 7,
             label: t("steps.results"),
             key: "results",
             goto: 7 as SearchStep,

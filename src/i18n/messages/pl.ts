@@ -16,10 +16,13 @@ export const pl = {
     title2: "dopasowane do ...",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
-    tabActivities: "Aktywności",
-    tabDestination: "Destynacji",
+    tabDestination: "Destynacja",
+    tabCycling: "Kolarstwo",
     search: "Szukaj wakacji",
+    searchCycling: "Szukaj tras rowerowych",
     searching: "Przygotowuję wyszukiwanie...",
+    subtitleCycling:
+      "Wybierz region, daty i sposób dojazdu — pokażemy trasy szosowe, gravel i MTB z mapą i profilem wysokości.",
     trustNoFees: "Bez ukrytych kosztów",
     trustDirectLinks: "Bezpośrednie linki do partnerów",
     trustAdvisories: "Inteligentne porady przed wyjazdem",
@@ -148,6 +151,9 @@ export const pl = {
   search: {
     breadcrumb: "Wyniki wyszukiwania",
     titleResults: "Wyniki wyszukiwania",
+    titleCyclingResults: "Regiony rowerowe",
+    subtitleCyclingResults:
+      "Wybierz region — zobaczysz trasy szosowe, gravel i MTB z mapą i filtrami.",
     titleActivities: "Wybierz aktywności",
     titleScope: "Jak chcecie zwiedzać?",
     subtitleScope:
@@ -418,6 +424,7 @@ export const pl = {
     when: "Kiedy",
     who: "Kto",
     where: "Dokąd",
+    mode: "Tryb",
     interests: "Zainteresowania",
     rhythm: "Plan dni",
     edit: "Zmień",

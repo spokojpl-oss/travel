@@ -18,10 +18,13 @@ export const en: Messages = {
     title2: "tailored to ...",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
-    tabActivities: "By activities",
-    tabDestination: "By destination",
+    tabDestination: "Destination",
+    tabCycling: "Cycling",
     search: "Search holidays",
+    searchCycling: "Find cycling routes",
     searching: "Preparing search...",
+    subtitleCycling:
+      "Pick a region, dates, and how you travel — we'll show road, gravel, and MTB routes with maps and elevation profiles.",
     trustNoFees: "No hidden fees",
     trustDirectLinks: "Direct partner links",
     trustAdvisories: "Smart pre-trip tips",
@@ -150,6 +153,9 @@ export const en: Messages = {
   search: {
     breadcrumb: "Search results",
     titleResults: "Search results",
+    titleCyclingResults: "Cycling regions",
+    subtitleCyclingResults:
+      "Pick a region — you'll get road, gravel, and MTB routes with maps and filters.",
     titleActivities: "Choose activities",
     titleScope: "How do you want to explore?",
     subtitleScope:
@@ -417,6 +423,7 @@ export const en: Messages = {
     when: "When",
     who: "Who",
     where: "Where to",
+    mode: "Mode",
     interests: "Interests",
     rhythm: "Day plan",
     edit: "Edit",
