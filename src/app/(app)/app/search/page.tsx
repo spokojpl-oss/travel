@@ -1314,10 +1314,24 @@ function SearchPageContent() {
   }
 
   function goToDestinationOffer(payload: DestinationBuildPayload) {
-    storeDestinationBuildPayload(payload.cluster.id, payload);
+    const stored = storeDestinationBuildPayload(payload.cluster.id, payload);
     const tripParams = tripContextToParams(trip);
     tripParams.set("build_id", payload.cluster.id);
-    router.push(`/app/destination?${tripParams.toString()}`);
+    if (!stored) {
+      tripParams.set(
+        "cluster",
+        encodeURIComponent(JSON.stringify(payload.cluster)),
+      );
+      tripParams.set(
+        "activities",
+        encodeURIComponent(JSON.stringify(payload.activities)),
+      );
+    }
+    const url = `/app/destination?${tripParams.toString()}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H3',location:'search/page.tsx:goToDestinationOffer',message:'navigating to destination',data:{stored,buildId:payload.cluster.id,urlLen:url.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    router.push(url);
   }
 
   function handlePlanComplete(updated: DestinationBuildPayload) {

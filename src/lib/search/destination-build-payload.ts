@@ -62,9 +62,27 @@ export type DestinationBuildPayload = {
 export function storeDestinationBuildPayload(
   buildId: string,
   payload: DestinationBuildPayload,
-): void {
-  if (typeof sessionStorage === "undefined") return;
-  sessionStorage.setItem(`${STORAGE_PREFIX}${buildId}`, JSON.stringify(payload));
+): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  try {
+    sessionStorage.setItem(`${STORAGE_PREFIX}${buildId}`, JSON.stringify(payload));
+    return true;
+  } catch {
+    try {
+      const slim: DestinationBuildPayload = {
+        ...payload,
+        selectedCyclingRoutes: payload.selectedCyclingRoutes?.map((route) => ({
+          ...route,
+          geometry: "",
+          elevation_profile: null,
+        })),
+      };
+      sessionStorage.setItem(`${STORAGE_PREFIX}${buildId}`, JSON.stringify(slim));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export function loadDestinationBuildPayload(

@@ -265,29 +265,52 @@ export function DestinationPlanWizard({
 
     if (payload.region) {
       const r = payload.region;
-      return [
-        {
+    return [
+      {
+        id: r.id ?? "custom-region",
+        lat: payload.cluster.center.lat,
+        lon: payload.cluster.center.lon,
+        name: pl ? r.name_pl : r.name_en,
+        description_pl: r.stay_hint_pl,
+        description_en: r.stay_hint_en,
+        radiusKm: payload.stayRadiusKm ?? 5,
+        parentRegion: {
           id: r.id ?? "custom-region",
-          lat: payload.cluster.center.lat,
-          lon: payload.cluster.center.lon,
-          name: pl ? r.name_pl : r.name_en,
-          description_pl: r.stay_hint_pl,
-          description_en: r.stay_hint_en,
-          radiusKm: payload.stayRadiusKm ?? 5,
-          parentRegion: {
-            id: r.id ?? "custom-region",
-            name_pl: r.name_pl,
-            name_en: r.name_en,
-            overview_pl: r.overview_pl,
-            overview_en: r.overview_en,
-            stay_hint_pl: r.stay_hint_pl,
-            stay_hint_en: r.stay_hint_en,
-          },
+          name_pl: r.name_pl,
+          name_en: r.name_en,
+          overview_pl: r.overview_pl,
+          overview_en: r.overview_en,
+          stay_hint_pl: r.stay_hint_pl,
+          stay_hint_en: r.stay_hint_en,
         },
-      ];
-    }
+      },
+    ];
+  }
 
-    return [];
+  if (payload.cluster.center) {
+    return [
+      {
+        id: "cluster-center",
+        lat: payload.cluster.center.lat,
+        lon: payload.cluster.center.lon,
+        name: payload.cluster.settlement?.name ?? payload.destinationLabel ?? (pl ? "Baza" : "Base"),
+        description_pl: pl ? "Centrum wybranego rejonu." : "Center of your selected area.",
+        description_en: "Center of your selected area.",
+        radiusKm: payload.stayRadiusKm ?? 5,
+        parentRegion: {
+          id: "cluster-center",
+          name_pl: payload.destinationLabel ?? "Baza",
+          name_en: payload.destinationLabel ?? "Base",
+          overview_pl: "",
+          overview_en: "",
+          stay_hint_pl: "",
+          stay_hint_en: "",
+        },
+      },
+    ];
+  }
+
+  return [];
   }, [
     isCyclingMode,
     cyclingRoutes,
@@ -328,6 +351,25 @@ export function DestinationPlanWizard({
   }, [isCyclingMode, baseChoice, baseOptions]);
 
   const selectedBase = baseOptions.find((o) => o.id === baseChoice);
+
+  useEffect(() => {
+    if (baseOptions.length === 0) return;
+    if (baseChoice && baseOptions.some((o) => o.id === baseChoice)) return;
+    setBaseChoice(baseOptions[0]!.id);
+  }, [baseOptions, baseChoice]);
+
+  const hasPlanSelection =
+    selectedIds.size > 0 ||
+    selectedPoolIds.length > 0 ||
+    cyclingRoutes.length > 0;
+  const canConfirmPlan = Boolean(selectedBase) && hasPlanSelection;
+
+  // #region agent log
+  useEffect(() => {
+    if (step !== "plan") return;
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H1',location:'DestinationPlanWizard.tsx:planStep',message:'plan step state',data:{canConfirmPlan,hasPlanSelection,hasBase:Boolean(selectedBase),baseOptionsLen:baseOptions.length,selectedIds:selectedIds.size,poolIds:selectedPoolIds.length,cyclingRoutes:cyclingRoutes.length,baseChoice},timestamp:Date.now()})}).catch(()=>{});
+  }, [step, canConfirmPlan, hasPlanSelection, selectedBase, baseOptions.length, selectedIds.size, selectedPoolIds.length, cyclingRoutes.length, baseChoice]);
+  // #endregion
 
   const primaryRegionOverview = useMemo(() => {
     if (matchedRegions.length === 0) return null;
@@ -419,8 +461,21 @@ export function DestinationPlanWizard({
   }
 
   function confirmPlan() {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H2',location:'DestinationPlanWizard.tsx:confirmPlan:entry',message:'confirmPlan called',data:{hasBase:Boolean(selectedBase),hasPlanSelection,selectedIds:selectedIds.size,poolIds:selectedPoolIds.length,cyclingRoutes:cyclingRoutes.length,clusterId:payload.cluster.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!selectedBase) return;
-    if (selectedIds.size === 0 && cyclingMapRoutes.length === 0) return;
+    if (!hasPlanSelection) return;
+
+    const attractionIds =
+      selectedPoolIds.length > 0
+        ? selectedPoolIds
+        : selectedPlaces.map((place) => place.id);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'plan-debug',hypothesisId:'H2',location:'DestinationPlanWizard.tsx:confirmPlan:beforeComplete',message:'calling onComplete',data:{attractionIds:attractionIds.length,baseId:selectedBase.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     onComplete({
       ...payload,
       lodgingBase: {
@@ -430,7 +485,7 @@ export function DestinationPlanWizard({
         choice: selectedBase.id,
         areaId: selectedBase.id,
       },
-      selectedAttractionIds: selectedPoolIds,
+      selectedAttractionIds: attractionIds,
       selectedCyclingRoutes: payload.selectedCyclingRoutes,
       cluster: draftCluster,
       planComplete: true,
@@ -616,14 +671,22 @@ export function DestinationPlanWizard({
             </Button>
             <Button
               size="lg"
-              disabled={
-                !selectedBase ||
-                (selectedPoolIds.length === 0 && cyclingMapRoutes.length === 0)
-              }
+              disabled={!canConfirmPlan}
               onClick={confirmPlan}
             >
               {pl ? "Przygotuj hotele i ofertę →" : "Prepare hotels & offers →"}
             </Button>
+            {!canConfirmPlan && (
+              <p className="w-full text-sm text-amber-800">
+                {pl
+                  ? !selectedBase
+                    ? "Wybierz bazę noclegową w poprzednim kroku."
+                    : "Zaznacz miejsca do odwiedzenia albo dodaj trasy rowerowe do planu."
+                  : !selectedBase
+                    ? "Pick a lodging base in the previous step."
+                    : "Select places to visit or add cycling routes to your plan."}
+              </p>
+            )}
             {onCancel && (
               <Button variant="ghost" onClick={onCancel}>
                 {pl ? "Anuluj" : "Cancel"}
