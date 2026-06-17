@@ -33,7 +33,7 @@ import {
   parseRouteGeometry,
 } from "@/lib/supabase/activity-routes";
 
-const ROUTES_FETCH_LIMIT = 80;
+const ROUTES_FETCH_LIMIT = 50;
 
 type GenerateRouteOptions = {
   count?: number;
