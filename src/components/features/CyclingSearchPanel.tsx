@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import { ActivityPanel } from "@/components/activities/ActivityPanel";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { useT } from "@/i18n/locale-provider";
+import type { ActivityRoute } from "@/types/activities";
 
 export function CyclingSearchPanel({
   destinationLabel,
   destinationLat,
   destinationLon,
+  planRouteIds,
+  onTogglePlanRoute,
 }: {
   destinationLabel: string;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  planRouteIds?: Set<string>;
+  onTogglePlanRoute?: (route: ActivityRoute) => void;
 }) {
   const t = useT();
   const [destinationId, setDestinationId] = useState<string | null>(null);
@@ -67,6 +72,14 @@ export function CyclingSearchPanel({
     };
   }, [destinationLabel, destinationLat, destinationLon, t]);
 
+  const routeCenter =
+    destinationLat != null &&
+    destinationLon != null &&
+    Number.isFinite(destinationLat) &&
+    Number.isFinite(destinationLon)
+      ? { lat: destinationLat, lng: destinationLon }
+      : center;
+
   return (
     <section className="mb-10">
       <h2 className="font-display mb-6 text-xl font-bold text-text-primary">
@@ -79,12 +92,14 @@ export function CyclingSearchPanel({
           {error}
         </p>
       )}
-      {!loading && destinationId && center && (
+      {!loading && destinationId && routeCenter && (
         <ActivityPanel
           activity="cycling"
           destinationId={destinationId}
-          destinationCenter={center}
+          destinationCenter={routeCenter}
           defaultShowCyclOsm
+          planRouteIds={planRouteIds}
+          onTogglePlanRoute={onTogglePlanRoute}
         />
       )}
     </section>

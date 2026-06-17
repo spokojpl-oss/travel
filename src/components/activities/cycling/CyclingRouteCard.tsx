@@ -1,10 +1,10 @@
 "use client";
 
-import type { ActivityRoute, SurfaceMix } from "@/types/activities";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
+import type { ActivityRoute, SurfaceMix } from "@/types/activities";
 import {
   CYCLING_TYPE_LABELS,
   DIFFICULTY_LABELS,
@@ -82,6 +82,7 @@ export function CyclingRouteCard({
   selected,
   inPlan,
   compact = false,
+  compactGrid = false,
   onSelect,
   onTogglePlan,
 }: {
@@ -89,6 +90,7 @@ export function CyclingRouteCard({
   selected: boolean;
   inPlan: boolean;
   compact?: boolean;
+  compactGrid?: boolean;
   onSelect: () => void;
   onTogglePlan: () => void;
 }) {
@@ -102,38 +104,53 @@ export function CyclingRouteCard({
       )}
       onClick={onSelect}
     >
-      <CardBody className={cn(compact ? "space-y-2 p-3" : "space-y-3")}>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-display text-base font-bold text-text-primary">
+      <CardBody
+        className={cn(
+          compactGrid ? "space-y-1.5 p-2" : compact ? "space-y-2 p-3" : "space-y-3",
+        )}
+      >
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="min-w-0">
+            <h3
+              className={cn(
+                "font-display font-bold text-text-primary",
+                compactGrid ? "truncate text-base leading-tight" : "text-base",
+              )}
+            >
               {route.name}
             </h3>
             <p className="text-xs text-text-secondary">
               {CYCLING_TYPE_LABELS[route.activity_type]}
             </p>
           </div>
-          {route.difficulty && (
+          {route.difficulty && !compactGrid && (
             <Badge variant="default">{DIFFICULTY_LABELS[route.difficulty]}</Badge>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 text-sm text-text-secondary">
+        <div className="flex flex-wrap gap-2 text-sm text-text-secondary">
           <span>{distanceKm} km</span>
           {route.elevation_gain_m != null && (
             <span>{route.elevation_gain_m} m+</span>
           )}
-          {route.max_gradient_pct != null && (
+          {route.max_gradient_pct != null && !compactGrid && (
             <span>max {route.max_gradient_pct}%</span>
           )}
         </div>
 
-        <SurfaceMixBar mix={route.surface_mix} />
+        {!compactGrid && <SurfaceMixBar mix={route.surface_mix} />}
 
-        <div className="flex items-center justify-between gap-3">
-          <ElevationProfile profile={route.elevation_profile} />
+        <div
+          className={cn(
+            "flex gap-2",
+            compactGrid ? "flex-col" : "items-center justify-between",
+          )}
+        >
+          {!compactGrid && <ElevationProfile profile={route.elevation_profile} />}
           <Button
             size="sm"
             variant={inPlan ? "secondary" : "primary"}
+            className={compactGrid ? "w-full" : undefined}
             onClick={(e) => {
               e.stopPropagation();
               onTogglePlan();

@@ -20,7 +20,7 @@ const RATING_DOT: Record<string, string> = {
 export function LocalServicesSection({
   places,
   selectedActivities = [],
-  maxTotal = 8,
+  maxTotal = 12,
 }: {
   places: GooglePlace[];
   selectedActivities?: string[];
@@ -61,58 +61,52 @@ export function LocalServicesSection({
   return (
     <Card className="mb-8">
       <CardHeader title={t("localServices.title", { n: visible.length })} />
-      <CardBody className="space-y-6">
+      <CardBody className="space-y-4">
         {[...byGroup.entries()].map(([kind, items]) => {
           const { group } = items[0]!;
           return (
-            <section key={kind} className="space-y-3">
+            <section key={kind} className="space-y-2">
               <div>
-                <h3 className="font-display text-base font-semibold text-text-primary">
+                <h3 className="text-sm font-semibold text-text-primary">
                   {group.label}
                 </h3>
-                <p className="mt-0.5 text-sm text-text-secondary">
-                  {group.description}
-                </p>
+                <p className="text-xs text-text-tertiary">{group.description}</p>
               </div>
 
-              <ul className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {items.map(({ place: p }) => (
-                  <li
+                  <article
                     key={p.place_id}
-                    className="rounded-xl border border-border-default bg-bg-soft p-4"
+                    className="flex h-full flex-col rounded-lg border border-border-default bg-bg-soft/60 p-2.5"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-text-primary">{p.name}</p>
-                        {p.ratingText && (
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-text-secondary">
-                            {p.ratingTone && (
-                              <span
-                                className={`inline-block h-2 w-2 shrink-0 rounded-full ${RATING_DOT[p.ratingTone] ?? "bg-gray-300"}`}
-                                aria-hidden
-                              />
-                            )}
-                            {p.ratingText}
-                          </p>
+                    <p className="line-clamp-2 text-sm font-medium leading-snug text-text-primary">
+                      {p.name}
+                    </p>
+                    {p.ratingText && (
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-text-secondary">
+                        {p.ratingTone && (
+                          <span
+                            className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${RATING_DOT[p.ratingTone] ?? "bg-gray-300"}`}
+                            aria-hidden
+                          />
                         )}
-                      </div>
-                    </div>
-
-                    {p.shortAddress && (
-                      <p className="mt-2 text-xs text-text-tertiary">
-                        {t("localServices.address")}: {p.shortAddress}
+                        <span className="line-clamp-1">{p.ratingText}</span>
                       </p>
                     )}
-
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    {p.shortAddress && (
+                      <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-text-tertiary">
+                        {p.shortAddress}
+                      </p>
+                    )}
+                    <div className="mt-auto flex flex-wrap gap-x-2 gap-y-0.5 pt-2">
                       {p.google_maps_url && (
                         <a
                           href={localizeGoogleMapsUrl(p.google_maps_url, locale)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs font-medium text-brand-600 hover:underline"
+                          className="text-[10px] font-medium text-brand-600 hover:underline"
                         >
-                          {t("localServices.openMaps")} →
+                          Maps
                         </a>
                       )}
                       {p.website && (
@@ -120,23 +114,23 @@ export function LocalServicesSection({
                           href={p.website}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs font-medium text-brand-600 hover:underline"
+                          className="text-[10px] font-medium text-brand-600 hover:underline"
                         >
-                          {t("localServices.website")} →
+                          WWW
                         </a>
                       )}
                       {p.phone && (
                         <a
                           href={`tel:${p.phone.replace(/\s/g, "")}`}
-                          className="text-xs font-medium text-brand-600 hover:underline"
+                          className="text-[10px] font-medium text-brand-600 hover:underline"
                         >
-                          {t("localServices.phone")}: {p.phone}
+                          {p.phone}
                         </a>
                       )}
                     </div>
-                  </li>
+                  </article>
                 ))}
-              </ul>
+              </div>
             </section>
           );
         })}

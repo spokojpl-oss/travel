@@ -466,6 +466,8 @@ export const en: Messages = {
     legendHotel: "Hotel",
     calculatingRoutes: "Calculating driving routes…",
     drivingDistances: "Driving distances",
+    legendCyclingRoute: "Cycling route",
+    cyclingRoutes: "Cycling routes in your plan",
     estimate: "estimate",
     navigate: "Navigate in Google Maps",
     openInGoogleMaps: "Open in Google Maps",
@@ -488,6 +490,10 @@ export const en: Messages = {
     website: "Website",
     phone: "Phone",
     moreHint: "… and {n} more in the search results.",
+  },
+  destination: {
+    cyclingRoutesTitle: "Cycling routes in your plan",
+    cyclingRouteOpenMaps: "Route start in Google Maps",
   },
   steps: {
     trip: "Trip",

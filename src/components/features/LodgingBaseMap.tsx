@@ -8,6 +8,7 @@ import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import { getGoogleMapsApiKey } from "@/lib/maps/google-maps-config";
 import type { LodgingAreaOption } from "@/lib/plan/lodging-sub-areas";
 import type { IslandMapAirport } from "@/lib/maps/build-island-map";
+import type { MapCyclingRouteOverlay } from "@/lib/maps/cycling-route-overlays";
 
 const AREA_COLORS = [
   "#003faa",
@@ -24,6 +25,7 @@ type LodgingBaseMapProps = {
   onSelect: (id: string) => void;
   attractions?: Array<{ id: string; name: string; lat: number; lon: number }>;
   airports?: IslandMapAirport[];
+  cyclingRoutes?: MapCyclingRouteOverlay[];
   className?: string;
 };
 
@@ -33,6 +35,7 @@ export function LodgingBaseMap({
   onSelect,
   attractions = [],
   airports = [],
+  cyclingRoutes = [],
   className,
 }: LodgingBaseMapProps) {
   const apiKey = getGoogleMapsApiKey();
@@ -41,7 +44,7 @@ export function LodgingBaseMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapsApiRef = useRef<typeof google.maps | null>(null);
-  const overlaysRef = useRef<google.maps.Marker[]>([]);
+  const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Polyline>>([]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const [mapReady, setMapReady] = useState(false);
@@ -53,8 +56,9 @@ export function LodgingBaseMap({
         options.map((o) => `${o.id}:${o.lat},${o.lon}:${o.radiusKm}`).join("|"),
         attractions.map((a) => `${a.id}:${a.lat},${a.lon}`).join("|"),
         airports.map((a) => a.iata_code).join("|"),
+        cyclingRoutes.map((r) => `${r.id}:${r.path.length}`).join("|"),
       ].join(";"),
-    [options, attractions, airports],
+    [options, attractions, airports, cyclingRoutes],
   );
 
   useEffect(() => {
@@ -127,6 +131,19 @@ export function LodgingBaseMap({
       overlaysRef.current.push(marker);
     }
 
+    for (const route of cyclingRoutes) {
+      for (const p of route.path) bounds.extend(p);
+      const polyline = new maps.Polyline({
+        path: route.path,
+        map,
+        strokeColor: "#15803d",
+        strokeWeight: 4,
+        strokeOpacity: 0.88,
+        zIndex: 1,
+      });
+      overlaysRef.current.push(polyline);
+    }
+
     for (const attraction of attractions) {
       const pos = { lat: attraction.lat, lng: attraction.lon };
       bounds.extend(pos);
@@ -181,7 +198,7 @@ export function LodgingBaseMap({
     });
 
     map.fitBounds(bounds, 64);
-  }, [mapReady, options, optionsKey, selectedId, attractions, airports]);
+  }, [mapReady, options, optionsKey, selectedId, attractions, airports, cyclingRoutes]);
 
   if (options.length === 0) return null;
 
@@ -217,6 +234,12 @@ export function LodgingBaseMap({
             <span className="inline-flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-600" />
               {t("lodgingBase.legendAttractions")} ({attractions.length})
+            </span>
+          )}
+          {cyclingRoutes.length > 0 && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-700" />
+              {t("map.legendCyclingRoute")} ({cyclingRoutes.length})
             </span>
           )}
         </div>

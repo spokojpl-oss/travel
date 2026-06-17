@@ -2,12 +2,15 @@
 
 import { getActivityModule } from "@/lib/activities/registry";
 import { CyclingActivityProvider } from "@/components/activities/cycling/CyclingActivityContext";
+import type { ActivityRoute } from "@/types/activities";
 
 interface Props {
   activity?: string;
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
   defaultShowCyclOsm?: boolean;
+  planRouteIds?: Set<string>;
+  onTogglePlanRoute?: (route: ActivityRoute) => void;
 }
 
 export function ActivityPanel({
@@ -15,6 +18,8 @@ export function ActivityPanel({
   destinationId,
   destinationCenter,
   defaultShowCyclOsm = false,
+  planRouteIds,
+  onTogglePlanRoute,
 }: Props) {
   const mod = getActivityModule(activity);
   if (!mod) return null;
@@ -34,6 +39,8 @@ export function ActivityPanel({
         destinationId={destinationId}
         destinationCenter={destinationCenter}
         defaultShowCyclOsm={defaultShowCyclOsm}
+        planRouteIds={planRouteIds}
+        onTogglePlanRoute={onTogglePlanRoute}
       >
         {content}
       </CyclingActivityProvider>

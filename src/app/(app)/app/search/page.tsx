@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
@@ -79,6 +79,7 @@ import type {
   AttractionWithActivities,
   GeoCluster,
 } from "@/types/domain";
+import type { ActivityRoute } from "@/types/activities";
 
 type TaxonomyResponse = {
   groups: Array<ActivityGroup & { activities: Activity[] }>;
@@ -212,7 +213,37 @@ function SearchPageContent() {
   const [initialized, setInitialized] = useState(false);
   const [scoredRegions, setScoredRegions] = useState<ScoredTouristRegion[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(false);
+  const [cyclingPlanRoutes, setCyclingPlanRoutes] = useState<
+    Map<string, ActivityRoute>
+  >(new Map());
   const interestsMatchedRef = useRef(false);
+
+  const cyclingPlanRouteIds = useMemo(
+    () => new Set(cyclingPlanRoutes.keys()),
+    [cyclingPlanRoutes],
+  );
+  const plannedCyclingRoutes = useMemo(
+    () => Array.from(cyclingPlanRoutes.values()),
+    [cyclingPlanRoutes],
+  );
+
+  const toggleCyclingPlanRoute = useCallback((route: ActivityRoute) => {
+    setCyclingPlanRoutes((prev) => {
+      const next = new Map(prev);
+      if (next.has(route.id)) next.delete(route.id);
+      else next.set(route.id, route);
+      return next;
+    });
+  }, []);
+
+  const removeCyclingPlanRoute = useCallback((id: string) => {
+    setCyclingPlanRoutes((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   const activityNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1121,6 +1152,7 @@ function SearchPageContent() {
     cluster: GeoCluster,
     pool: AttractionWithActivities[],
     selectedAttractionIds?: string[],
+    selectedCyclingRoutes?: ActivityRoute[],
   ) {
     const searchRadii = getSearchParams();
     const airports =
@@ -1136,6 +1168,10 @@ function SearchPageContent() {
       selectedAttractionIds:
         selectedAttractionIds && selectedAttractionIds.length > 0
           ? selectedAttractionIds
+          : undefined,
+      selectedCyclingRoutes:
+        selectedCyclingRoutes && selectedCyclingRoutes.length > 0
+          ? selectedCyclingRoutes
           : undefined,
       planComplete: false,
       poolEnriched: false,
@@ -1196,6 +1232,7 @@ function SearchPageContent() {
       cluster,
       fullPool,
       selectedIds.length > 0 ? selectedIds : undefined,
+      plannedCyclingRoutes.length > 0 ? plannedCyclingRoutes : undefined,
     );
   }
 
@@ -1689,6 +1726,8 @@ function SearchPageContent() {
               }
               destinationLat={trip.destination_lat}
               destinationLon={trip.destination_lon}
+              planRouteIds={cyclingPlanRouteIds}
+              onTogglePlanRoute={toggleCyclingPlanRoute}
             />
           )}
           {attractionMapOverview ? (
@@ -1703,6 +1742,8 @@ function SearchPageContent() {
               onNarrowScope={narrowScopeToRegion}
               onExtendTrip={extendTripOnHome}
               onPlanTrip={openIslandPlan}
+              plannedCyclingRoutes={plannedCyclingRoutes}
+              onRemoveCyclingRoute={removeCyclingPlanRoute}
             />
           ) : (
             <>

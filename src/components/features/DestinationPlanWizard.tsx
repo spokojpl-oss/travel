@@ -33,6 +33,7 @@ import {
   type ExplorationScope,
 } from "@/lib/search/exploration-scope";
 import type { DestinationBuildPayload } from "@/lib/search/destination-build-payload";
+import { cyclingRoutesToMapOverlays } from "@/lib/maps/cycling-route-overlays";
 import { useLocale } from "@/i18n/locale-provider";
 import type { GeoCluster } from "@/types/domain";
 
@@ -282,6 +283,11 @@ export function DestinationPlanWizard({
     [draftCluster, locale, poolWithMeta],
   );
 
+  const cyclingMapRoutes = useMemo(
+    () => cyclingRoutesToMapOverlays(payload.selectedCyclingRoutes ?? []),
+    [payload.selectedCyclingRoutes],
+  );
+
   function togglePlace(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -301,7 +307,8 @@ export function DestinationPlanWizard({
   }
 
   function confirmPlan() {
-    if (!selectedBase || selectedIds.size === 0) return;
+    if (!selectedBase) return;
+    if (selectedIds.size === 0 && cyclingMapRoutes.length === 0) return;
     onComplete({
       ...payload,
       lodgingBase: {
@@ -312,6 +319,7 @@ export function DestinationPlanWizard({
         areaId: selectedBase.id,
       },
       selectedAttractionIds: selectedPoolIds,
+      selectedCyclingRoutes: payload.selectedCyclingRoutes,
       cluster: draftCluster,
       planComplete: true,
       poolEnriched: true,
@@ -399,6 +407,7 @@ export function DestinationPlanWizard({
             onSelect={setBaseChoice}
             attractions={mapAttractions}
             airports={payload.airports ?? []}
+            cyclingRoutes={cyclingMapRoutes}
           />
 
           <Card>
@@ -450,8 +459,13 @@ export function DestinationPlanWizard({
               segments={mapData.segments}
               height={480}
               showRouteList
+              cyclingRoutes={cyclingMapRoutes}
             />
           </Card>
+
+          {cyclingMapRoutes.length > 0 && (
+            <SelectedCyclingRoutesSummary routes={cyclingMapRoutes} pl={pl} />
+          )}
 
           <SelectedPlacesSummary
             cards={placeCards.filter((c) => selectedIds.has(c.id))}
@@ -465,7 +479,10 @@ export function DestinationPlanWizard({
             </Button>
             <Button
               size="lg"
-              disabled={!selectedBase || selectedPoolIds.length === 0}
+              disabled={
+                !selectedBase ||
+                (selectedPoolIds.length === 0 && cyclingMapRoutes.length === 0)
+              }
               onClick={confirmPlan}
             >
               {pl ? "Przygotuj hotele i ofertę →" : "Prepare hotels & offers →"}
@@ -583,6 +600,36 @@ function LodgingAreaCard({
   );
 }
 
+function SelectedCyclingRoutesSummary({
+  routes,
+  pl,
+}: {
+  routes: ReturnType<typeof cyclingRoutesToMapOverlays>;
+  pl: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+        {pl ? "Wybrane trasy rowerowe" : "Selected cycling routes"} ({routes.length})
+      </p>
+      <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {routes.map((route) => (
+          <li
+            key={route.id}
+            className="rounded-lg border border-emerald-100 bg-white/80 px-2.5 py-2 text-sm"
+          >
+            <span className="font-medium text-text-primary">{route.name}</span>
+            <span className="mt-0.5 block text-xs text-text-secondary">
+              {route.distanceKm.toFixed(1)} km
+              {route.elevationGainM != null && ` · ${route.elevationGainM} m+`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SelectedPlacesSummary({
   cards,
   pl,
@@ -603,8 +650,9 @@ function SelectedPlacesSummary({
           <li key={c.id} className="text-sm">
             <span className="font-medium text-text-primary">{c.name}</span>
             {!compact && (
-              <span className="mt-0.5 block text-xs leading-relaxed text-text-secondary">
-                {c.why}
+              <span className="mt-0.5 block space-y-0.5 text-xs leading-relaxed text-text-secondary">
+                <span className="block">{c.why}</span>
+                {c.detail && <span className="block text-text-tertiary">{c.detail}</span>}
               </span>
             )}
           </li>

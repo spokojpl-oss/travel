@@ -82,7 +82,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
   }, [routePaths, mapInstance, selectedRouteId]);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] lg:items-start">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] lg:items-start">
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-default px-4 py-2.5">
           <label className="flex items-center gap-2 text-sm text-text-secondary">
@@ -126,13 +126,13 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         </CardBody>
       </Card>
 
-      <aside className="flex max-h-[min(72vh,560px)] flex-col rounded-xl border border-border-default bg-white shadow-sm">
-        <div className="border-b border-border-default px-3 py-2.5">
+      <aside className="flex max-h-[min(72vh,560px)] min-h-0 flex-col rounded-xl border border-border-default bg-white shadow-sm">
+        <div className="shrink-0 border-b border-border-default px-3 py-2.5">
           <h3 className="font-display text-sm font-bold text-text-primary">
             Trasy ({routes.length})
           </h3>
         </div>
-        <div className="flex-1 space-y-2 overflow-y-auto p-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-1.5 overflow-y-auto p-2 sm:grid-cols-2">
           {(loading || generating) && routes.length === 0 && (
             <SkeletonList count={4} />
           )}
@@ -147,10 +147,11 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
               selected={selectedRouteId === route.id}
               inPlan={planRouteIds.has(route.id)}
               compact
+              compactGrid
               onSelect={() =>
                 setSelectedRouteId(selectedRouteId === route.id ? null : route.id)
               }
-              onTogglePlan={() => togglePlanRoute(route.id)}
+              onTogglePlan={() => togglePlanRoute(route)}
             />
           ))}
         </div>

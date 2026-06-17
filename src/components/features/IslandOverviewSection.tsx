@@ -10,6 +10,9 @@ import { buildIslandMapData } from "@/lib/maps/build-island-map";
 import { toPolishAttractionName } from "@/lib/plan/attraction-display-name";
 import type { IslandFeasibilityAdvice } from "@/lib/search/island-feasibility";
 import type { ActivitySearchResult, AttractionWithActivities } from "@/types/domain";
+import type { ActivityRoute } from "@/types/activities";
+import { CYCLING_TYPE_LABELS } from "@/lib/activities/cycling/constants";
+import { Icon } from "@/components/ui/Icon";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
 type TaxonomyActivity = { slug: string; name_pl: string; name_en: string };
@@ -38,6 +41,8 @@ export function IslandOverviewSection({
   onExtendTrip,
   onPlanTrip,
   variant = "island",
+  plannedCyclingRoutes = [],
+  onRemoveCyclingRoute,
 }: {
   results: ActivitySearchResult;
   activityNames: Record<string, string>;
@@ -47,6 +52,8 @@ export function IslandOverviewSection({
   onExtendTrip?: () => void;
   onPlanTrip?: (selectedIds: string[], pool: AttractionWithActivities[]) => void;
   variant?: "island" | "region";
+  plannedCyclingRoutes?: ActivityRoute[];
+  onRemoveCyclingRoute?: (id: string) => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -141,6 +148,8 @@ export function IslandOverviewSection({
         ? "border-orange-200 bg-orange-50/60"
         : "border-brand-100 bg-brand-50/30";
 
+  const totalPlanCount = planIds.size + plannedCyclingRoutes.length;
+
   return (
     <>
       <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
@@ -152,7 +161,7 @@ export function IslandOverviewSection({
         {t("island.subtitle", {
           count: results.total_attractions_considered,
           filtered: filteredAttractions.length,
-          selected: planIds.size,
+          selected: totalPlanCount,
         })}
       </p>
       <p className="mb-6 text-sm text-text-secondary">
@@ -212,12 +221,25 @@ export function IslandOverviewSection({
         </div>
 
         <aside className="max-h-[min(72vh,640px)] overflow-y-auto rounded-xl border border-border-default bg-white p-3 shadow-card lg:w-full lg:max-w-[300px] lg:justify-self-end">
-          {plannedAttractions.length > 0 && (
+          {plannedAttractions.length > 0 || plannedCyclingRoutes.length > 0 ? (
             <div className="mb-3 border-b border-border-default pb-3">
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
-                {t("island.yourSelection")} ({plannedAttractions.length})
+                {t("island.yourSelection")} ({totalPlanCount})
               </p>
               <ul className="flex flex-wrap gap-1.5">
+                {plannedCyclingRoutes.map((route) => (
+                  <li key={route.id}>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveCyclingRoute?.(route.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-accent-300 bg-accent-50 px-2 py-0.5 text-[11px] font-medium text-accent-900 hover:border-accent-500"
+                      title="Usuń trasę z planu"
+                    >
+                      <Icon name="bike" size={12} />
+                      {route.name}
+                    </button>
+                  </li>
+                ))}
                 {plannedAttractions.map((attraction) => (
                   <li key={attraction.id}>
                     <button
@@ -236,7 +258,7 @@ export function IslandOverviewSection({
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
 
           {selectedAttraction ? (
             <AttractionDetailPanel
@@ -312,11 +334,21 @@ export function IslandOverviewSection({
           {enabledSlugs.size === 0 && (
             <p className="mt-3 text-sm text-amber-800">{t("island.noFilters")}</p>
           )}
-          {planIds.size > 0 && (
+          {(planIds.size > 0 || plannedCyclingRoutes.length > 0) && (
             <div className="mt-4 space-y-3 border-t border-border-default pt-4">
               <p className="text-sm text-text-secondary">
-                {t("island.planSelected", { n: planIds.size })}
+                {t("island.planSelected", { n: totalPlanCount })}
               </p>
+              {plannedCyclingRoutes.length > 0 && (
+                <ul className="space-y-1 text-sm text-text-secondary">
+                  {plannedCyclingRoutes.map((route) => (
+                    <li key={route.id}>
+                      Trasa: {route.name} ({CYCLING_TYPE_LABELS[route.activity_type]},{" "}
+                      {(route.distance_m / 1000).toFixed(1)} km)
+                    </li>
+                  ))}
+                </ul>
+              )}
               {onPlanTrip && (
                 <Button
                   size="lg"

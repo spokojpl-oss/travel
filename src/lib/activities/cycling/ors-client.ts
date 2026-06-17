@@ -1,6 +1,7 @@
 import type { ActivityType } from "@/types/activities";
 import type { ElevationPoint } from "@/types/activities";
 import type { GeoJsonLineString } from "@/lib/activities/cycling/geometry";
+import { isPlausibleCyclingRoute } from "@/lib/activities/cycling/route-validation";
 
 const ORS_PROFILES: Partial<Record<ActivityType, string>> = {
   cycling_road: "cycling-road",
@@ -153,6 +154,21 @@ async function requestRoute(
 
   const feature = data.features[0];
   if (!feature) throw new Error("ORS returned no route");
+
+  const summary = feature.properties.summary;
+  if (
+    !isPlausibleCyclingRoute({
+      distanceM: summary.distance,
+      targetDistanceKm: input.targetDistanceKm,
+      coordinates: feature.geometry.coordinates,
+      startLat: input.startLat,
+      startLng: input.startLng,
+    })
+  ) {
+    throw new Error(
+      "Wygenerowana trasa jest nierealistyczna (zbyt długa lub poza regionem).",
+    );
+  }
 
   return {
     feature,

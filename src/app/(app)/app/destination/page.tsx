@@ -31,7 +31,7 @@ import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 import { LocalServicesSection } from "@/components/features/LocalServicesSection";
-import { ActivityPanel } from "@/components/activities/ActivityPanel";
+import { CyclingRoutesPlanLinks } from "@/components/features/CyclingRoutesPlanLinks";
 import { useT } from "@/i18n/locale-provider";
 
 type BuildEvent = {
@@ -672,22 +672,9 @@ export default function DestinationPage() {
         </ErrorBoundary>
       )}
 
-      {planComplete && destination && isCyclingMode && (
-        <section className="mb-8">
-          <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
-            Trasy rowerowe
-          </h2>
-          <ActivityPanel
-            activity={activityMode}
-            destinationId={destination.id}
-            destinationCenter={{
-              lat: Number(destination.center_lat),
-              lng: Number(destination.center_lon),
-            }}
-            defaultShowCyclOsm
-          />
-        </section>
-      )}
+      {planComplete && isCyclingMode && planPayload?.selectedCyclingRoutes?.length ? (
+        <CyclingRoutesPlanLinks routes={planPayload.selectedCyclingRoutes} />
+      ) : null}
 
       {planComplete && isComplete && destination && (
         <p className="flex items-center gap-2 text-sm text-success">

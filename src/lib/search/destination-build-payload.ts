@@ -1,5 +1,6 @@
 import type { GeoCluster } from "@/types/domain";
 import type { AttractionWithActivities } from "@/types/domain";
+import type { ActivityRoute } from "@/types/activities";
 import type { LodgingBaseChoice } from "@/lib/plan/lodging-base-options";
 import type { DiscoverPlacesResult } from "@/lib/plan/build-discover-places";
 
@@ -49,6 +50,8 @@ export type DestinationBuildPayload = {
   stayRadiusKm?: number;
   exploreRadiusKm?: number;
   tripDays?: number;
+  /** Wybrane trasy rowerowe (moduł kolarstwa). */
+  selectedCyclingRoutes?: ActivityRoute[];
   /** Hero + karty miejsc z /api/search/plan-pool */
   discover?: DiscoverPlacesResult;
 };

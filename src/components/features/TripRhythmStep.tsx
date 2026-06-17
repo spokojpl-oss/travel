@@ -96,21 +96,21 @@ export function TripRhythmStep({
         <h2 className="mb-3 font-display text-lg font-bold text-text-primary">
           {t("rhythm.presetsTitle")}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"
               onClick={() => applyPreset(preset.id)}
               className={cn(
-                "rounded-xl border p-4 text-left transition-all hover:border-brand-300",
+                "rounded-xl border p-3 text-left transition-all hover:border-brand-300",
                 rhythm.preset === preset.id
                   ? "border-brand-700 bg-brand-50 ring-2 ring-brand-200"
                   : "border-border-default bg-white",
               )}
             >
               <p className="font-semibold text-text-primary">{t(preset.titleKey)}</p>
-              <p className="mt-1 text-sm text-text-secondary">{t(preset.descKey)}</p>
+              <p className="mt-0.5 text-sm text-text-secondary">{t(preset.descKey)}</p>
             </button>
           ))}
         </div>
@@ -132,7 +132,7 @@ export function TripRhythmStep({
             </span>
           }
         />
-        <CardBody className="space-y-3">
+        <CardBody className="space-y-2">
           <p className="text-sm text-text-secondary">{t("rhythm.customHint")}</p>
           {themes.map((theme) => {
             const meta = THEME_META[theme];
@@ -140,26 +140,26 @@ export function TripRhythmStep({
             return (
               <div
                 key={theme}
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3"
+                className="flex items-center gap-2.5 rounded-lg border border-border-default bg-white px-2.5 py-2"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                  <Icon name={meta.icon} size={20} />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-700">
+                  <Icon name={meta.icon} size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-text-primary">{t(meta.labelKey)}</p>
+                  <p className="text-sm font-medium text-text-primary">{t(meta.labelKey)}</p>
                   <p className="text-xs text-text-tertiary">{t(meta.descKey)}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     aria-label={t("rhythm.decrease")}
                     disabled={count <= 0}
                     onClick={() => adjustTheme(theme, -1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-default text-lg font-bold text-text-primary hover:bg-bg-soft disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-border-default text-base font-bold text-text-primary hover:bg-bg-soft disabled:opacity-40"
                   >
                     −
                   </button>
-                  <span className="w-8 text-center text-lg font-bold tabular-nums text-text-primary">
+                  <span className="w-7 text-center text-base font-bold tabular-nums text-text-primary">
                     {count}
                   </span>
                   <button
@@ -167,7 +167,7 @@ export function TripRhythmStep({
                     aria-label={t("rhythm.increase")}
                     disabled={allocated >= totalDays}
                     onClick={() => adjustTheme(theme, 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-default text-lg font-bold text-text-primary hover:bg-bg-soft disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-border-default text-base font-bold text-text-primary hover:bg-bg-soft disabled:opacity-40"
                   >
                     +
                   </button>

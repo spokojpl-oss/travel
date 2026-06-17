@@ -28,6 +28,8 @@ export type PlaceCard = {
   id: string;
   name: string;
   why: string;
+  /** Dłuższy opis z bazy atrakcji (jeśli różni się od why). */
+  detail?: string | null;
   theme: TripDayTheme;
   regionName: string;
   regionId: string;
@@ -102,20 +104,26 @@ function cardFromPick(
   recommended: boolean,
 ): PlaceCard | null {
   const name = pickDisplayName(pick, locale);
-  const why = pickWhy(pick, locale);
+  const curatedWhy = pickWhy(pick, locale);
   const pickPoint: GeoPoint = {
     lat: region.center_lat,
     lon: region.center_lon,
   };
   const match = findPoolMatchForPick(name, pickPoint, pool);
   const fallbackId = curatedPickId(region.id, pickIndex);
+  const poolDetail = match?.description?.trim();
+  const detail =
+    poolDetail && poolDetail !== curatedWhy && poolDetail.length > curatedWhy.length
+      ? poolDetail
+      : null;
 
   return {
     id: match?.id ?? fallbackId,
     name: match
       ? toPolishAttractionName(match.name, locale)
       : toPolishAttractionName(name, locale),
-    why: match?.description?.trim() || why,
+    why: curatedWhy,
+    detail,
     theme: pick.day_theme,
     regionName: regionDisplayName(region, locale),
     regionId: region.id,
@@ -262,7 +270,7 @@ export function buildDiscoverPlaces({
     }
   }
 
-  const maxExtra = 8;
+  const maxExtra = 16;
   let extras = 0;
   for (const a of poolInRange) {
     if (extras >= maxExtra) break;
@@ -324,7 +332,7 @@ export function placeCardToAttractionStub(
   return {
     id: card.id,
     name: card.name,
-    description: card.why,
+    description: [card.why, card.detail].filter(Boolean).join("\n\n"),
     category: card.theme,
     subcategories: [],
     lat: card.lat,

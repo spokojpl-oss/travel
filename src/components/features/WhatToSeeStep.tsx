@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -51,15 +51,13 @@ export function WhatToSeeStep({
 }) {
   const t = useT();
   const pl = locale !== "en";
-  const [showAll, setShowAll] = useState(false);
 
   const recommended = placeCards.filter((c) => c.recommended);
-  const displayCards = showAll ? placeCards : placeCards.slice(0, Math.max(recommended.length, 8));
 
   const grouped = useMemo(() => {
     const map = new Map<TripDayTheme, PlaceCard[]>();
     for (const theme of THEME_ORDER) map.set(theme, []);
-    for (const card of displayCards) {
+    for (const card of placeCards) {
       const list = map.get(card.theme) ?? [];
       list.push(card);
       map.set(card.theme, list);
@@ -67,48 +65,48 @@ export function WhatToSeeStep({
     return THEME_ORDER.filter((theme) => (map.get(theme)?.length ?? 0) > 0).map(
       (theme) => ({ theme, cards: map.get(theme)! }),
     );
-  }, [displayCards]);
+  }, [placeCards]);
 
   const placeLabel = story.placeName || (pl ? "regionie" : "this area");
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-3">
+    <div className="space-y-5">
+      <div className="space-y-2">
         <div>
-          <h2 className="font-display text-2xl font-bold text-text-primary">
+          <h2 className="font-display text-xl font-bold text-text-primary">
             {pl ? "Co wpisać w plan?" : "What goes on your itinerary?"}
           </h2>
-          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+          <p className="mt-0.5 text-sm text-text-secondary">
             {pl
-              ? `Zaznacz miejsca na ${tripDays} ${tripDays === 1 ? "dzień" : "dni"} wyjazdu — bazę noclegową wybierzesz w następnym kroku.`
-              : `Pick places for your ${tripDays}-day trip — you'll choose where to stay next.`}
+              ? `Zaznacz miejsca na ${tripDays} ${tripDays === 1 ? "dzień" : "dni"} — bazę wybierzesz w następnym kroku.`
+              : `Pick places for ${tripDays} days — lodging comes next.`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-800">
             {tripDays} {pl ? "dni wyjazdu" : "trip days"}
           </span>
-          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
+          <span className="rounded-full bg-bg-soft px-2.5 py-0.5 text-[11px] font-medium text-text-secondary">
             {placeCards.length} {pl ? "miejsc w katalogu" : "places curated"}
           </span>
-          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-text-secondary">
+          <span className="rounded-full bg-bg-soft px-2.5 py-0.5 text-[11px] font-medium text-text-secondary">
             {selectedIds.size} {pl ? "wybrane" : "selected"}
           </span>
         </div>
       </div>
 
       {recommended.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="font-display text-xl font-bold text-text-primary">
+            <h2 className="font-display text-base font-bold text-text-primary">
               {pl
                 ? `TOP w ${placeLabel} — tego nie pomiń`
                 : `Must-see in ${placeLabel}`}
             </h2>
-            <p className="mt-1 text-sm text-text-secondary">
+            <p className="text-xs text-text-secondary">
               {pl
-                ? "Najczęściej wybierane miejsca pod Twój typ wyjazdu — zaznacz, co chcesz mieć w planie."
-                : "Most picked spots for trips like yours — select what you want on your itinerary."}
+                ? "Najczęściej wybierane pod Twój typ wyjazdu."
+                : "Most picked for trips like yours."}
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={onSelectRecommended}>
@@ -119,16 +117,16 @@ export function WhatToSeeStep({
 
       {grouped.map(({ theme, cards }) => (
         <section key={theme}>
-          <div className="mb-4 flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-              <Icon name={themeIcon(theme)} size={18} />
+          <div className="mb-2 flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+              <Icon name={themeIcon(theme)} size={15} />
             </span>
-            <h3 className="font-display text-lg font-bold text-text-primary">
+            <h3 className="font-display text-base font-bold text-text-primary">
               {t(THEME_META[theme].labelKey)}
             </h3>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {cards.map((card) => (
               <PlaceCardTile
                 key={card.id}
@@ -142,18 +140,10 @@ export function WhatToSeeStep({
         </section>
       ))}
 
-      {!showAll && placeCards.length > displayCards.length && (
-        <Button variant="ghost" onClick={() => setShowAll(true)}>
-          {pl
-            ? `Pokaż więcej miejsc (${placeCards.length - displayCards.length})`
-            : `Show more places (${placeCards.length - displayCards.length})`}
-        </Button>
-      )}
-
-      <Card className="sticky bottom-4 z-10 border-brand-200 bg-white/95 shadow-xl backdrop-blur">
-        <CardBody className="space-y-4">
+      <Card className="sticky bottom-3 z-10 border-brand-200 bg-white/95 shadow-lg backdrop-blur">
+        <CardBody className="space-y-3 p-3 sm:p-4">
           {(onBackToActivities || onBackToRegions || onBackToResults) && (
-            <div className="flex flex-wrap gap-2 border-b border-border-default pb-3">
+            <div className="flex flex-wrap gap-1.5 border-b border-border-default pb-2">
               {onBackToActivities && (
                 <Button variant="ghost" size="sm" onClick={onBackToActivities}>
                   {pl ? "← Zmień aktywności" : "← Change activities"}
@@ -172,17 +162,17 @@ export function WhatToSeeStep({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-text-primary">
+              <p className="text-sm font-semibold text-text-primary">
                 {pl
                   ? `${selectedIds.size} ${selectedIds.size === 1 ? "miejsce" : "miejsc"} w Twoim planie`
                   : `${selectedIds.size} place(s) in your plan`}
               </p>
-              <p className="text-sm text-text-secondary">
+              <p className="text-xs text-text-secondary">
                 {pl
-                  ? "Potem wybierzesz bazę noclegową — trasy ułożymy na końcu."
-                  : "Next you'll pick a base — routes come last."}
+                  ? "Potem wybierzesz bazę — trasy ułożymy na końcu."
+                  : "Next: lodging base, then routes."}
               </p>
             </div>
             <Button size="lg" disabled={selectedIds.size === 0} onClick={onContinue}>
@@ -211,44 +201,47 @@ function PlaceCardTile({
       type="button"
       onClick={onToggle}
       className={cn(
-        "group relative flex flex-col rounded-2xl border p-5 text-left transition-all",
+        "group relative flex h-full flex-col rounded-xl border p-3 text-left transition-all",
         selected
-          ? "border-brand-700 bg-brand-50/60 ring-2 ring-brand-200 shadow-md"
+          ? "border-brand-700 bg-brand-50/60 ring-1 ring-brand-200 shadow-sm"
           : "border-border-default bg-white hover:border-brand-300 hover:shadow-sm",
       )}
     >
       {card.recommended && (
-        <span className="absolute -top-2 right-4 rounded-full bg-brand-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-          {pl ? "Polecane" : "Recommended"}
+        <span className="absolute -top-1.5 right-2 rounded-full bg-brand-700 px-2 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+          {pl ? "Polecane" : "Top"}
         </span>
       )}
 
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="font-display pr-6 text-lg font-bold leading-snug text-text-primary">
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-display pr-4 text-base font-bold leading-snug text-text-primary">
           {card.name}
         </h4>
         <span
           className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
             selected
               ? "border-brand-700 bg-brand-700 text-white"
               : "border-border-default bg-white text-transparent group-hover:border-brand-400",
           )}
         >
-          <Icon name="check" size={14} />
+          <Icon name="check" size={12} />
         </span>
       </div>
 
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-text-secondary">
-        {card.why}
-      </p>
+      <div className="mt-2 flex-1 space-y-1.5">
+        <p className="text-xs leading-relaxed text-text-secondary">{card.why}</p>
+        {card.detail && (
+          <p className="text-xs leading-relaxed text-text-tertiary">{card.detail}</p>
+        )}
+      </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full bg-bg-soft px-2.5 py-0.5 text-xs font-medium text-text-tertiary">
+      <div className="mt-2 flex flex-wrap gap-1">
+        <span className="rounded-full bg-bg-soft px-2 py-px text-[10px] font-medium text-text-tertiary">
           {card.regionName}
         </span>
         {card.durationHint && (
-          <span className="rounded-full bg-bg-soft px-2.5 py-0.5 text-xs font-medium text-text-tertiary">
+          <span className="rounded-full bg-bg-soft px-2 py-px text-[10px] font-medium text-text-tertiary">
             {card.durationHint}
           </span>
         )}

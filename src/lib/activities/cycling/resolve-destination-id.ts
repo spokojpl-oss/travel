@@ -80,8 +80,8 @@ export async function resolveCyclingDestinationId({
     return {
       id: best.id,
       center: {
-        lat: Number(best.center_lat),
-        lng: Number(best.center_lon),
+        lat: lat != null && Number.isFinite(lat) ? lat : Number(best.center_lat),
+        lng: lon != null && Number.isFinite(lon) ? lon : Number(best.center_lon),
       },
     };
   }

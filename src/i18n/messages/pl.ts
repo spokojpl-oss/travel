@@ -467,6 +467,8 @@ export const pl = {
     legendHotel: "Hotel",
     calculatingRoutes: "Liczenie tras drogowych…",
     drivingDistances: "Odległości samochodem",
+    legendCyclingRoute: "Trasa rowerowa",
+    cyclingRoutes: "Trasy rowerowe w planie",
     estimate: "szacunek",
     navigate: "Nawiguj w Google Maps",
     openInGoogleMaps: "Otwórz w Google Maps",
@@ -489,6 +491,10 @@ export const pl = {
     website: "Strona www",
     phone: "Telefon",
     moreHint: "… i jeszcze {n} innych w wynikach wyszukiwania.",
+  },
+  destination: {
+    cyclingRoutesTitle: "Trasy rowerowe w planie",
+    cyclingRouteOpenMaps: "Start trasy w Google Maps",
   },
   steps: {
     trip: "Podróż",

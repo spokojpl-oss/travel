@@ -11,6 +11,7 @@ import {
   googleMapsPlaceUrl,
 } from "@/lib/maps/google-maps-config";
 import type { MapPoint, MapPointType, MapRouteSegment, ResolvedMapRoute } from "@/lib/maps/types";
+import type { MapCyclingRouteOverlay } from "@/lib/maps/cycling-route-overlays";
 
 const LEGEND_ORDER: MapPointType[] = ["centroid", "attraction", "airport", "hotel"];
 
@@ -39,6 +40,7 @@ type RegionMapProps = {
   onPointClick?: (point: MapPoint) => void;
   /** Bez dymka Google Maps — klik tylko do panelu bocznego. */
   suppressInfoWindow?: boolean;
+  cyclingRoutes?: MapCyclingRouteOverlay[];
 };
 
 export function RegionMap({
@@ -51,6 +53,7 @@ export function RegionMap({
   highlightedPointId,
   onPointClick,
   suppressInfoWindow = false,
+  cyclingRoutes = [],
 }: RegionMapProps) {
   const apiKey = getGoogleMapsApiKey();
   const { locale } = useLocale();
@@ -85,6 +88,14 @@ export function RegionMap({
         )
         .join("|"),
     [segments],
+  );
+
+  const cyclingKey = useMemo(
+    () =>
+      cyclingRoutes
+        .map((r) => `${r.id}:${r.path.length}:${r.path[0]?.lat}`)
+        .join("|"),
+    [cyclingRoutes],
   );
 
   useEffect(() => {
@@ -268,6 +279,46 @@ export function RegionMap({
     };
   }, [routes, mapReady, apiKey]);
 
+  useEffect(() => {
+    if (!mapRef.current || !mapReady || cyclingRoutes.length === 0) return;
+
+    const map = mapRef.current;
+    const maps = window.google?.maps;
+    if (!maps) return;
+
+    const polylines: google.maps.Polyline[] = [];
+    const bounds = new maps.LatLngBounds();
+
+    for (const point of points) {
+      bounds.extend({ lat: point.lat, lng: point.lon });
+    }
+
+    for (const route of cyclingRoutes) {
+      for (const p of route.path) bounds.extend(p);
+      const polyline = new maps.Polyline({
+        path: route.path,
+        map,
+        strokeColor: "#15803d",
+        strokeWeight: 4,
+        strokeOpacity: 0.88,
+        zIndex: 2,
+      });
+      polylines.push(polyline);
+      overlaysRef.current.push(polyline);
+    }
+
+    if (points.length > 0 || cyclingRoutes.some((r) => r.path.length > 0)) {
+      map.fitBounds(bounds, 52);
+    }
+
+    return () => {
+      for (const polyline of polylines) {
+        polyline.setMap(null);
+        overlaysRef.current = overlaysRef.current.filter((o) => o !== polyline);
+      }
+    };
+  }, [cyclingKey, cyclingRoutes, mapReady, points]);
+
   if (points.length === 0) {
     return (
       <div
@@ -309,6 +360,9 @@ export function RegionMap({
                 label={t(LEGEND_LABEL_KEYS[type])}
               />
             ))}
+            {cyclingRoutes.length > 0 && (
+              <LegendDot color="#15803d" label={t("map.legendCyclingRoute")} />
+            )}
           </div>
         )}
       </div>
@@ -387,6 +441,28 @@ export function RegionMap({
                 </li>
               );
             })}
+          </ul>
+        </div>
+      )}
+
+      {cyclingRoutes.length > 0 && (
+        <div className="border-t border-border-default px-4 py-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            {t("map.cyclingRoutes")}
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {cyclingRoutes.map((route) => (
+              <li
+                key={route.id}
+                className="rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm"
+              >
+                <p className="font-medium text-text-primary">{route.name}</p>
+                <p className="text-xs text-text-secondary">
+                  {route.distanceKm.toFixed(1)} km
+                  {route.elevationGainM != null && ` · ${route.elevationGainM} m+`}
+                </p>
+              </li>
+            ))}
           </ul>
         </div>
       )}
