@@ -45,10 +45,6 @@ export function CyclingSearchPanel({
     setLoading(true);
     setError(null);
     setDestinationId(null);
-    const t0 = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingSearchPanel.tsx:resolve:start',message:'resolve destination started',data:{destinationLabel},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     fetch("/api/activities/cycling/resolve-destination", {
       method: "POST",
@@ -75,9 +71,6 @@ export function CyclingSearchPanel({
         }
         setDestinationId(data.id);
         setCenter(data.center);
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingSearchPanel.tsx:resolve:done',message:'resolve destination finished',data:{elapsedMs:Date.now()-t0,hasId:Boolean(data.id)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       })
       .catch((e) => {
         if (cancelled) return;

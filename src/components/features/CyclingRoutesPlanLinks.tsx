@@ -2,6 +2,7 @@
 
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { CYCLING_TYPE_LABELS } from "@/lib/activities/cycling/constants";
+import { resolveRouteElevationGainM } from "@/lib/activities/cycling/elevation";
 import {
   cyclingRouteMapsUrl,
   cyclingRouteOsmUrl,
@@ -39,8 +40,10 @@ export function CyclingRoutesPlanLinks({
                 <p className="mt-0.5 text-xs text-text-secondary">
                   {CYCLING_TYPE_LABELS[route.activity_type]} ·{" "}
                   {(route.distance_m / 1000).toFixed(1)} km
-                  {route.elevation_gain_m != null &&
-                    ` · ${route.elevation_gain_m} m+`}
+                  {(() => {
+                    const gain = resolveRouteElevationGainM(route);
+                    return gain != null ? ` · ${gain} m+` : "";
+                  })()}
                 </p>
                 {description && (
                   <p className="mt-2 text-xs leading-relaxed text-text-secondary">

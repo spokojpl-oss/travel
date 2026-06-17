@@ -2,6 +2,10 @@ import type { ActivityType } from "@/types/activities";
 import type { ElevationPoint } from "@/types/activities";
 import type { GeoJsonLineString } from "@/lib/activities/cycling/geometry";
 import { isPlausibleCyclingRoute } from "@/lib/activities/cycling/route-validation";
+import {
+  computeElevationGainFromProfile,
+  isPlausibleElevationGainM,
+} from "@/lib/activities/cycling/elevation";
 
 const ORS_PROFILES: Partial<Record<ActivityType, string>> = {
   cycling_road: "cycling-road",
@@ -218,10 +222,26 @@ export async function generateCyclingRoute(input: GenerateInput) {
         elev_m: Math.round(c[2] ?? 0),
       }));
 
+      let elevation_gain_m = Math.round(feature.properties.ascent ?? 0);
+      if (!isPlausibleElevationGainM(elevation_gain_m, summary.distance)) {
+        const fromProfile = computeElevationGainFromProfile(elevation_profile);
+        elevation_gain_m = isPlausibleElevationGainM(
+          fromProfile,
+          summary.distance,
+        )
+          ? fromProfile
+          : 0;
+      }
+      const elevation_loss_m = Math.round(feature.properties.descent ?? 0);
+
       return {
         distance_m: Math.round(summary.distance),
-        elevation_gain_m: Math.round(feature.properties.ascent ?? 0),
-        elevation_loss_m: Math.round(feature.properties.descent ?? 0),
+        elevation_gain_m: elevation_gain_m > 0 ? elevation_gain_m : null,
+        elevation_loss_m:
+          elevation_loss_m > 0 &&
+          isPlausibleElevationGainM(elevation_loss_m, summary.distance)
+            ? elevation_loss_m
+            : null,
         surface_mix: null,
         geometryWkt,
         geometryGeoJson,

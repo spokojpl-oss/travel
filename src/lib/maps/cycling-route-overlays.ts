@@ -1,5 +1,6 @@
 import type { ActivityRoute } from "@/types/activities";
 import { parseRouteGeometry } from "@/lib/supabase/activity-routes";
+import { resolveRouteElevationGainM } from "@/lib/activities/cycling/elevation";
 
 export type MapCyclingRouteOverlay = {
   id: string;
@@ -18,7 +19,7 @@ export function cyclingRoutesToMapOverlays(
       name: route.name,
       path: parseRouteGeometry(route.geometry),
       distanceKm: route.distance_m / 1000,
-      elevationGainM: route.elevation_gain_m,
+      elevationGainM: resolveRouteElevationGainM(route),
     }))
     .filter((route) => route.path.length >= 2);
 }

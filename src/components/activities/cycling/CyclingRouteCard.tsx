@@ -11,6 +11,7 @@ import {
   DIFFICULTY_LABELS,
 } from "@/lib/activities/cycling/constants";
 import type { RouteBeachProximity } from "@/lib/plan/cycling-plan";
+import { resolveRouteElevationGainM } from "@/lib/activities/cycling/elevation";
 import { useT } from "@/i18n/locale-provider";
 
 const SURFACE_COLORS: Record<keyof SurfaceMix, string> = {
@@ -49,7 +50,10 @@ function ElevationProfile({
 }) {
   if (!profile?.length) return null;
 
-  const values = profile.map((p) => p.elev_m);
+  const values = profile
+    .map((p) => p.elev_m)
+    .filter((v) => Number.isFinite(v) && v >= -200 && v <= 5000);
+  if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(max - min, 1);
@@ -101,6 +105,7 @@ export function CyclingRouteCard({
 }) {
   const t = useT();
   const distanceKm = (route.distance_m / 1000).toFixed(1);
+  const elevationGainM = resolveRouteElevationGainM(route);
 
   return (
     <Card
@@ -136,9 +141,7 @@ export function CyclingRouteCard({
 
         <div className="flex flex-wrap gap-2 text-sm text-text-secondary">
           <span>{distanceKm} km</span>
-          {route.elevation_gain_m != null && (
-            <span>{route.elevation_gain_m} m+</span>
-          )}
+          {elevationGainM != null && <span>{elevationGainM} m+</span>}
           {beachProximity && (
             <span className="text-emerald-700">
               · {beachProximity.beachName} {beachProximity.distanceKm} km

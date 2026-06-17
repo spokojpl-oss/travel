@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
+import { applyNeutralMapViewport } from "@/lib/maps/map-viewport";
 import {
   getGoogleMapsApiKey,
   localizeGoogleMapsUrl,
@@ -117,6 +118,7 @@ export function RegionSelectionMap({
       overlaysRef.current = [];
       mapRef.current = null;
       mapsApiRef.current = null;
+      viewportInitializedRef.current = false;
       setMapReady(false);
       if (containerRef.current) {
         containerRef.current.replaceChildren();
@@ -136,8 +138,6 @@ export function RegionSelectionMap({
     }
     overlaysRef.current = [];
 
-    const bounds = new maps.LatLngBounds();
-
     regions.forEach((region, index) => {
       const center = { lat: region.center_lat, lng: region.center_lon };
       const radiusM = regionMapRadiusKm(region, destinationLabel) * 1000;
@@ -146,8 +146,6 @@ export function RegionSelectionMap({
       const baseColor =
         REGION_COLORS[index % REGION_COLORS.length] ?? "#003faa";
       const color = isSelected ? "#ff5b00" : baseColor;
-
-      bounds.extend(center);
 
       const circle = new maps.Circle({
         map,
@@ -186,25 +184,11 @@ export function RegionSelectionMap({
       marker.addListener("click", () => onFocusRef.current(region.id));
 
       overlaysRef.current.push(circle, marker);
-
-      const latDelta = regionMapRadiusKm(region, destinationLabel) / 111;
-      const lonDelta =
-        regionMapRadiusKm(region, destinationLabel) /
-        (111 * Math.cos((region.center_lat * Math.PI) / 180));
-      bounds.extend({
-        lat: region.center_lat + latDelta,
-        lng: region.center_lon + lonDelta,
-      });
-      bounds.extend({
-        lat: region.center_lat - latDelta,
-        lng: region.center_lon - lonDelta,
-      });
     });
 
     if (isCyprusRegions(regions)) {
       for (const airport of CYPRUS_AIRPORTS) {
         const pos = { lat: airport.lat, lng: airport.lon };
-        bounds.extend(pos);
         const marker = new maps.Marker({
           map,
           position: pos,
@@ -223,14 +207,29 @@ export function RegionSelectionMap({
       }
     }
 
-    map.fitBounds(bounds, 48);
-    // #region agent log
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H5',location:'RegionSelectionMap.tsx:fitBounds',message:'fitBounds called',data:{viewportInitialized:viewportInitializedRef.current,regionCount:regions.length,selectedCount:selectedIds.length,focusedId,latSpan:Math.abs(ne.lat()-sw.lat()),lngSpan:Math.abs(ne.lng()-sw.lng()),zoom:map.getZoom()},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    viewportInitializedRef.current = true;
-  }, [mapReady, regions, regionsKey, focusedId, selectedIds, locale, t]);
+    if (!viewportInitializedRef.current) {
+      const centers = regions.map((region) => ({
+        lat: region.center_lat,
+        lng: region.center_lon,
+      }));
+      const latSpan =
+        Math.max(...centers.map((c) => c.lat)) -
+        Math.min(...centers.map((c) => c.lat));
+      const lngSpan =
+        Math.max(...centers.map((c) => c.lng)) -
+        Math.min(...centers.map((c) => c.lng));
+      if (latSpan > 8 || lngSpan > 8) {
+        map.setCenter(centers[0]!);
+        map.setZoom(9);
+      } else {
+        applyNeutralMapViewport(map, maps, centers, {
+          maxZoom: 11,
+          padding: 48,
+        });
+      }
+      viewportInitializedRef.current = true;
+    }
+  }, [mapReady, regions, regionsKey, focusedId, selectedIds, locale, t, destinationLabel]);
 
   if (regions.length === 0) return null;
 

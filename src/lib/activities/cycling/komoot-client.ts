@@ -2,6 +2,7 @@ import {
   isKomootCyclingSport,
   komootTourUrl,
 } from "@/lib/activities/cycling/komoot-links";
+import { isPlausibleElevationGainM } from "@/lib/activities/cycling/elevation";
 import { lineStringWkt, pointWkt } from "@/lib/activities/cycling/geometry";
 import type { ActivityType } from "@/types/activities";
 import type { Json } from "@/types/database";
@@ -81,9 +82,21 @@ export async function fetchKomootTourSummary(
     sport: data.sport,
     distance_m: Math.round(data.distance),
     elevation_gain_m:
-      data.elevation_up != null ? Math.round(data.elevation_up) : null,
+      data.elevation_up != null &&
+      isPlausibleElevationGainM(
+        Math.round(data.elevation_up),
+        Math.round(data.distance),
+      )
+        ? Math.round(data.elevation_up)
+        : null,
     elevation_loss_m:
-      data.elevation_down != null ? Math.round(data.elevation_down) : null,
+      data.elevation_down != null &&
+      isPlausibleElevationGainM(
+        Math.round(data.elevation_down),
+        Math.round(data.distance),
+      )
+        ? Math.round(data.elevation_down)
+        : null,
     start_lat: data.start_point.lat,
     start_lng: data.start_point.lng,
     type: data.type ?? "tour_planned",

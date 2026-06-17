@@ -204,10 +204,6 @@ export function CyclingActivityProvider({
   }, [resolvedRegionCenters, beachPoints, regionRadiusKm]);
 
   const refreshRoutes = useCallback(async (options?: { silent?: boolean }) => {
-    const t0 = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingActivityContext.tsx:refreshRoutes:start',message:'refreshRoutes started',data:{silent:Boolean(options?.silent),destinationId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!options?.silent) setLoading(true);
     setError(null);
     try {
@@ -249,9 +245,6 @@ export function CyclingActivityProvider({
         ),
       );
       setRoutes(nextRoutes);
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingActivityContext.tsx:refreshRoutes:done',message:'refreshRoutes finished',data:{count:nextRoutes.length,elapsedMs:Date.now()-t0,silent:Boolean(options?.silent)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return nextRoutes;
     } catch (e) {
       const message = e instanceof Error ? e.message : "Błąd pobierania tras";
@@ -489,10 +482,6 @@ export function CyclingActivityProvider({
       setGeneratingCount(regionsPayload.reduce((sum, r) => sum + r.count, 0));
       setRegionBatchSummary(summary);
       setError(null);
-      const genT0 = Date.now();
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:generateRoutes:start',message:'generateRoutes started',data:{totalJobs:regionsPayload.reduce((s,r)=>s+r.count,0),topUpOnly:Boolean(options?.topUpOnly)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       try {
         const res = await fetch("/api/activities/cycling/generate-batch", {
           method: "POST",
@@ -535,9 +524,6 @@ export function CyclingActivityProvider({
 
         await refreshRoutes({ silent: true });
         runOsmScrapeInBackground();
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:generateRoutes:done',message:'generateRoutes finished',data:{elapsedMs:Date.now()-genT0},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       } catch (e) {
         setError(e instanceof Error ? e.message : "Błąd generowania tras");
       } finally {
@@ -564,10 +550,6 @@ export function CyclingActivityProvider({
     if (!destinationCenter && !routeCenter) return;
 
     seededDestinationRef.current = destinationId;
-    const t0 = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:ensureInitialRoutes:start',message:'ensureInitialRoutes started',data:{destinationId,regionCount:resolvedRegionCenters.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     const currentRoutes = await refreshRoutes();
     runOsmScrapeInBackground();
@@ -580,7 +562,7 @@ export function CyclingActivityProvider({
         beachPoints,
       );
       if (topUp.length === 0) return;
-      await generateRoutes({
+      void generateRoutes({
         count: INITIAL_DESTINATION_ROUTE_COUNT,
         mode: "regions",
         topUpOnly: true,
@@ -597,13 +579,10 @@ export function CyclingActivityProvider({
       if (inlandCount >= requiredInland) return;
     }
 
-    await generateRoutes({
+    void generateRoutes({
       count: INITIAL_DESTINATION_ROUTE_COUNT,
       mode: "destination",
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:ensureInitialRoutes:done',message:'ensureInitialRoutes finished',data:{elapsedMs:Date.now()-t0,initialCount:currentRoutes.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }, [
     destinationId,
     destinationCenter,
@@ -665,7 +644,7 @@ export function CyclingActivityProvider({
     let cancelled = false;
     void (async () => {
       await refreshRoutes();
-      if (!cancelled) await ensureInitialRoutes();
+      if (!cancelled) void ensureInitialRoutes();
     })();
     return () => {
       cancelled = true;
