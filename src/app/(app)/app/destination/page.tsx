@@ -12,7 +12,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { SkeletonList } from "@/components/ui/Skeleton";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Attraction, Destination, GeoCluster } from "@/types/domain";
 import type { DestinationSummary } from "@/lib/synthesis/destination-summary";
@@ -454,8 +454,10 @@ export default function DestinationPage() {
               </p>
             )}
           </div>
-          {planComplete && destination && (
-            <ActivityModeToggle currentActivity={activityMode} />
+          {(planPayload || planComplete) && (
+            <Suspense fallback={null}>
+              <ActivityModeToggle currentActivity={activityMode} />
+            </Suspense>
           )}
         </div>
       </header>
@@ -491,6 +493,26 @@ export default function DestinationPage() {
             Mapa regionu
           </h2>
           <RegionMap points={mapData.points} segments={mapData.segments} />
+        </section>
+      )}
+
+      {planComplete && activityMode && !destination && (
+        <Card className="mb-8">
+          <CardBody className="text-sm text-text-secondary">
+            <p>
+              Tryb <strong>{activityMode}</strong> — czekamy na zapis destynacji w
+              bazie. Za chwilę pojawią się trasy.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {planComplete && destination && activityMode && (
+        <section className="mb-8">
+          <ActivityPanel
+            activity={activityMode}
+            destinationId={destination.id}
+          />
         </section>
       )}
 
@@ -662,15 +684,6 @@ export default function DestinationPage() {
             attractions={hotelsAttractions}
           />
         </ErrorBoundary>
-      )}
-
-      {planComplete && destination && activityMode && (
-        <section className="mb-8">
-          <ActivityPanel
-            activity={activityMode}
-            destinationId={destination.id}
-          />
-        </section>
       )}
 
       {planComplete && isComplete && destination && (

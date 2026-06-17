@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ACTIVITY_REGISTRY } from "@/lib/activities/registry";
+import { getEnabledActivityToggles } from "@/lib/activities/toggle-config";
 import { cn } from "@/lib/utils/cn";
 
 const ACTIVITIES_ENABLED =
@@ -34,7 +34,7 @@ export function ActivityModeToggle({
 
   if (!ACTIVITIES_ENABLED) return null;
 
-  const activities = Object.values(ACTIVITY_REGISTRY).filter((a) => a?.enabled);
+  const activities = getEnabledActivityToggles();
 
   return (
     <div
@@ -50,19 +50,17 @@ export function ActivityModeToggle({
       >
         Rodzinny
       </Link>
-      {activities.map((a) =>
-        a ? (
-          <Link
-            key={a.category}
-            href={buildHref(searchParams, a.category)}
-            role="tab"
-            aria-selected={currentActivity === a.category}
-            className={tabClass(currentActivity === a.category)}
-          >
-            {a.label}
-          </Link>
-        ) : null,
-      )}
+      {activities.map((a) => (
+        <Link
+          key={a.category}
+          href={buildHref(searchParams, a.category)}
+          role="tab"
+          aria-selected={currentActivity === a.category}
+          className={tabClass(currentActivity === a.category)}
+        >
+          {a.label}
+        </Link>
+      ))}
     </div>
   );
 }

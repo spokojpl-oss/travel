@@ -58,13 +58,24 @@ export function CyclingActivityProvider({
       const params = buildRoutesQueryParams(destinationId, filters);
       const res = await fetch(`/api/activities/cycling/routes?${params}`);
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? "Nie udało się pobrać tras");
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string | { formErrors?: string[] };
+        };
+        const errText =
+          typeof body.error === "string"
+            ? body.error
+            : JSON.stringify(body.error ?? "Nie udało się pobrać tras");
+        throw new Error(errText);
       }
       const data = (await res.json()) as { routes: ActivityRoute[] };
       setRoutes(data.routes ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Błąd pobierania tras");
+      const message = e instanceof Error ? e.message : "Błąd pobierania tras";
+      const hint =
+        message.includes("activity_routes") || message.includes("does not exist")
+          ? " — uruchom migrację 021_activities_module.sql w Supabase"
+          : "";
+      setError(message + hint);
       setRoutes([]);
     } finally {
       setLoading(false);
