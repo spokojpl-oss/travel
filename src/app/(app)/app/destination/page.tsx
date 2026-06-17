@@ -490,7 +490,7 @@ export default function DestinationPage() {
           {pageTitle}
         </h1>
         {isCyclingMode && (
-          <p className="mt-2 text-sm font-medium text-brand-700">siodła</p>
+          <p className="mt-2 text-sm font-medium text-brand-700">siodło</p>
         )}
         {destination && (
           <p className="mt-2 text-sm text-text-secondary">
