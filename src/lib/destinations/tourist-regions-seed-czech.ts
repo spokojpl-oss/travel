@@ -2,7 +2,7 @@ import type { TouristRegion } from "./tourist-regions";
 
 const CZ_KEYS = ["czechy", "czech", "czechia", "cesko", "czech republic"] as const;
 
-/** Czechy — ~30 regionów turystycznych z małym nachodzeniem (radius 12–16 km). */
+/** Czechy — ~30 regionów turystycznych; promień bazowy skaluje się automatycznie dla kraju. */
 export const SEED_TOURIST_REGIONS_CZECH: TouristRegion[] = [
   {
     id: "cz-prague-centre",

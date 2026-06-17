@@ -1,7 +1,7 @@
 import type { Locale } from "@/i18n/config";
 import type { TripDayTheme, TripRhythm } from "@/lib/search/trip-rhythm";
 import { activeThemes } from "@/lib/search/trip-rhythm";
-import { isCompactIslandDestination } from "@/lib/search/destination-size";
+import { isCompactIslandDestination, applyRegionRadiusScale } from "@/lib/search/destination-size";
 import { distanceKm } from "@/lib/search/geo-clustering";
 import {
   pointInIslandBbox,
@@ -231,6 +231,11 @@ export function regionMapRadiusKm(
   if (destinationLabel && isCompactIslandDestination(destinationLabel)) {
     return Math.min(km, 6);
   }
+
+  if (destinationLabel) {
+    return applyRegionRadiusScale(km, destinationLabel);
+  }
+
   return km;
 }
 

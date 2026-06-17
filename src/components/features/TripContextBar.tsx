@@ -120,7 +120,11 @@ export function TripContextBar({
         <CardBody className="border-t border-border-default bg-brand-50/40 py-3">
           {travelHint && (
             <p className="flex items-start gap-2 text-sm text-text-secondary">
-              <Icon name="plane" size={16} className="mt-0.5 shrink-0 text-brand-700" />
+              <Icon
+                name={travelModeIcon(trip.travel_mode)}
+                size={16}
+                className="mt-0.5 shrink-0 text-brand-700"
+              />
               <span>{travelHint}</span>
             </p>
           )}

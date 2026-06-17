@@ -145,6 +145,67 @@ export function isCompactIslandDestination(
   return profile?.kind === "island" && profile.maxDriveKm <= 95;
 }
 
+export type RegionRadiusScale = {
+  minKm: number;
+  multiplier: number;
+  maxKm?: number;
+};
+
+/** Skalowanie promienia rejonu na mapie — małe wyspy bez zmian, kraje z większymi okręgami. */
+export function regionRadiusScaleForDestination(
+  destinationLabel: string | null | undefined,
+): RegionRadiusScale {
+  if (isCompactIslandDestination(destinationLabel)) {
+    return { minKm: 0, multiplier: 1, maxKm: 6 };
+  }
+
+  const profile = resolveDestinationSizeProfile(destinationLabel);
+  if (!profile) {
+    return { minKm: 0, multiplier: 1 };
+  }
+
+  switch (profile.kind) {
+    case "country":
+      if (profile.areaKm2 <= 5_000) {
+        return { minKm: 20, multiplier: 1.4 };
+      }
+      if (profile.areaKm2 <= 25_000) {
+        return { minKm: 24, multiplier: 1.5 };
+      }
+      if (profile.areaKm2 <= 80_000) {
+        return { minKm: 28, multiplier: 1.65 };
+      }
+      if (profile.areaKm2 <= 150_000) {
+        return { minKm: 32, multiplier: 1.75 };
+      }
+      return { minKm: 36, multiplier: 1.85, maxKm: 55 };
+    case "region":
+      return { minKm: 20, multiplier: 1.35, maxKm: 45 };
+    case "island":
+      if (profile.maxDriveKm <= 130) {
+        return { minKm: 0, multiplier: 1.1, maxKm: 22 };
+      }
+      if (profile.maxDriveKm <= 200) {
+        return { minKm: 0, multiplier: 1.2, maxKm: 28 };
+      }
+      return { minKm: 0, multiplier: 1.25, maxKm: 35 };
+    case "city":
+    default:
+      return { minKm: 0, multiplier: 1 };
+  }
+}
+
+export function applyRegionRadiusScale(
+  baseKm: number,
+  destinationLabel?: string | null,
+): number {
+  const scale = regionRadiusScaleForDestination(destinationLabel);
+  let km = Math.round(baseKm * scale.multiplier);
+  if (scale.minKm > 0) km = Math.max(km, scale.minKm);
+  if (scale.maxKm != null) km = Math.min(km, scale.maxKm);
+  return km;
+}
+
 export function resolveDestinationSizeProfile(
   destinationLabel: string | null | undefined,
   near?: GeoPoint | null,

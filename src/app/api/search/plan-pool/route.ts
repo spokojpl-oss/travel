@@ -122,6 +122,7 @@ export async function POST(request: Request) {
     enrichedCluster = reanchorClusterToTouristRegions(
       enrichedCluster,
       selectedRegions,
+      label,
     );
     enrichedCluster = await enrichClusterWithSettlement(
       enrichedCluster,
@@ -181,6 +182,7 @@ export async function POST(request: Request) {
       attractionPool,
       selectedRegions,
       5,
+      label,
     );
   } else {
     attractionPool = attractionPool.filter(

@@ -16,7 +16,9 @@ export function formatAirportTravelHint(
   airports: AirportPin[],
   center: { lat: number; lon: number } | null | undefined,
   pl: boolean,
+  travelMode?: string,
 ): string | null {
+  if (travelMode && travelMode !== "flight") return null;
   if (airports.length === 0 || center == null) return null;
   const airport = airports[0]!;
   const km = distanceKm(center, { lat: airport.lat, lon: airport.lon });
@@ -32,17 +34,36 @@ export function formatOriginToDestinationHint(
   pl: boolean,
 ): string | null {
   if (!tripOrigin || tripOrigin === "—") return null;
-  const mode =
-    travelMode === "flight"
-      ? pl
-        ? "samolotem"
-        : "by plane"
-      : travelMode === "car"
-        ? pl
-          ? "samochodem"
-          : "by car"
-        : travelMode;
+
+  if (travelMode === "flight") {
+    const mode = pl ? "samolotem" : "by plane";
+    return pl
+      ? `Podróż: ${tripOrigin} → destynacja (${mode}) — zaplanuj transfer z lotniska do bazy`
+      : `Travel: ${tripOrigin} → destination (${mode}) — plan your airport transfer to base`;
+  }
+
+  if (travelMode === "car") {
+    const mode = pl ? "samochodem" : "by car";
+    return pl
+      ? `Podróż: ${tripOrigin} → destynacja (${mode}) — zaplanuj czas dojazdu do wybranej bazy`
+      : `Travel: ${tripOrigin} → destination (${mode}) — plan drive time to your base`;
+  }
+
+  if (travelMode === "train") {
+    const mode = pl ? "pociągiem" : "by train";
+    return pl
+      ? `Podróż: ${tripOrigin} → destynacja (${mode}) — zaplanuj dojazd z dworca do bazy`
+      : `Travel: ${tripOrigin} → destination (${mode}) — plan station-to-base transfer`;
+  }
+
+  if (travelMode === "bus") {
+    const mode = pl ? "autobusem" : "by bus";
+    return pl
+      ? `Podróż: ${tripOrigin} → destynacja (${mode}) — zaplanuj dojazd z przystanku do bazy`
+      : `Travel: ${tripOrigin} → destination (${mode}) — plan stop-to-base transfer`;
+  }
+
   return pl
-    ? `Podróż: ${tripOrigin} → destynacja (${mode}) — pamiętaj o czasie dojazdu z lotniska do bazy`
-    : `Travel: ${tripOrigin} → destination (${mode}) — factor airport transfer to your base`;
+    ? `Podróż: ${tripOrigin} → destynacja (${travelMode})`
+    : `Travel: ${tripOrigin} → destination (${travelMode})`;
 }

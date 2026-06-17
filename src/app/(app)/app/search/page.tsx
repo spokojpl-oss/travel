@@ -21,8 +21,11 @@ import { getTouristRegionById, regionDisplayName, regionMapRadiusKm } from "@/li
 import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
-  defaultCyclingActivitySlugs,
+  cyclingActivitySlugsForDestination,
+  cyclingSearchActivitySlugsForDestination,
+  isCyclingInlandOnlyDestination,
   splitTaxonomyForCycling,
+  splitTaxonomyForCyclingInland,
 } from "@/lib/activities/cycling/constants";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import { beachAttractionsFromPool, isBeachAttraction } from "@/lib/plan/cycling-plan";
@@ -209,6 +212,7 @@ function SearchPageContent() {
     Set<string>
   >(new Set());
   const interestsMatchedRef = useRef(false);
+  const wizardSectionRef = useRef<HTMLDivElement>(null);
 
   const cyclingPlanRouteIds = useMemo(
     () => new Set(cyclingPlanRoutes.keys()),
@@ -289,7 +293,10 @@ function SearchPageContent() {
       setSelectedActivities(new Set(restored.activities));
       clearSearchRestoreState();
     } else if (isCyclingTrip(merged)) {
-      setSelectedActivities(new Set(defaultCyclingActivitySlugs()));
+      const label = merged.destination_label ?? merged.destination ?? "";
+      setSelectedActivities(
+        new Set(cyclingActivitySlugsForDestination(label)),
+      );
     }
 
     if (Object.keys(fromUrl).length > 0) {
@@ -731,8 +738,15 @@ function SearchPageContent() {
     trip.return_date,
   ]);
 
+  const destinationLabel = trip.destination_label ?? trip.destination ?? "";
+  const cyclingInlandOnly =
+    isCyclingTrip(trip) && isCyclingInlandOnlyDestination(destinationLabel);
+
   const { primaryGroups, optionalGroups } = useMemo(() => {
     if (isCyclingTrip(trip) && taxonomy.length > 0) {
+      if (cyclingInlandOnly) {
+        return splitTaxonomyForCyclingInland(taxonomy);
+      }
       return splitTaxonomyForCycling(taxonomy);
     }
     if (!trip.trip_rhythm) {
@@ -744,7 +758,14 @@ function SearchPageContent() {
       return { primaryGroups: taxonomy, optionalGroups: [] as typeof taxonomy };
     }
     return { primaryGroups: primary, optionalGroups: optional };
-  }, [taxonomy, trip.trip_rhythm, trip.activity]);
+  }, [taxonomy, trip.trip_rhythm, trip.activity, cyclingInlandOnly]);
+
+  useEffect(() => {
+    if (!initialized || !cyclingInlandOnly) return;
+    setSelectedActivities(
+      new Set(cyclingActivitySlugsForDestination(destinationLabel)),
+    );
+  }, [initialized, cyclingInlandOnly, destinationLabel]);
 
   function syncUrl(nextTrip: TripContext, nextStep?: SearchStep) {
     const p = tripContextToParams(nextTrip);
@@ -769,7 +790,11 @@ function SearchPageContent() {
       syncUrl(next, step);
       return next;
     });
-    setSelectedActivities(new Set());
+    setSelectedActivities(
+      cyclingInlandOnly
+        ? new Set(cyclingActivitySlugsForDestination(label))
+        : new Set(),
+    );
   }
 
   function handleOverviewDatesChange(
@@ -820,7 +845,7 @@ function SearchPageContent() {
   function goToActivitiesStep() {
     if (selectedActivities.size === 0) {
       const slugs = isCyclingTrip(trip)
-        ? defaultCyclingActivitySlugs()
+        ? cyclingActivitySlugsForDestination(destinationLabel)
         : trip.trip_rhythm
           ? suggestActivitiesFromRhythm({
               rhythm: trip.trip_rhythm,
@@ -855,7 +880,9 @@ function SearchPageContent() {
 
     if (selectedRegions.length > 0) {
       if (isCyclingTrip(trip)) {
-        setSelectedActivities(new Set(defaultCyclingActivitySlugs()));
+        setSelectedActivities(
+          new Set(cyclingActivitySlugsForDestination(destinationLabel)),
+        );
       } else if (rhythm) {
         const extraSlugs = [
           ...new Set(selectedRegions.flatMap((r) => r.activity_slugs)),
@@ -896,7 +923,9 @@ function SearchPageContent() {
     };
     if (selectedActivities.size === 0) {
       const slugs = isCyclingTrip(nextTrip)
-        ? defaultCyclingActivitySlugs()
+        ? cyclingActivitySlugsForDestination(
+            nextTrip.destination_label ?? nextTrip.destination ?? "",
+          )
         : nextTrip.trip_rhythm
           ? suggestActivitiesFromRhythm({
               rhythm: nextTrip.trip_rhythm,
@@ -1012,7 +1041,16 @@ function SearchPageContent() {
     overrideParams?: ReturnType<typeof getSearchParams>,
   ) {
     const params = overrideParams ?? getSearchParams();
-    if (params.activities.length === 0) {
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const searchActivities = isCyclingTrip(trip)
+      ? [
+          ...new Set([
+            ...params.activities,
+            ...cyclingSearchActivitySlugsForDestination(label),
+          ]),
+        ]
+      : params.activities;
+    if (searchActivities.length === 0) {
       return;
     }
     if (!dataStatus?.search_ready) {
@@ -1036,7 +1074,7 @@ function SearchPageContent() {
       const response = await fetch("/api/search/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify({ ...params, activities: searchActivities }),
         signal: controller.signal,
       });
       clearTimeout(timeout);
@@ -1192,6 +1230,7 @@ function SearchPageContent() {
       pool,
       Array.from(selectedActivities),
       matched,
+      trip.destination_label ?? trip.destination,
     );
 
     if (selectedAttractionPlanIds.size > 0) {
@@ -1220,8 +1259,17 @@ function SearchPageContent() {
     if (regions.length === 0) return null;
 
     const allAttrs = clusters.flatMap((c) => c.attractions);
-    const regionAttrs = filterAttractionsToTouristRegions(allAttrs, regions);
-    const filteredClusters = filterClustersToTouristRegions(clusters, regions);
+    const regionAttrs = filterAttractionsToTouristRegions(
+      allAttrs,
+      regions,
+      1,
+      destinationLabel,
+    );
+    const filteredClusters = filterClustersToTouristRegions(
+      clusters,
+      regions,
+      destinationLabel,
+    );
 
     if (filteredClusters.length > 0) {
       const best = [...filteredClusters].sort(
@@ -1232,6 +1280,7 @@ function SearchPageContent() {
           ? { ...best, attractions: regionAttrs }
           : best,
         regions,
+        destinationLabel,
       );
     }
 
@@ -1287,7 +1336,7 @@ function SearchPageContent() {
 
     const regions = selectedTouristRegions();
     if (regions.length > 0) {
-      cluster = reanchorClusterToTouristRegions(cluster, regions);
+      cluster = reanchorClusterToTouristRegions(cluster, regions, label);
     }
     const fullPool = filterAttractionsToDestinationIsland(
       pool,
@@ -1406,7 +1455,7 @@ function SearchPageContent() {
     let sanitized = sanitizeClusterForDestination(cluster, label);
     const regions = selectedTouristRegions();
     if (regions.length > 0) {
-      sanitized = reanchorClusterToTouristRegions(sanitized, regions);
+      sanitized = reanchorClusterToTouristRegions(sanitized, regions, label);
     }
     const pool = filterAttractionsToDestinationIsland(
       sanitized.attractions.length > 0
@@ -1416,6 +1465,25 @@ function SearchPageContent() {
       sanitized.center,
     );
     storeAndGoToPlan(sanitized.id, { ...sanitized, attractions: pool }, pool);
+  }
+
+  function scrollToPlanWizard() {
+    wizardSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  function handleCyclingPlanTrip(
+    selectedIds: string[],
+    pool: AttractionWithActivities[],
+  ) {
+    setSelectedAttractionPlanIds(new Set(selectedIds));
+    openIslandPlan(
+      selectedIds,
+      pool,
+    );
+    window.setTimeout(scrollToPlanWizard, 150);
   }
 
   function openIslandPlan(
@@ -1433,7 +1501,7 @@ function SearchPageContent() {
     if (!cluster) return;
     const regions = selectedTouristRegions();
     if (regions.length > 0) {
-      cluster = reanchorClusterToTouristRegions(cluster, regions);
+      cluster = reanchorClusterToTouristRegions(cluster, regions, label);
     }
     const fullPool = filterAttractionsToDestinationIsland(pool, label, cluster.center);
     storeAndGoToPlan(
@@ -1463,11 +1531,18 @@ function SearchPageContent() {
       .map((id) => scoredRegions.find((r) => r.id === id))
       .filter((r): r is ScoredTouristRegion => r != null);
     if (regions.length === 0) return results.clusters;
-    return filterClustersToTouristRegions(results.clusters, regions);
+    const destinationLabel = trip.destination_label ?? trip.destination ?? "";
+    return filterClustersToTouristRegions(
+      results.clusters,
+      regions,
+      destinationLabel,
+    );
   }, [
     results,
     trip.tourist_region_ids,
     trip.tourist_region_id,
+    trip.destination_label,
+    trip.destination,
     scoredRegions,
   ]);
 
@@ -1610,7 +1685,7 @@ function SearchPageContent() {
     const origin = trip.origin_label ?? trip.origin_iata ?? "";
     return {
       travelHint: formatOriginToDestinationHint(origin, trip.travel_mode, pl),
-      airportHint: formatAirportTravelHint(airports, center, pl),
+      airportHint: formatAirportTravelHint(airports, center, pl, trip.travel_mode),
     };
   }, [
     results,
@@ -1855,9 +1930,13 @@ function SearchPageContent() {
               )}
               {isCyclingTrip(trip) && (
                 <p className="mb-4 text-sm text-text-secondary">
-                  {locale === "en"
-                    ? "We pre-selected bike rentals and beaches. Expand “Other activities” for more options."
-                    : "Domyślnie zaznaczyliśmy wypożyczalnie rowerów i plaże. Więcej opcji znajdziesz w „Inne aktywności”."}
+                  {cyclingInlandOnly
+                    ? locale === "en"
+                      ? "Bike rental is pre-selected for this inland destination."
+                      : "Dla tej destynacji bez morza zaznaczyliśmy automatycznie tylko wypożyczalnię rowerów."
+                    : locale === "en"
+                      ? "We pre-selected bike rentals and beaches. Expand “Other activities” for more options."
+                      : "Domyślnie zaznaczyliśmy wypożyczalnie rowerów i plaże. Więcej opcji znajdziesz w „Inne aktywności”."}
                 </p>
               )}
               {pageLoading && <SkeletonList count={3} />}
@@ -1866,7 +1945,7 @@ function SearchPageContent() {
                   Nie udało się załadować aktywności.
                 </p>
               )}
-              {!pageLoading && taxonomy.length > 0 && selectedActivities.size === 0 && (
+              {!pageLoading && taxonomy.length > 0 && selectedActivities.size === 0 && !cyclingInlandOnly && (
                 <p className="mb-4 rounded-lg bg-brand-50 px-4 py-3 text-sm text-text-secondary">
                   Zaznacz co najmniej jedną aktywność poniżej.
                   {trip.interests
@@ -1892,12 +1971,16 @@ function SearchPageContent() {
                           <button
                             key={activity.slug}
                             type="button"
-                            onClick={() => toggleActivity(activity.slug)}
+                            onClick={() => {
+                              if (cyclingInlandOnly) return;
+                              toggleActivity(activity.slug);
+                            }}
+                            disabled={cyclingInlandOnly}
                             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                               selected
                                 ? "bg-brand-700 text-white"
                                 : "bg-bg-soft text-text-secondary hover:bg-brand-50 hover:text-brand-700"
-                            }`}
+                            } ${cyclingInlandOnly ? "cursor-default opacity-100" : ""}`}
                           >
                             {locale === "en" ? activity.name_en : activity.name_pl}
                             {isDestinationFlow &&
@@ -2030,6 +2113,23 @@ function SearchPageContent() {
 
       {showPlanStep && results && !isSearching && (
         <section className="mt-8 space-y-8">
+          {isCyclingTrip(trip) && attractionMapOverview && (
+            <IslandOverviewSection
+              results={{ ...results, island_overview: attractionMapOverview }}
+              activityNames={activityNames}
+              taxonomyActivities={taxonomyActivities}
+              feasibility={null}
+              variant="region"
+              planIds={selectedAttractionPlanIds}
+              onPlanIdsChange={setSelectedAttractionPlanIds}
+              plannedCyclingRoutes={plannedCyclingRoutes}
+              onRemoveCyclingRoute={removeCyclingPlanRoute}
+              onPlanTrip={
+                planPayload?.planComplete ? undefined : handleCyclingPlanTrip
+              }
+            />
+          )}
+
           {isCyclingTrip(trip) && (
             <CyclingSearchPanel
               destinationLabel={
@@ -2046,6 +2146,33 @@ function SearchPageContent() {
             />
           )}
 
+          {isCyclingTrip(trip) &&
+            (plannedCyclingRoutes.length > 0 ||
+              selectedAttractionPlanIds.size > 0) && (
+              <div className="flex justify-center">
+                <Button
+                  size="lg"
+                  onClick={() => {
+                    const pool =
+                      attractionMapOverview?.attractions ??
+                      resolvePlanClusterAndPool()?.pool ??
+                      [];
+                    handleCyclingPlanTrip(
+                      [...selectedAttractionPlanIds],
+                      pool,
+                    );
+                  }}
+                >
+                  {t("island.planTripCta")}
+                </Button>
+              </div>
+            )}
+
+          <div
+            ref={wizardSectionRef}
+            id="destination-plan-wizard"
+            className="scroll-mt-6"
+          >
           {planPayload && !planEnriching && (
             <DestinationPlanWizard
               payload={{
@@ -2079,6 +2206,7 @@ function SearchPageContent() {
               }
             />
           )}
+          </div>
         </section>
       )}
 

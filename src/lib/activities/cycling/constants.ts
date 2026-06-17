@@ -1,4 +1,5 @@
 import type { ActivityDifficulty, ActivityType } from "@/types/activities";
+import { destinationSupportsBeachRelax } from "@/lib/destinations/coastal-access";
 
 export const CYCLING_ACTIVITY_TYPES: ActivityType[] = [
   "cycling_road",
@@ -43,6 +44,33 @@ export const CYCLING_DEFAULT_ACTIVITY_SLUGS = [
 
 export function defaultCyclingActivitySlugs(): string[] {
   return [...CYCLING_DEFAULT_ACTIVITY_SLUGS];
+}
+
+export const CYCLING_INLAND_ONLY_ACTIVITY_SLUGS = ["bike_rental"] as const;
+
+export function cyclingActivitySlugsForDestination(
+  destinationLabel: string,
+): string[] {
+  if (!destinationSupportsBeachRelax(destinationLabel)) {
+    return [...CYCLING_INLAND_ONLY_ACTIVITY_SLUGS];
+  }
+  return defaultCyclingActivitySlugs();
+}
+
+/** Szersze zapytanie OSM niż UI kroku 6 — atrakcje na mapie regionu (np. Czechy). */
+export function cyclingSearchActivitySlugsForDestination(
+  destinationLabel: string,
+): string[] {
+  if (!destinationSupportsBeachRelax(destinationLabel)) {
+    return [...CYCLING_INLAND_ONLY_ACTIVITY_SLUGS, "viewpoints"];
+  }
+  return defaultCyclingActivitySlugs();
+}
+
+export function isCyclingInlandOnlyDestination(
+  destinationLabel: string,
+): boolean {
+  return !destinationSupportsBeachRelax(destinationLabel);
 }
 
 const CYCLING_PRIMARY_ACTIVITY_SLUGS = new Set<string>(
@@ -116,6 +144,29 @@ export function splitTaxonomyForCycling(
     .filter((g) => g.activities.length > 0);
 
   return { primaryGroups, optionalGroups };
+}
+
+/** Czechy i inne bez morza — tylko wypożyczalnia rowerów, bez plaż i „Innych aktywności”. */
+export function splitTaxonomyForCyclingInland(
+  groups: Array<{
+    slug: string;
+    name_pl: string;
+    name_en: string;
+    activities: Array<{ slug: string; name_pl: string; name_en: string }>;
+  }>,
+): {
+  primaryGroups: typeof groups;
+  optionalGroups: typeof groups;
+} {
+  const cycling = groups.find((g) => g.slug === "cycling");
+  const bikeRental = cycling?.activities.find((a) => a.slug === "bike_rental");
+  if (!bikeRental || !cycling) {
+    return { primaryGroups: [], optionalGroups: [] };
+  }
+  return {
+    primaryGroups: [{ ...cycling, activities: [bikeRental] }],
+    optionalGroups: [],
+  };
 }
 
 export const CYCLING_DIFFICULTIES: ActivityDifficulty[] = [

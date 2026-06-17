@@ -13,10 +13,11 @@ export function pointInTouristRegion(
   point: GeoPoint,
   region: TouristRegion,
   marginKm = 1,
+  destinationLabel?: string | null,
 ): boolean {
   return (
     distanceKm(regionCenter(region), point) <=
-    regionMapRadiusKm(region) + marginKm
+    regionMapRadiusKm(region, destinationLabel) + marginKm
   );
 }
 
@@ -24,6 +25,7 @@ export function filterAttractionsToTouristRegions(
   attractions: AttractionWithActivities[],
   regions: TouristRegion[],
   marginKm = 1,
+  destinationLabel?: string | null,
 ): AttractionWithActivities[] {
   if (regions.length === 0) return attractions;
   return attractions.filter((a) =>
@@ -32,6 +34,7 @@ export function filterAttractionsToTouristRegions(
         { lat: Number(a.lat), lon: Number(a.lon) },
         r,
         marginKm,
+        destinationLabel,
       ),
     ),
   );
@@ -50,17 +53,23 @@ export function centroidOfTouristRegions(
 export function clusterInSelectedRegions(
   cluster: GeoCluster,
   regions: TouristRegion[],
+  destinationLabel?: string | null,
 ): boolean {
-  return regions.some((r) => pointInTouristRegion(cluster.center, r, 8));
+  return regions.some((r) =>
+    pointInTouristRegion(cluster.center, r, 8, destinationLabel),
+  );
 }
 
 /** Zostaw tylko klastry w wybranych rejonach; gdy brak dopasowania — zwróć oryginał. */
 export function filterClustersToTouristRegions(
   clusters: GeoCluster[],
   regions: TouristRegion[],
+  destinationLabel?: string | null,
 ): GeoCluster[] {
   if (regions.length === 0) return clusters;
-  const matched = clusters.filter((c) => clusterInSelectedRegions(c, regions));
+  const matched = clusters.filter((c) =>
+    clusterInSelectedRegions(c, regions, destinationLabel),
+  );
   return matched.length > 0 ? matched : clusters;
 }
 
@@ -78,12 +87,15 @@ function centroidOfAttractions(
 export function reanchorClusterToTouristRegions(
   cluster: GeoCluster,
   regions: TouristRegion[],
+  destinationLabel?: string | null,
 ): GeoCluster {
   if (regions.length === 0) return cluster;
 
   const inRegions = filterAttractionsToTouristRegions(
     cluster.attractions,
     regions,
+    1,
+    destinationLabel,
   );
   const center =
     inRegions.length > 0
@@ -99,7 +111,10 @@ export function reanchorClusterToTouristRegions(
           ),
           0.5,
         )
-      : Math.max(...regions.map((r) => regionMapRadiusKm(r)), 5);
+      : Math.max(
+          ...regions.map((r) => regionMapRadiusKm(r, destinationLabel)),
+          5,
+        );
 
   return {
     ...cluster,

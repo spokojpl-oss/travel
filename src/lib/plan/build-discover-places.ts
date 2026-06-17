@@ -234,12 +234,14 @@ export function buildDiscoverPlaces({
   const maxCardKm =
     stayRadiusKmParam ??
     (regions.length > 0
-      ? Math.max(...regions.map((r) => regionMapRadiusKm(r)))
+      ? Math.max(
+          ...regions.map((r) => regionMapRadiusKm(r, destinationLabel)),
+        )
       : undefined);
 
   const poolInRange =
     regions.length > 0
-      ? filterAttractionsToTouristRegions(pool, regions, 4)
+      ? filterAttractionsToTouristRegions(pool, regions, 4, destinationLabel)
       : maxCardKm != null
         ? pool.filter(
             (a) => distanceKm(referencePoint, point(a)) <= maxCardKm,
@@ -394,6 +396,7 @@ function findMatchForCard(
   card: PlaceCard,
   pool: AttractionWithActivities[],
   regions: TouristRegion[],
+  destinationLabel?: string,
 ): AttractionWithActivities | null {
   const cardPoint = { lat: card.lat, lon: card.lon };
   const region = regions.find((r) => r.id === card.regionId);
@@ -404,6 +407,7 @@ function findMatchForCard(
             { lat: Number(p.lat), lon: Number(p.lon) },
             region,
             6,
+            destinationLabel,
           ),
         )
       : pool;

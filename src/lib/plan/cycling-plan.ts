@@ -145,6 +145,7 @@ export function beachAttractionsFromPool(
   pool: AttractionWithActivities[],
   preferredActivities: string[],
   regions: TouristRegion[],
+  destinationLabel?: string | null,
 ): AttractionWithActivities[] {
   if (!wantsBeaches(preferredActivities)) return [];
   let beaches = pool.filter(isBeachAttraction);
@@ -155,6 +156,7 @@ export function beachAttractionsFromPool(
           { lat: Number(a.lat), lon: Number(a.lon) },
           r,
           4,
+          destinationLabel,
         ),
       ),
     );

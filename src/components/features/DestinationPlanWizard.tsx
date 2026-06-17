@@ -158,6 +158,7 @@ export function DestinationPlanWizard({
             enrichedPool,
             payload.activities,
             matchedRegions,
+            destinationLabel,
           )
         : [],
     [enrichedPool, payload.activities, matchedRegions, supportsBeachRelax],
