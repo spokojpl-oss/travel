@@ -2,6 +2,7 @@ import type { Locale } from "@/i18n/config";
 import type { TripDayTheme, TripRhythm } from "@/lib/search/trip-rhythm";
 import { activeThemes } from "@/lib/search/trip-rhythm";
 import { isCompactIslandDestination } from "@/lib/search/destination-size";
+import { distanceKm } from "@/lib/search/geo-clustering";
 import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
 
 export type RegionCharacter = "resort" | "historic" | "wild" | "mixed";
@@ -119,6 +120,48 @@ function transliterateGreek(text: string): string {
     ώ: "o",
   };
   return [...text].map((char) => map[char] ?? char).join("");
+}
+
+/** Polskie nazwy miast → dodatkowe klucze dopasowania (EN + lokalne). */
+const DESTINATION_LABEL_ALIASES: Record<string, string[]> = {
+  alikante: ["alicante", "costa blanca", "comunidad valenciana", "wspolnota walencka"],
+  walencja: ["valencia", "comunidad valenciana"],
+  majorka: ["mallorca", "majorca", "baleares"],
+  lizbona: ["lisbon", "lisboa"],
+  madryt: ["madrid"],
+  barcelona: ["catalonia", "katalonia"],
+  sewilla: ["seville", "sevilla", "andaluzja"],
+  granada: ["andaluzja", "sierra nevada"],
+  malaga: ["malaga", "costa del sol"],
+  kreta: ["crete"],
+  cypr: ["cyprus"],
+  korfu: ["corfu"],
+  rodos: ["rhodes"],
+  dubrownik: ["dubrovnik"],
+  split: ["dalmatia", "dalmacja"],
+};
+
+const CYCLING_GEO_RADIUS_KM = 110;
+
+export function isCyclingTouristRegion(region: TouristRegion): boolean {
+  return (
+    region.slug.includes("cycling") ||
+    region.id.startsWith("cy-") ||
+    region.id.includes("-cycling")
+  );
+}
+
+function destinationMatchKeys(label: string): string[] {
+  const norm = normalizeDestinationKey(label);
+  const parts = norm.split(/\s+/).filter(Boolean);
+  const keys = new Set<string>([norm, ...parts]);
+  const head = parts[0];
+  if (head) {
+    for (const alias of DESTINATION_LABEL_ALIASES[head] ?? []) {
+      keys.add(alias);
+    }
+  }
+  return [...keys];
 }
 
 function normalizeDestinationKey(label: string): string {
@@ -258,12 +301,23 @@ const GENERIC_DESTINATION_KEYS = new Set([
   "cyprus",
 ]);
 
-function matchesDestinationKey(
-  norm: string,
-  head: string,
-  key: string,
-): boolean {
-  return norm.includes(key) || key.includes(head) || head.includes(key);
+function matchesLabelKeyToRegionKey(labelKey: string, regionKey: string): boolean {
+  if (labelKey === regionKey) return true;
+
+  const minLen = 6;
+  if (labelKey.length >= minLen && regionKey.length >= minLen) {
+    if (labelKey.includes(regionKey) || regionKey.includes(labelKey)) {
+      return true;
+    }
+  }
+
+  if (!labelKey.includes(" ") && labelKey.length >= minLen) {
+    if (regionKey.includes(labelKey) || labelKey.includes(regionKey)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /** Destynacja to kraj (np. „Albania” lub „Albania, Albania”), nie konkretne miasto/wyspa. */
@@ -275,8 +329,7 @@ function isCountryLevelDestinationLabel(label: string): boolean {
 }
 
 export function regionMatchesDestination(region: TouristRegion, label: string): boolean {
-  const norm = normalizeDestinationKey(label);
-  const head = norm.split(/\s+/)[0]?.trim() ?? norm;
+  const labelKeys = destinationMatchKeys(label);
 
   const genericKeys = region.destination_keys.filter((key) =>
     GENERIC_DESTINATION_KEYS.has(key),
@@ -285,12 +338,18 @@ export function regionMatchesDestination(region: TouristRegion, label: string): 
     (key) => !GENERIC_DESTINATION_KEYS.has(key),
   );
 
-  if (specificKeys.some((key) => matchesDestinationKey(norm, head, key))) {
+  if (
+    specificKeys.some((key) =>
+      labelKeys.some((labelKey) => matchesLabelKeyToRegionKey(labelKey, key)),
+    )
+  ) {
     return true;
   }
 
   if (isCountryLevelDestinationLabel(label)) {
-    return genericKeys.some((key) => matchesDestinationKey(norm, head, key));
+    return genericKeys.some((key) =>
+      labelKeys.some((labelKey) => matchesLabelKeyToRegionKey(labelKey, key)),
+    );
   }
 
   return false;
@@ -345,18 +404,53 @@ export function findTouristRegionsInCatalog(
     destinationLabel,
     rhythm,
     limit = 8,
+    coords,
   }: {
     destinationLabel: string;
     rhythm: TripRhythm;
     limit?: number;
+    coords?: { lat: number; lon: number } | null;
   },
 ): ScoredTouristRegion[] {
   const cycling = isCyclingRhythm(rhythm);
-  const scored = catalog
-    .filter((r) => regionMatchesDestination(r, destinationLabel))
+  const labelMatched = catalog.filter((r) =>
+    regionMatchesDestination(r, destinationLabel),
+  );
+  const matchedIds = new Set(labelMatched.map((r) => r.id));
+
+  let pool = labelMatched;
+
+  if (cycling && coords) {
+    const geoMatched = catalog.filter((r) => {
+      if (matchedIds.has(r.id)) return false;
+      if (!isCyclingTouristRegion(r)) return false;
+      return (
+        distanceKm(coords, { lat: r.center_lat, lon: r.center_lon }) <=
+        CYCLING_GEO_RADIUS_KM
+      );
+    });
+    pool = [...pool, ...geoMatched];
+  }
+
+  let scored = pool
     .map((r) => scoreRegionForRhythm(r, rhythm))
     .filter((r) => cycling || r.score > 0)
+    .map((r) => {
+      if (!cycling) return r;
+      let bonus = 0;
+      if (isCyclingTouristRegion(r)) bonus += 50;
+      if (r.character === "resort" && !isCyclingTouristRegion(r)) bonus -= 35;
+      if (r.character === "wild" && isCyclingTouristRegion(r)) bonus += 8;
+      return bonus === 0 ? r : { ...r, score: r.score + bonus };
+    })
     .sort((a, b) => b.score - a.score);
+
+  if (cycling && rhythm.preset === "cycling_only") {
+    const cyclingRegions = scored.filter((r) => isCyclingTouristRegion(r));
+    if (cyclingRegions.length >= 2) {
+      scored = cyclingRegions;
+    }
+  }
 
   const specific = scored.filter((r) => !isGeneralFallbackRegion(r));
   const general = scored.filter((r) => isGeneralFallbackRegion(r));

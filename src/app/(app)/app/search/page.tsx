@@ -677,6 +677,8 @@ function SearchPageContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         destination_label: label,
+        destination_lat: trip.destination_lat ?? undefined,
+        destination_lon: trip.destination_lon ?? undefined,
         from_date: trip.departure_date,
         to_date: trip.return_date ?? trip.departure_date,
         rhythm: trip.trip_rhythm ?? undefined,
@@ -709,6 +711,8 @@ function SearchPageContent() {
     trip.trip_rhythm,
     trip.destination_label,
     trip.destination,
+    trip.destination_lat,
+    trip.destination_lon,
     trip.departure_date,
     trip.return_date,
   ]);

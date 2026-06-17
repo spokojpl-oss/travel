@@ -400,7 +400,16 @@ export const SEED_TOURIST_REGIONS_CYCLING_MECCA: TouristRegion[] = [
   },
   {
     id: "cy-mk-es-xorret-cati",
-    destination_keys: ["xorret", "xorret de cati", "alicante", "hiszpania", "spain"],
+    destination_keys: [
+      "xorret",
+      "xorret de cati",
+      "castalla",
+      "alicante",
+      "alikante",
+      "costa blanca",
+      "hiszpania",
+      "spain",
+    ],
     slug: "xorret-de-cati-cycling",
     name_pl: "Xorret de Catí — Costa Blanca",
     name_en: "Xorret de Catí — Costa Blanca",

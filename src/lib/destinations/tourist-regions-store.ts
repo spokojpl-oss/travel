@@ -27,6 +27,13 @@ function resolveTouristRegionLimit(
   ) {
     return 15;
   }
+  if (
+    norm.includes("alicante") ||
+    norm.includes("alikante") ||
+    norm.includes("costa blanca")
+  ) {
+    return 15;
+  }
   if (cycling) return 12;
   return 8;
 }
@@ -115,10 +122,12 @@ export async function findTouristRegionsAsync({
   destinationLabel,
   rhythm,
   limit,
+  coords,
 }: {
   destinationLabel: string;
   rhythm: TripRhythm;
   limit?: number;
+  coords?: { lat: number; lon: number } | null;
 }): Promise<ScoredTouristRegion[]> {
   const catalog = await loadTouristRegionsCatalog();
   const resolvedLimit =
@@ -127,6 +136,7 @@ export async function findTouristRegionsAsync({
     destinationLabel,
     rhythm,
     limit: resolvedLimit,
+    coords,
   });
 }
 

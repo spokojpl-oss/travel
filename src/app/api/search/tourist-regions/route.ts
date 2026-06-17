@@ -8,6 +8,8 @@ import { z } from "zod";
 
 const bodySchema = z.object({
   destination_label: z.string().min(2),
+  destination_lat: z.number().optional(),
+  destination_lon: z.number().optional(),
   from_date: z.string(),
   to_date: z.string().optional(),
   rhythm: z
@@ -49,9 +51,15 @@ export async function POST(request: Request) {
       parsed.data.to_date ?? parsed.data.from_date,
     );
 
+  const coords =
+    parsed.data.destination_lat != null && parsed.data.destination_lon != null
+      ? { lat: parsed.data.destination_lat, lon: parsed.data.destination_lon }
+      : null;
+
   const regions = await findTouristRegionsAsync({
     destinationLabel: parsed.data.destination_label,
     rhythm: rhythm as Parameters<typeof findTouristRegionsAsync>[0]["rhythm"],
+    coords,
   });
 
   return Response.json({ regions, count: regions.length });
@@ -78,9 +86,20 @@ export async function GET(request: Request) {
     tripRhythmFromParams(url.searchParams) ??
     defaultRhythmForTrip(from, url.searchParams.get("to_date") ?? from);
 
+  const lat = url.searchParams.get("destination_lat");
+  const lon = url.searchParams.get("destination_lon");
+  const coords =
+    lat != null && lon != null
+      ? { lat: Number(lat), lon: Number(lon) }
+      : null;
+
   const regions = await findTouristRegionsAsync({
     destinationLabel: label,
     rhythm,
+    coords:
+      coords != null && Number.isFinite(coords.lat) && Number.isFinite(coords.lon)
+        ? coords
+        : null,
   });
 
   return Response.json({ regions, count: regions.length });
