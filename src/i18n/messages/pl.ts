@@ -164,6 +164,10 @@ export const pl = {
       "Każdy rejon ma mapę tras i opis pod kolarstwo — bez treści rodzinnych.",
     cyclingResultsCta: "Zobacz trasy w tym rejonie →",
     titleActivities: "Wybierz aktywności",
+    titlePlan: "Plan wyjazdu",
+    subtitlePlan:
+      "Wybierz miejsca, bazę noclegową i ułóż plan — pamiętaj o dojeździe z lotniska.",
+    continueToPlan: "Dalej — plan wyjazdu ({n} aktywności)",
     titleScope: "Jak chcecie zwiedzać?",
     subtitleScope:
       "Najpierw zakres zwiedzania — potem krótki przewodnik po miejscu, a na końcu wybór aktywności.",

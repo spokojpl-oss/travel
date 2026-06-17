@@ -1269,7 +1269,7 @@ function SearchPageContent() {
       results?.airports ??
       results?.island_overview?.airports ??
       [];
-    storeDestinationBuildPayload(buildId, {
+    const payload: DestinationBuildPayload = {
       cluster,
       activities: Array.from(selectedActivities),
       destinationLabel: trip.destination_label ?? trip.destination ?? undefined,
@@ -1295,11 +1295,11 @@ function SearchPageContent() {
         trip.return_date ?? trip.departure_date,
       ),
       airports,
-    });
-    const tripParams = tripContextToParams(trip);
-    tripParams.set("build_id", buildId);
-    const path = "/app/destination";
-    router.push(`${path}?${tripParams.toString()}`);
+    };
+    storeDestinationBuildPayload(buildId, payload);
+    setPlanPayload(payload);
+    setStep(7);
+    syncUrl(trip, 7);
   }
 
   function openDestination(cluster: GeoCluster) {
@@ -1414,12 +1414,6 @@ function SearchPageContent() {
     selectedActivities,
   ]);
 
-  }, [
-    trip.tourist_region_id,
-    trip.tourist_region_ids,
-    scoredRegions,
-  ]);
-
   useEffect(() => {
     if (!showPlanStep || !results) return;
     const resolved = resolvePlanClusterAndPool();
@@ -1496,14 +1490,20 @@ function SearchPageContent() {
       results?.island_overview?.airports ??
       planPayload?.airports ??
       [];
-    const center =
+    const rawCenter =
       cyclingRegionCenter ??
       (trip.destination_lat != null &&
       trip.destination_lon != null &&
       Number.isFinite(trip.destination_lat) &&
       Number.isFinite(trip.destination_lon)
-        ? { lat: trip.destination_lat, lng: trip.destination_lon }
+        ? { lat: trip.destination_lat, lon: trip.destination_lon }
         : null);
+    const center = rawCenter
+      ? {
+          lat: rawCenter.lat,
+          lon: "lon" in rawCenter ? rawCenter.lon : rawCenter.lng,
+        }
+      : null;
     const origin = trip.origin_label ?? trip.origin_iata ?? "";
     return {
       travelHint: formatOriginToDestinationHint(origin, trip.travel_mode, pl),
@@ -1540,28 +1540,32 @@ function SearchPageContent() {
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
         {showResultsStep
           ? t("search.titleResults")
-          : showScopeStep
-            ? t("search.titleScope")
-            : showOverviewStep
-              ? t("search.titleOverview")
-              : showRhythmStep
-                ? t("search.titleRhythm")
-                : showRegionsStep
-                  ? t("search.titleRegions")
-                  : t("search.titleActivities")}
+          : showPlanStep
+            ? t("search.titlePlan")
+            : showScopeStep
+              ? t("search.titleScope")
+              : showOverviewStep
+                ? t("search.titleOverview")
+                : showRhythmStep
+                  ? t("search.titleRhythm")
+                  : showRegionsStep
+                    ? t("search.titleRegions")
+                    : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
         {showResultsStep
           ? t("search.subtitleResults")
-          : showScopeStep
-            ? t("search.subtitleScope")
-            : showOverviewStep
-              ? t("search.subtitleOverview")
-              : showRhythmStep
-                ? t("search.subtitleRhythm")
-                : showRegionsStep
-                  ? t("search.subtitleRegions")
-                  : t("search.subtitleActivities")}
+          : showPlanStep
+            ? t("search.subtitlePlan")
+            : showScopeStep
+              ? t("search.subtitleScope")
+              : showOverviewStep
+                ? t("search.subtitleOverview")
+                : showRhythmStep
+                  ? t("search.subtitleRhythm")
+                  : showRegionsStep
+                    ? t("search.subtitleRegions")
+                    : t("search.subtitleActivities")}
       </p>
 
       <SearchStepIndicator
@@ -1878,7 +1882,9 @@ function SearchPageContent() {
                 ? t("search.searching")
                 : !dbReady
                   ? t("search.noOsm")
-                  : t("search.searchWithCount", { n: selectedActivities.size })}
+                  : isDestinationFlow
+                    ? t("search.continueToPlan", { n: selectedActivities.size })
+                    : t("search.searchWithCount", { n: selectedActivities.size })}
             </Button>
             <Button variant="ghost" onClick={editTripOnHome}>
               {t("search.editTrip")}

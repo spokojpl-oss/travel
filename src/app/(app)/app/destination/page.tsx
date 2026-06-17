@@ -478,7 +478,7 @@ export default function DestinationPage() {
           onBackToRegions={
             skipRegionsStep ? undefined : () => navigateToSearchStep(5)
           }
-          onBackToResults={() => navigateToSearchStep(7)}
+          onBackToResults={() => navigateToSearchStep(8)}
         />
       )}
 

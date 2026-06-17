@@ -166,6 +166,10 @@ export const en: Messages = {
       "Each area has route maps and cycling-focused info — no family holiday content.",
     cyclingResultsCta: "View routes in this area →",
     titleActivities: "Choose activities",
+    titlePlan: "Trip plan",
+    subtitlePlan:
+      "Pick places, your lodging base, and build the itinerary — factor in airport transfer time.",
+    continueToPlan: "Continue — trip plan ({n} activities)",
     titleScope: "How do you want to explore?",
     subtitleScope:
       "First choose your scope — then a short destination guide, then pick activities.",
