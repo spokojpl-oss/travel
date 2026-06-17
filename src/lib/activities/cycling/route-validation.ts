@@ -34,19 +34,24 @@ export function isPlausibleCyclingRoute({
   coordinates,
   startLat,
   startLng,
+  maxRadiusKm = 35,
 }: {
   distanceM: number;
   targetDistanceKm: number;
   coordinates: number[][];
   startLat: number;
   startLng: number;
+  maxRadiusKm?: number;
 }): boolean {
   const targetM = targetDistanceKm * 1000;
   if (distanceM > Math.max(220_000, targetM * 1.75)) return false;
   if (coordinates.length < 2) return false;
 
   const maxFromStart = maxDistanceFromPointM(coordinates, startLat, startLng);
-  const allowedRadius = Math.max(35_000, targetM * 0.55 + 15_000);
+  const allowedRadius = Math.max(
+    maxRadiusKm * 1000,
+    Math.min(targetM * 0.45 + 8_000, maxRadiusKm * 1000 + 5_000),
+  );
   if (maxFromStart > allowedRadius) return false;
 
   return true;
@@ -57,6 +62,7 @@ export function isPlausibleStoredRoute(
   coordinates: Array<{ lat: number; lng: number }>,
   centerLat: number,
   centerLng: number,
+  maxRadiusKm = 35,
 ): boolean {
   if (distanceM > 250_000) return false;
   if (coordinates.length < 2) return false;
@@ -66,5 +72,5 @@ export function isPlausibleStoredRoute(
     centerLat,
     centerLng,
   );
-  return maxFromCenter <= 120_000;
+  return maxFromCenter <= maxRadiusKm * 1000;
 }

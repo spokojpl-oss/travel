@@ -333,6 +333,12 @@ function scoreRegionForRhythm(
   };
 }
 
+function isCyclingRhythm(rhythm: TripRhythm): boolean {
+  return (
+    rhythm.preset === "cycling_only" || rhythm.preset === "cycling_beach_mix"
+  );
+}
+
 export function findTouristRegionsInCatalog(
   catalog: TouristRegion[],
   {
@@ -345,10 +351,11 @@ export function findTouristRegionsInCatalog(
     limit?: number;
   },
 ): ScoredTouristRegion[] {
+  const cycling = isCyclingRhythm(rhythm);
   const scored = catalog
     .filter((r) => regionMatchesDestination(r, destinationLabel))
     .map((r) => scoreRegionForRhythm(r, rhythm))
-    .filter((r) => r.score > 0)
+    .filter((r) => cycling || r.score > 0)
     .sort((a, b) => b.score - a.score);
 
   const specific = scored.filter((r) => !isGeneralFallbackRegion(r));

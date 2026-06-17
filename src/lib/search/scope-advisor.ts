@@ -86,11 +86,13 @@ function buildIslandAdvice({
   tripDays,
   withKids,
   locale,
+  isCycling,
 }: {
   profile: NonNullable<ReturnType<typeof resolveDestinationSizeProfile>>;
   tripDays: number;
   withKids: boolean;
   locale: Locale;
+  isCycling?: boolean;
 }): ScopeAdvice {
   const pl = locale !== "en";
   const targets = wholeIslandDayTargets(profile, withKids);
@@ -99,8 +101,13 @@ function buildIslandAdvice({
   const canActive = tripDays >= targets.active;
 
   let recommended: ExplorationScope = "region";
-  if (canRelaxed || canActive) recommended = "island";
-  else if (tripDays <= 4) recommended = "local";
+  if (isCycling) {
+    recommended = tripDays >= 12 ? "island" : "region";
+  } else if (canRelaxed || canActive) {
+    recommended = "island";
+  } else if (tripDays <= 4) {
+    recommended = "local";
+  }
 
   const options: ScopeOption[] = [];
 
@@ -109,7 +116,14 @@ function buildIslandAdvice({
     options.push({ value: scope, label, description, rationale });
   };
 
-  if (canRelaxed) {
+  if (isCycling) {
+    add(
+      "island",
+      pl
+        ? `${tripDays} dni rowerem po całej ${profile.name} — możliwe, ale wymaga dużo kilometrów dziennie.`
+        : `${tripDays} days cycling all of ${profile.name} — doable but many km per day.`,
+    );
+  } else if (canRelaxed) {
     add(
       "island",
       pl
@@ -135,8 +149,12 @@ function buildIslandAdvice({
   add(
     "region",
     pl
-      ? `Przy ${tripDays} dniach jeden rejon = mniej jazdy${withKids ? " i wygodniej z dziećmi" : ""}.`
-      : `With ${tripDays} days, one area means less driving${withKids ? " and easier with kids" : ""}.`,
+      ? isCycling
+        ? `Przy ${tripDays} dniach jeden rejon = sensowne dzienne dystanse rowerowe${withKids ? " i mniej logistyki" : ""}.`
+        : `Przy ${tripDays} dniach jeden rejon = mniej jazdy${withKids ? " i wygodniej z dziećmi" : ""}.`
+      : isCycling
+        ? `With ${tripDays} days, one area keeps daily cycling distances sensible${withKids ? " with less logistics" : ""}.`
+        : `With ${tripDays} days, one area means less driving${withKids ? " and easier with kids" : ""}.`,
   );
 
   if (tripDays >= 5) {
@@ -164,7 +182,15 @@ function buildIslandAdvice({
     : `${profile.name} · ${tripDays} days${kidsTag}`;
 
   let summary: string;
-  if (canRelaxed) {
+  if (isCycling) {
+    summary = pl
+      ? tripDays >= 12
+        ? `Przy ${tripDays} dniach możecie objechać ${profile.name} rowerem w aktywnym tempie — pokażemy mapę całej wyspy i dopasujemy trasy.`
+        : `Przy ${tripDays} dniach cała ${profile.name} to spory objazd rowerem — wygodniej wybrać jeden rejon albo wydłużyć pobyt do ok. ${targets.relaxed} dni.`
+      : tripDays >= 12
+        ? `${tripDays} days allows an active cycling loop of ${profile.name} — we'll show the full map and match routes.`
+        : `${tripDays} days is a big bike loop around ${profile.name} — one area works better, or plan ~${targets.relaxed} days.`;
+  } else if (canRelaxed) {
     summary = pl
       ? `Przy ${tripDays} dniach możecie spokojnie objechać całą wyspę — pokażemy mapę i dopasujemy plan.`
       : `With ${tripDays} days you can comfortably cover the whole island — we'll show a map and tailor the plan.`;
@@ -337,6 +363,7 @@ export function adviseExplorationScope({
   locale = "pl",
   destinationLat,
   destinationLon,
+  isCycling = false,
 }: {
   destinationLabel: string;
   departureDate: string;
@@ -345,6 +372,7 @@ export function adviseExplorationScope({
   locale?: Locale;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  isCycling?: boolean;
 }): ScopeAdvice {
   const tripDays = daysBetweenIso(departureDate, returnDate ?? departureDate);
   const withKids = hasChildrenInPassengers(passengers);
@@ -393,7 +421,13 @@ export function adviseExplorationScope({
   }
 
   if (profile.kind === "island") {
-    return buildIslandAdvice({ profile, tripDays, withKids, locale });
+    return buildIslandAdvice({
+      profile,
+      tripDays,
+      withKids,
+      locale,
+      isCycling,
+    });
   }
   if (profile.kind === "city") {
     return buildCityAdvice({ profile, tripDays, withKids, locale });

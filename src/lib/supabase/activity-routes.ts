@@ -24,8 +24,14 @@ export function buildRoutesQueryParams(
   destinationId: string,
   filters: CyclingRouteFilters,
   limit = 20,
+  near?: { lat: number; lng: number; radiusKm: number },
 ): URLSearchParams {
   const params = new URLSearchParams({ destinationId, limit: String(limit) });
+  if (near) {
+    params.set("nearLat", String(near.lat));
+    params.set("nearLng", String(near.lng));
+    params.set("nearRadiusKm", String(near.radiusKm));
+  }
   if (filters.activityType) params.set("activityType", filters.activityType);
   if (filters.minDistanceM != null) {
     params.set("minDistanceM", String(filters.minDistanceM));

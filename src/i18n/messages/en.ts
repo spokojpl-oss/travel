@@ -502,6 +502,7 @@ export const en: Messages = {
     rhythm: "Day plan",
     regions: "Region",
     activities: "Activities",
+    plan: "Trip plan",
     results: "Results",
   },
 };

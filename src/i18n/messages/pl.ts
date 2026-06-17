@@ -503,6 +503,7 @@ export const pl = {
     rhythm: "Plan dni",
     regions: "Region",
     activities: "Aktywności",
+    plan: "Plan wyjazdu",
     results: "Wyniki",
   },
 };

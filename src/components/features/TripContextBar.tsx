@@ -7,7 +7,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 
-export type DestinationSearchStep = 2 | 3 | 4 | 5 | 6 | 7;
+export type DestinationSearchStep = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type ActivitiesSearchStep = 2 | 3;
 export type SearchStep = DestinationSearchStep | ActivitiesSearchStep;
 
@@ -16,12 +16,16 @@ export function TripContextBar({
   onEdit,
   compact,
   searchStep,
+  travelHint,
+  airportHint,
 }: {
   trip: TripContext;
   onEdit?: () => void;
   compact?: boolean;
   /** W trybie destination plan dni pokazujemy dopiero od kroku 4. */
   searchStep?: SearchStep;
+  travelHint?: string | null;
+  airportHint?: string | null;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -112,6 +116,24 @@ export function TripContextBar({
           </Button>
         )}
       </CardBody>
+      {(airportHint || travelHint) && (
+        <CardBody className="border-t border-border-default bg-brand-50/40 py-3">
+          {travelHint && (
+            <p className="flex items-start gap-2 text-sm text-text-secondary">
+              <Icon name="plane" size={16} className="mt-0.5 shrink-0 text-brand-700" />
+              <span>{travelHint}</span>
+            </p>
+          )}
+          {airportHint && (
+            <p
+              className={`flex items-start gap-2 text-sm text-text-secondary ${travelHint ? "mt-2" : ""}`}
+            >
+              <Icon name="map-pin" size={16} className="mt-0.5 shrink-0 text-brand-700" />
+              <span>{airportHint}</span>
+            </p>
+          )}
+        </CardBody>
+      )}
     </Card>
   );
 }
@@ -169,9 +191,21 @@ export function SearchStepIndicator({
               : skipActivitiesStep
                 ? 6
                 : 7,
+            label: t("steps.plan"),
+            key: "plan",
+            goto: 7 as SearchStep,
+          },
+          {
+            displayN: skipRegionsStep
+              ? skipActivitiesStep
+                ? 6
+                : 7
+              : skipActivitiesStep
+                ? 7
+                : 8,
             label: t("steps.results"),
             key: "results",
-            goto: 7 as SearchStep,
+            goto: 8 as SearchStep,
           },
         ]
       : [

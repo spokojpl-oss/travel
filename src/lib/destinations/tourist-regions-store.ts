@@ -9,6 +9,28 @@ import {
 } from "@/lib/destinations/tourist-regions";
 import type { TripRhythm } from "@/lib/search/trip-rhythm";
 
+function resolveTouristRegionLimit(
+  destinationLabel: string,
+  rhythm: TripRhythm,
+): number {
+  const norm = destinationLabel.toLowerCase();
+  const cycling =
+    rhythm.preset === "cycling_only" || rhythm.preset === "cycling_beach_mix";
+
+  if (norm.includes("kreta") || norm.includes("crete")) return 20;
+  if (norm.includes("cypr") || norm.includes("cyprus")) return 11;
+  if (
+    norm.includes("mallorca") ||
+    norm.includes("majorka") ||
+    norm.includes("sycylia") ||
+    norm.includes("sicily")
+  ) {
+    return 15;
+  }
+  if (cycling) return 12;
+  return 8;
+}
+
 const CACHE_TTL_MS = 60_000;
 
 let catalogCache: { regions: TouristRegion[]; expiresAt: number } | null = null;
@@ -99,10 +121,8 @@ export async function findTouristRegionsAsync({
   limit?: number;
 }): Promise<ScoredTouristRegion[]> {
   const catalog = await loadTouristRegionsCatalog();
-  const norm = destinationLabel.toLowerCase();
   const resolvedLimit =
-    limit ??
-    (norm.includes("cypr") || norm.includes("cyprus") ? 11 : 8);
+    limit ?? resolveTouristRegionLimit(destinationLabel, rhythm);
   return findTouristRegionsInCatalog(catalog, {
     destinationLabel,
     rhythm,

@@ -67,8 +67,23 @@ function estimateLineDistanceM(geometryWkt: string): number {
   return Math.max(Math.round(total), 100);
 }
 
+function bboxFromCenter(lat: number, lon: number, radiusKm: number): BoundingBox {
+  const delta = (radiusKm / 111) * 1.15;
+  return {
+    north: lat + delta,
+    south: lat - delta,
+    east: lon + delta / Math.max(0.5, Math.cos((lat * Math.PI) / 180)),
+    west: lon - delta / Math.max(0.5, Math.cos((lat * Math.PI) / 180)),
+  };
+}
+
 export async function scrapeOsmCyclingRoutesForDestination(
   destinationId: string,
+  options?: {
+    centerLat?: number;
+    centerLon?: number;
+    radiusKm?: number;
+  },
 ): Promise<{ persisted: number; skipped: number }> {
   const supabase = createAdminClient();
   const { data: destination, error } = await supabase
@@ -80,7 +95,18 @@ export async function scrapeOsmCyclingRoutesForDestination(
   if (error) throw new Error(error.message);
   if (!destination) throw new Error("Destination not found");
 
-  const bbox = parseBbox(destination.bounding_box);
+  let bbox = parseBbox(destination.bounding_box);
+  if (
+    options?.centerLat != null &&
+    options?.centerLon != null &&
+    options.radiusKm != null
+  ) {
+    bbox = bboxFromCenter(
+      options.centerLat,
+      options.centerLon,
+      options.radiusKm,
+    );
+  }
   if (!bbox) {
     return { persisted: 0, skipped: 0 };
   }

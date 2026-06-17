@@ -156,7 +156,7 @@ export function WhatToSeeStep({
               )}
               {onBackToResults && (
                 <Button variant="ghost" size="sm" onClick={onBackToResults}>
-                  {pl ? "← Wyniki wyszukiwania" : "← Search results"}
+                  {pl ? "← Zmień aktywności" : "← Change activities"}
                 </Button>
               )}
             </div>
@@ -170,9 +170,7 @@ export function WhatToSeeStep({
                   : `${selectedIds.size} place(s) in your plan`}
               </p>
               <p className="text-xs text-text-secondary">
-                {pl
-                  ? "Potem wybierzesz bazę — trasy ułożymy na końcu."
-                  : "Next: lodging base, then routes."}
+                {pl ? "Potem ułożysz plan: miejsca, baza noclegowa i trasy." : "Next: places, lodging base and routes."}
               </p>
             </div>
             <Button size="lg" disabled={selectedIds.size === 0} onClick={onContinue}>

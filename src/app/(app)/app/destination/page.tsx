@@ -440,10 +440,10 @@ export default function DestinationPage() {
       />
 
       <button
-        onClick={() => navigateToSearchStep(7, { rerunSearch: true })}
+        onClick={() => navigateToSearchStep(8, { rerunSearch: true })}
         className="mb-4 text-sm text-brand-700 hover:underline"
       >
-        ← Wróć do wyników wyszukiwania
+        ← Wróć do wyników
       </button>
 
       <header className="mb-8">
@@ -473,12 +473,12 @@ export default function DestinationPage() {
           payload={planPayload}
           withKids={hasChildrenInPassengers(trip.passengers)}
           onComplete={handlePlanComplete}
-          onCancel={() => navigateToSearchStep(7, { rerunSearch: true })}
+          onCancel={() => navigateToSearchStep(8, { rerunSearch: true })}
           onBackToActivities={() => navigateToSearchStep(6)}
           onBackToRegions={
             skipRegionsStep ? undefined : () => navigateToSearchStep(5)
           }
-          onBackToResults={() => navigateToSearchStep(7, { rerunSearch: true })}
+          onBackToResults={() => navigateToSearchStep(7)}
         />
       )}
 

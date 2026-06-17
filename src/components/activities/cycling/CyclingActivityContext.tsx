@@ -10,46 +10,23 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { ActivityRoute, ActivityType } from "@/types/activities";
+import type { ActivityRoute } from "@/types/activities";
 import type { CyclingRouteFilters } from "@/lib/activities/cycling/types";
+import {
+  BATCH_ROUTE_COUNT,
+  DEFAULT_REGION_RADIUS_KM,
+} from "@/lib/activities/cycling/generate-batch";
 import { isPlausibleStoredRoute } from "@/lib/activities/cycling/route-validation";
 import {
   buildRoutesQueryParams,
   parseRouteGeometry,
 } from "@/lib/supabase/activity-routes";
 
-const MIN_INITIAL_ROUTES = 20;
-const ROUTES_FETCH_LIMIT = 50;
-
-const INITIAL_ROUTE_PRESETS: Array<{
-  targetDistanceKm: number;
-  activityType: ActivityType;
-}> = [
-  { targetDistanceKm: 22, activityType: "cycling_road" },
-  { targetDistanceKm: 28, activityType: "cycling_road" },
-  { targetDistanceKm: 35, activityType: "cycling_road" },
-  { targetDistanceKm: 42, activityType: "cycling_road" },
-  { targetDistanceKm: 50, activityType: "cycling_road" },
-  { targetDistanceKm: 58, activityType: "cycling_road" },
-  { targetDistanceKm: 30, activityType: "cycling_gravel" },
-  { targetDistanceKm: 38, activityType: "cycling_gravel" },
-  { targetDistanceKm: 45, activityType: "cycling_gravel" },
-  { targetDistanceKm: 55, activityType: "cycling_gravel" },
-  { targetDistanceKm: 25, activityType: "cycling_mtb" },
-  { targetDistanceKm: 32, activityType: "cycling_mtb" },
-  { targetDistanceKm: 40, activityType: "cycling_mtb" },
-  { targetDistanceKm: 35, activityType: "cycling_ebike" },
-  { targetDistanceKm: 48, activityType: "cycling_ebike" },
-  { targetDistanceKm: 60, activityType: "cycling_ebike" },
-  { targetDistanceKm: 65, activityType: "cycling_road" },
-  { targetDistanceKm: 72, activityType: "cycling_gravel" },
-  { targetDistanceKm: 80, activityType: "cycling_road" },
-  { targetDistanceKm: 90, activityType: "cycling_touring" },
-];
+const MIN_INITIAL_ROUTES = 10;
+const ROUTES_FETCH_LIMIT = 40;
 
 type GenerateRouteOptions = {
-  targetDistanceKm?: number;
-  activityType?: ActivityType;
+  count?: number;
 };
 
 type CyclingActivityContextValue = {
@@ -65,12 +42,13 @@ type CyclingActivityContextValue = {
   togglePlanRoute: (route: ActivityRoute) => void;
   showCyclOsm: boolean;
   setShowCyclOsm: (value: boolean) => void;
-  refreshRoutes: () => Promise<ActivityRoute[]>;
-  generateRoute: (options?: GenerateRouteOptions) => Promise<void>;
-  ensureInitialRoutes: () => Promise<void>;
+  refreshRoutes: (options?: { silent?: boolean }) => Promise<ActivityRoute[]>;
+  generateRoutes: (options?: GenerateRouteOptions) => Promise<void>;
   generating: boolean;
+  generatingCount: number;
   routePaths: Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
-  destinationCenter: { lat: number; lng: number } | null;
+  routeCenter: { lat: number; lng: number } | null;
+  regionRadiusKm: number;
 };
 
 const CyclingActivityContext = createContext<CyclingActivityContextValue | null>(
@@ -80,17 +58,26 @@ const CyclingActivityContext = createContext<CyclingActivityContextValue | null>
 function filterPlausibleRoutes(
   routes: ActivityRoute[],
   center: { lat: number; lng: number } | null | undefined,
+  maxRadiusKm: number,
 ): ActivityRoute[] {
   if (!center) return routes;
   return routes.filter((route) => {
     const path = parseRouteGeometry(route.geometry);
-    return isPlausibleStoredRoute(route.distance_m, path, center.lat, center.lng);
+    return isPlausibleStoredRoute(
+      route.distance_m,
+      path,
+      center.lat,
+      center.lng,
+      maxRadiusKm,
+    );
   });
 }
 
 export function CyclingActivityProvider({
   destinationId,
   destinationCenter,
+  regionCenter,
+  regionRadiusKm = DEFAULT_REGION_RADIUS_KM,
   defaultShowCyclOsm = false,
   planRouteIds: controlledPlanRouteIds,
   onTogglePlanRoute,
@@ -98,6 +85,8 @@ export function CyclingActivityProvider({
 }: {
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  regionCenter?: { lat: number; lng: number } | null;
+  regionRadiusKm?: number;
   defaultShowCyclOsm?: boolean;
   planRouteIds?: Set<string>;
   onTogglePlanRoute?: (route: ActivityRoute) => void;
@@ -113,18 +102,32 @@ export function CyclingActivityProvider({
   );
   const [showCyclOsm, setShowCyclOsm] = useState(defaultShowCyclOsm);
   const [generating, setGenerating] = useState(false);
+  const [generatingCount, setGeneratingCount] = useState(0);
   const seededDestinationRef = useRef<string | null>(null);
+  const scrapeStartedRef = useRef(false);
 
   const planRouteIds = controlledPlanRouteIds ?? internalPlanRouteIds;
 
-  const refreshRoutes = useCallback(async () => {
-    setLoading(true);
+  const routeCenter = useMemo(
+    () => regionCenter ?? destinationCenter ?? null,
+    [regionCenter, destinationCenter],
+  );
+
+  const refreshRoutes = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     setError(null);
     try {
       const params = buildRoutesQueryParams(
         destinationId,
         filters,
         ROUTES_FETCH_LIMIT,
+        routeCenter
+          ? {
+              lat: routeCenter.lat,
+              lng: routeCenter.lng,
+              radiusKm: regionRadiusKm,
+            }
+          : undefined,
       );
       const res = await fetch(`/api/activities/cycling/routes?${params}`);
       if (!res.ok) {
@@ -140,7 +143,8 @@ export function CyclingActivityProvider({
       const data = (await res.json()) as { routes: ActivityRoute[] };
       const nextRoutes = filterPlausibleRoutes(
         data.routes ?? [],
-        destinationCenter,
+        routeCenter,
+        regionRadiusKm,
       );
       setRoutes(nextRoutes);
       return nextRoutes;
@@ -154,29 +158,47 @@ export function CyclingActivityProvider({
       setRoutes([]);
       return [];
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
-  }, [destinationId, destinationCenter, filters]);
+  }, [destinationId, filters, routeCenter, regionRadiusKm]);
 
-  const generateRoute = useCallback(
+  const runOsmScrapeInBackground = useCallback(() => {
+    if (scrapeStartedRef.current || !routeCenter) return;
+    scrapeStartedRef.current = true;
+    void fetch("/api/activities/cycling/scrape-osm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinationId,
+        centerLat: routeCenter.lat,
+        centerLng: routeCenter.lng,
+        radiusKm: regionRadiusKm,
+      }),
+    })
+      .then(() => refreshRoutes({ silent: true }))
+      .catch(() => null);
+  }, [destinationId, refreshRoutes, routeCenter, regionRadiusKm]);
+
+  const generateRoutes = useCallback(
     async (options?: GenerateRouteOptions) => {
-      if (!destinationCenter) {
-        setError("Brak współrzędnych destynacji — nie można wygenerować trasy.");
+      if (!routeCenter) {
+        setError("Brak współrzędnych rejonu — nie można wygenerować tras.");
         return;
       }
+      const count = options?.count ?? BATCH_ROUTE_COUNT;
       setGenerating(true);
+      setGeneratingCount(count);
       setError(null);
       try {
-        const res = await fetch("/api/activities/cycling/generate", {
+        const res = await fetch("/api/activities/cycling/generate-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             destinationId,
-            startLat: destinationCenter.lat,
-            startLng: destinationCenter.lng,
-            targetDistanceKm: options?.targetDistanceKm ?? 45,
-            activityType: options?.activityType ?? "cycling_road",
-            loop: true,
+            centerLat: routeCenter.lat,
+            centerLng: routeCenter.lng,
+            count,
+            maxRadiusKm: regionRadiusKm,
           }),
         });
         if (!res.ok) {
@@ -184,65 +206,46 @@ export function CyclingActivityProvider({
           throw new Error(
             typeof body.error === "string"
               ? body.error
-              : "Generowanie trasy nie powiodło się",
+              : "Generowanie tras nie powiodło się",
           );
         }
-        await refreshRoutes();
+        await refreshRoutes({ silent: true });
+        runOsmScrapeInBackground();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Błąd generowania trasy");
+        setError(e instanceof Error ? e.message : "Błąd generowania tras");
       } finally {
         setGenerating(false);
+        setGeneratingCount(0);
       }
     },
-    [destinationCenter, destinationId, refreshRoutes],
+    [
+      destinationId,
+      refreshRoutes,
+      regionRadiusKm,
+      routeCenter,
+      runOsmScrapeInBackground,
+    ],
   );
 
   const ensureInitialRoutes = useCallback(async () => {
     if (seededDestinationRef.current === destinationId) return;
-    if (!destinationCenter) return;
+    if (!routeCenter) return;
 
     seededDestinationRef.current = destinationId;
-    setGenerating(true);
-    setError(null);
 
-    try {
-      await fetch("/api/activities/cycling/scrape-osm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ destinationId }),
-      }).catch(() => null);
+    const current = await refreshRoutes();
+    runOsmScrapeInBackground();
 
-      let current = await refreshRoutes();
+    if (current.length >= MIN_INITIAL_ROUTES) return;
 
-      const presets = INITIAL_ROUTE_PRESETS.slice(
-        0,
-        Math.max(0, MIN_INITIAL_ROUTES - current.length),
-      );
-
-      for (const preset of presets) {
-        if (current.length >= MIN_INITIAL_ROUTES) break;
-        const res = await fetch("/api/activities/cycling/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            destinationId,
-            startLat: destinationCenter.lat,
-            startLng: destinationCenter.lng,
-            targetDistanceKm: preset.targetDistanceKm,
-            activityType: preset.activityType,
-            loop: true,
-          }),
-        });
-        if (res.ok) {
-          current = await refreshRoutes();
-        }
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Błąd generowania tras");
-    } finally {
-      setGenerating(false);
-    }
-  }, [destinationCenter, destinationId, refreshRoutes]);
+    await generateRoutes({ count: BATCH_ROUTE_COUNT });
+  }, [
+    destinationId,
+    generateRoutes,
+    refreshRoutes,
+    routeCenter,
+    runOsmScrapeInBackground,
+  ]);
 
   const togglePlanRoute = useCallback(
     (route: ActivityRoute) => {
@@ -271,6 +274,7 @@ export function CyclingActivityProvider({
 
   useEffect(() => {
     seededDestinationRef.current = null;
+    scrapeStartedRef.current = false;
     let cancelled = false;
     void (async () => {
       await refreshRoutes();
@@ -279,9 +283,8 @@ export function CyclingActivityProvider({
     return () => {
       cancelled = true;
     };
-    // Seed once per destination; filter changes refresh via CyclingFilters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destinationId]);
+  }, [destinationId, routeCenter?.lat, routeCenter?.lng, regionRadiusKm]);
 
   const value = useMemo(
     () => ({
@@ -298,15 +301,15 @@ export function CyclingActivityProvider({
       showCyclOsm,
       setShowCyclOsm,
       refreshRoutes,
-      generateRoute,
-      ensureInitialRoutes,
+      generateRoutes,
       generating,
+      generatingCount,
       routePaths,
-      destinationCenter: destinationCenter ?? null,
+      routeCenter,
+      regionRadiusKm,
     }),
     [
       destinationId,
-      destinationCenter,
       filters,
       routes,
       loading,
@@ -315,10 +318,12 @@ export function CyclingActivityProvider({
       planRouteIds,
       showCyclOsm,
       refreshRoutes,
-      generateRoute,
-      ensureInitialRoutes,
+      generateRoutes,
       generating,
+      generatingCount,
       routePaths,
+      routeCenter,
+      regionRadiusKm,
       togglePlanRoute,
     ],
   );

@@ -27,6 +27,8 @@ interface GenerateInput {
   targetDistanceKm: number;
   activityType: ActivityType;
   loop: boolean;
+  /** Maks. odległość punktów trasy od startu (km) — domyślnie ~35 km. */
+  maxRadiusKm?: number;
 }
 
 type OrsErrorBody = {
@@ -163,6 +165,7 @@ async function requestRoute(
       coordinates: feature.geometry.coordinates,
       startLat: input.startLat,
       startLng: input.startLng,
+      maxRadiusKm: input.maxRadiusKm,
     })
   ) {
     throw new Error(

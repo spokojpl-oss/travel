@@ -21,6 +21,7 @@ export function ExplorationScopeStep({
   selectedScope,
   onSelectScope,
   onContinue,
+  isCycling = false,
 }: {
   destinationLabel: string;
   departureDate: string;
@@ -31,6 +32,7 @@ export function ExplorationScopeStep({
   selectedScope: ExplorationScope;
   onSelectScope: (scope: ExplorationScope) => void;
   onContinue: () => void;
+  isCycling?: boolean;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -45,6 +47,7 @@ export function ExplorationScopeStep({
         locale,
         destinationLat,
         destinationLon,
+        isCycling,
       }),
     [
       destinationLabel,
@@ -54,6 +57,7 @@ export function ExplorationScopeStep({
       locale,
       destinationLat,
       destinationLon,
+      isCycling,
     ],
   );
 

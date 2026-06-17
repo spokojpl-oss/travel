@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { isActivityCategory } from "@/lib/supabase/activity-routes";
+import { isActivityCategory, parseRouteStartPoint } from "@/lib/supabase/activity-routes";
+import { maxDistanceFromPointM } from "@/lib/activities/cycling/route-validation";
 
 const QuerySchema = z.object({
   destinationId: z.string().uuid(),
@@ -20,6 +21,9 @@ const QuerySchema = z.object({
   difficulty: z
     .array(z.enum(["easy", "moderate", "hard", "expert"]))
     .optional(),
+  nearLat: z.coerce.number().optional(),
+  nearLng: z.coerce.number().optional(),
+  nearRadiusKm: z.coerce.number().min(1).max(120).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
@@ -46,13 +50,18 @@ export async function GET(
   const q = parsed.data;
 
   const supabase = await createClient();
+  const fetchLimit =
+    q.nearLat != null && q.nearLng != null && q.nearRadiusKm != null
+      ? Math.min(50, q.limit * 3)
+      : q.limit;
+
   let query = supabase
     .from("activity_routes")
     .select("*")
     .eq("destination_id", q.destinationId)
     .eq("category", activity)
     .order("popularity_score", { ascending: false })
-    .limit(q.limit);
+    .limit(fetchLimit);
 
   if (q.activityType) query = query.eq("activity_type", q.activityType);
   if (q.minDistanceM != null) query = query.gte("distance_m", q.minDistanceM);
@@ -65,5 +74,25 @@ export async function GET(
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ routes: data ?? [] });
+  let routes = data ?? [];
+  if (
+    q.nearLat != null &&
+    q.nearLng != null &&
+    q.nearRadiusKm != null &&
+    routes.length > 0
+  ) {
+    const radiusM = q.nearRadiusKm * 1000;
+    routes = routes.filter((row) => {
+      const start = parseRouteStartPoint(row.start_point);
+      if (!start) return true;
+      const dist = maxDistanceFromPointM(
+        [[start.lng, start.lat]],
+        q.nearLat!,
+        q.nearLng!,
+      );
+      return dist <= radiusM;
+    });
+  }
+
+  return NextResponse.json({ routes: routes.slice(0, q.limit) });
 }

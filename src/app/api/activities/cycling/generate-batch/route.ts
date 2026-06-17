@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { scrapeOsmCyclingRoutesForDestination } from "@/lib/activities/cycling/scrape-osm-routes";
 import { createClient } from "@/lib/supabase/server";
+import {
+  BATCH_ROUTE_COUNT,
+  DEFAULT_REGION_RADIUS_KM,
+  generateCyclingRoutesBatch,
+} from "@/lib/activities/cycling/generate-batch";
 
 const bodySchema = z.object({
   destinationId: z.string().uuid(),
-  centerLat: z.number().optional(),
-  centerLng: z.number().optional(),
-  radiusKm: z.number().min(5).max(80).optional(),
+  centerLat: z.number(),
+  centerLng: z.number(),
+  count: z.number().int().min(1).max(15).default(BATCH_ROUTE_COUNT),
+  maxRadiusKm: z.number().min(5).max(80).default(DEFAULT_REGION_RADIUS_KM),
 });
 
 export const maxDuration = 120;
@@ -37,22 +42,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await scrapeOsmCyclingRoutesForDestination(
-      parsed.data.destinationId,
-      parsed.data.centerLat != null &&
-        parsed.data.centerLng != null &&
-        parsed.data.radiusKm != null
-        ? {
-            centerLat: parsed.data.centerLat,
-            centerLon: parsed.data.centerLng,
-            radiusKm: parsed.data.radiusKm,
-          }
-        : undefined,
-    );
+    const result = await generateCyclingRoutesBatch(parsed.data);
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "OSM scrape failed" },
+      { error: e instanceof Error ? e.message : "Batch generation failed" },
       { status: 500 },
     );
   }

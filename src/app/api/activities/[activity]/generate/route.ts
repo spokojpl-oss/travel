@@ -17,6 +17,7 @@ const Body = z.object({
     "cycling_ebike",
   ]),
   loop: z.boolean().default(true),
+  maxRadiusKm: z.number().min(5).max(80).optional(),
 });
 
 export async function POST(
@@ -37,7 +38,10 @@ export async function POST(
   }
 
   try {
-    const route = await generateCyclingRoute(parsed.data);
+    const route = await generateCyclingRoute({
+      ...parsed.data,
+      maxRadiusKm: parsed.data.maxRadiusKm,
+    });
 
     const startPointWkt = pointWkt(route.snappedLng, route.snappedLat);
     const geometryWkt = lineStringWkt(route.geometryGeoJson.coordinates);

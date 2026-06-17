@@ -24,9 +24,11 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     showCyclOsm,
     setShowCyclOsm,
     refreshRoutes,
-    generateRoute,
+    generateRoutes,
     generating,
-    destinationCenter,
+    generatingCount,
+    routeCenter,
+    regionRadiusKm,
     routePaths,
   } = useCyclingActivity();
 
@@ -48,8 +50,8 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         if (cancelled || !mapContainerRef.current) return;
 
         const map = new maps.Map(mapContainerRef.current, {
-          center: destinationCenter ?? { lat: 39.6, lng: 2.9 },
-          zoom: 10,
+          center: routeCenter ?? { lat: 39.6, lng: 2.9 },
+          zoom: 11,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
@@ -67,7 +69,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     return () => {
       cancelled = true;
     };
-  }, [locale, destinationId, destinationCenter]);
+  }, [locale, destinationId, routeCenter]);
 
   useEffect(() => {
     if (!mapInstance || routePaths.length === 0) return;
@@ -99,9 +101,11 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
               size="sm"
               variant="primary"
               disabled={generating}
-              onClick={() => void generateRoute()}
+              onClick={() => void generateRoutes()}
             >
-              {generating ? "Generuję…" : "Wygeneruj trasę"}
+              {generating
+                ? `Generuję ${generatingCount} tras…`
+                : "Wygeneruj 10 tras"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => void refreshRoutes()}>
               Odśwież
@@ -130,11 +134,21 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         <div className="shrink-0 border-b border-border-default px-3 py-2.5">
           <h3 className="font-display text-sm font-bold text-text-primary">
             Trasy ({routes.length})
+            {regionRadiusKm > 0 && (
+              <span className="ml-1.5 text-xs font-normal text-text-secondary">
+                · rejon ±{regionRadiusKm} km
+              </span>
+            )}
           </h3>
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-1.5 overflow-y-auto p-2 sm:grid-cols-2">
           {(loading || generating) && routes.length === 0 && (
             <SkeletonList count={4} />
+          )}
+          {generating && routes.length > 0 && (
+            <p className="col-span-full px-1 text-xs text-text-secondary">
+              Generuję {generatingCount} tras w rejonie…
+            </p>
           )}
           {error && <p className="px-1 text-sm text-danger">{error}</p>}
           {!loading && !generating && !error && routes.length === 0 && (

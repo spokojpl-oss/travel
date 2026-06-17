@@ -14,11 +14,13 @@ import {
 import { TripRhythmStep } from "@/components/features/TripRhythmStep";
 import { TouristRegionCards } from "@/components/features/TouristRegionCards";
 import { ExplorationScopeStep } from "@/components/features/ExplorationScopeStep";
-import { SearchScopeParamsPanel } from "@/components/features/SearchScopeParamsPanel";
 import { IslandOverviewSection } from "@/components/features/IslandOverviewSection";
 import { CyclingSearchPanel } from "@/components/features/CyclingSearchPanel";
+import { DestinationPlanWizard } from "@/components/features/DestinationPlanWizard";
 import { buildAttractionOverviewFromClusters } from "@/lib/maps/build-attraction-overview";
+import { getTouristRegionById } from "@/lib/destinations/tourist-regions";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
+import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import {
   defaultRhythmForTrip,
   hasChildrenInPassengers,
@@ -30,8 +32,13 @@ import { adviseExplorationScope } from "@/lib/search/scope-advisor";
 import { assessIslandFeasibility } from "@/lib/search/island-feasibility";
 import {
   storeDestinationBuildPayload,
+  type DestinationBuildPayload,
   type PlanRegionContext,
 } from "@/lib/search/destination-build-payload";
+import {
+  formatAirportTravelHint,
+  formatOriginToDestinationHint,
+} from "@/lib/search/airport-travel-hint";
 import {
   buildClusterFromAttractions,
   sanitizeClusterForDestination,
@@ -216,6 +223,10 @@ function SearchPageContent() {
   const [cyclingPlanRoutes, setCyclingPlanRoutes] = useState<
     Map<string, ActivityRoute>
   >(new Map());
+  const [planPayload, setPlanPayload] = useState<DestinationBuildPayload | null>(
+    null,
+  );
+  const [planEnriching, setPlanEnriching] = useState(false);
   const interestsMatchedRef = useRef(false);
 
   const cyclingPlanRouteIds = useMemo(
@@ -313,6 +324,7 @@ function SearchPageContent() {
             locale,
             destinationLat: merged.destination_lat,
             destinationLon: merged.destination_lon,
+            isCycling: isCyclingTrip(merged),
           });
           merged = mergeTripContext(merged, {
             exploration_scope: advice.recommended,
@@ -330,7 +342,7 @@ function SearchPageContent() {
       const parsedStep = stepParam ? Number(stepParam) : 2;
       resolvedStep =
         merged.mode === "destination"
-          ? parsedStep >= 2 && parsedStep <= 7
+          ? parsedStep >= 2 && parsedStep <= 8
             ? (parsedStep as SearchStep)
             : 2
           : parsedStep >= 3
@@ -430,6 +442,7 @@ function SearchPageContent() {
             locale,
             destinationLat: coords.lat,
             destinationLon: coords.lon,
+            isCycling: isCyclingTrip(t),
           });
           exploration_scope = advice.recommended;
         }
@@ -614,10 +627,6 @@ function SearchPageContent() {
     });
   }
 
-  function handleMaxRadiusChange(km: number) {
-    setMaxRadius(Math.min(80, Math.max(3, km)));
-  }
-
   const isDestinationFlow = trip.mode === "destination";
   const skipRegionsStep = trip.exploration_scope === "island";
   const showScopeStep = isDestinationFlow && step === 2;
@@ -625,7 +634,8 @@ function SearchPageContent() {
   const showRhythmStep = isDestinationFlow && step === 4;
   const showRegionsStep = isDestinationFlow && step === 5 && !skipRegionsStep;
   const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
-  const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
+  const showPlanStep = isDestinationFlow && step === 7;
+  const showResultsStep = isDestinationFlow ? step === 8 : step === 3;
 
   const tripDays = useMemo(
     () =>
@@ -1040,7 +1050,7 @@ function SearchPageContent() {
   }, [initialized]);
 
   useEffect(() => {
-    if (!pendingResultsRerun || step !== 7) return;
+    if (!pendingResultsRerun || step !== 8) return;
     if (selectedActivities.size === 0 || !dataStatus?.search_ready || isSearching) return;
     setPendingResultsRerun(false);
     void handleSearch();
@@ -1094,6 +1104,27 @@ function SearchPageContent() {
       .filter((r): r is ScoredTouristRegion => r != null);
   }
 
+  const cyclingRegionCenter = useMemo(() => {
+    const ids =
+      trip.tourist_region_ids.length > 0
+        ? trip.tourist_region_ids
+        : trip.tourist_region_id
+          ? [trip.tourist_region_id]
+          : [];
+    if (ids.length === 0) return null;
+
+    const regions = ids
+      .map(
+        (id) =>
+          scoredRegions.find((r) => r.id === id) ?? getTouristRegionById(id),
+      )
+      .filter((r): r is ScoredTouristRegion | NonNullable<ReturnType<typeof getTouristRegionById>> => r != null);
+
+    const centroid = centroidOfTouristRegions(regions);
+    if (!centroid) return null;
+    return { lat: centroid.lat, lng: centroid.lon };
+  }, [trip.tourist_region_id, trip.tourist_region_ids, scoredRegions]);
+
   function resolveClusterForSelectedRegions(
     clusters: GeoCluster[],
     destinationLabel: string,
@@ -1145,6 +1176,85 @@ function SearchPageContent() {
       score: 1,
       activity_counts: {},
     };
+  }
+
+  function resolvePlanClusterAndPool(): {
+    cluster: GeoCluster;
+    pool: AttractionWithActivities[];
+  } | null {
+    if (!results) return null;
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const pool =
+      results.island_overview?.attractions ??
+      resultClusters.flatMap((c) => c.attractions);
+    if (pool.length === 0 && resultClusters.length === 0) return null;
+
+    let cluster: GeoCluster | null =
+      resultClusters[0] ??
+      buildClusterFromAttractions({
+        attractions: pool,
+        destinationLabel: label,
+        id: `plan-${Date.now()}`,
+      });
+    if (!cluster) return null;
+
+    const regions = selectedTouristRegions();
+    if (regions.length > 0) {
+      cluster = reanchorClusterToTouristRegions(cluster, regions);
+    }
+    const fullPool = filterAttractionsToDestinationIsland(
+      pool,
+      label,
+      cluster.center,
+    );
+    return { cluster, pool: fullPool };
+  }
+
+  function buildPlanPayloadFromResults(
+    searchResult: ActivitySearchResult,
+    pool: AttractionWithActivities[],
+    cluster: GeoCluster,
+  ): DestinationBuildPayload {
+    const searchRadii = getSearchParams();
+    const airports =
+      searchResult.airports ??
+      searchResult.island_overview?.airports ??
+      [];
+    return {
+      cluster,
+      activities: Array.from(selectedActivities),
+      destinationLabel: trip.destination_label ?? trip.destination ?? undefined,
+      region: regionContextFromTrip(),
+      attractionPool: pool,
+      selectedCyclingRoutes:
+        plannedCyclingRoutes.length > 0 ? plannedCyclingRoutes : undefined,
+      planComplete: false,
+      poolEnriched: false,
+      touristRegionId: trip.tourist_region_id,
+      touristRegionIds: trip.tourist_region_ids,
+      explorationScope: trip.exploration_scope,
+      stayRadiusKm: searchRadii.stay_radius_km ?? searchRadii.max_radius_km,
+      exploreRadiusKm: searchRadii.explore_radius_km,
+      tripDays: daysBetweenIso(
+        trip.departure_date,
+        trip.return_date ?? trip.departure_date,
+      ),
+      airports,
+    };
+  }
+
+  function handlePlanComplete(updated: DestinationBuildPayload) {
+    storeDestinationBuildPayload(updated.cluster.id, updated);
+    setPlanPayload(updated);
+    setStep(8);
+    syncUrl(trip, 8);
+  }
+
+  function openFinalOffer() {
+    if (!planPayload?.planComplete) return;
+    const tripParams = tripContextToParams(trip);
+    tripParams.set("build_id", planPayload.cluster.id);
+    router.push(`/app/destination?${tripParams.toString()}`);
   }
 
   function storeAndGoToPlan(
@@ -1304,6 +1414,113 @@ function SearchPageContent() {
     selectedActivities,
   ]);
 
+  }, [
+    trip.tourist_region_id,
+    trip.tourist_region_ids,
+    scoredRegions,
+  ]);
+
+  useEffect(() => {
+    if (!showPlanStep || !results) return;
+    const resolved = resolvePlanClusterAndPool();
+    if (!resolved) return;
+    setPlanPayload((prev) => {
+      if (prev?.planComplete) return prev;
+      return buildPlanPayloadFromResults(
+        results,
+        resolved.pool,
+        resolved.cluster,
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuild when search results change
+  }, [showPlanStep, results, resultClusters, plannedCyclingRoutes]);
+
+  useEffect(() => {
+    if (!planPayload || planPayload.planComplete || planPayload.poolEnriched) {
+      return;
+    }
+    if (!showPlanStep) return;
+
+    let cancelled = false;
+    setPlanEnriching(true);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/search/plan-pool", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cluster: planPayload.cluster,
+            activities: planPayload.activities,
+            destination_label: planPayload.destinationLabel,
+            tourist_region_id: planPayload.touristRegionId ?? trip.tourist_region_id,
+            tourist_region_ids:
+              planPayload.touristRegionIds ?? trip.tourist_region_ids,
+            exploration_scope: planPayload.explorationScope ?? trip.exploration_scope,
+            stay_radius_km: planPayload.stayRadiusKm,
+            explore_radius_km: planPayload.exploreRadiusKm,
+            trip_days: planPayload.tripDays,
+            with_kids: hasChildrenInPassengers(trip.passengers),
+          }),
+        });
+        if (!response.ok || cancelled) return;
+        const data = (await response.json()) as {
+          pool?: AttractionWithActivities[];
+          discover?: DestinationBuildPayload["discover"];
+        };
+        if (cancelled) return;
+        setPlanPayload((prev) =>
+          prev
+            ? {
+                ...prev,
+                attractionPool: data.pool ?? prev.attractionPool,
+                discover: data.discover,
+                poolEnriched: true,
+              }
+            : prev,
+        );
+      } finally {
+        if (!cancelled) setPlanEnriching(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planPayload, showPlanStep, trip]);
+
+  const travelContextHints = useMemo(() => {
+    const pl = locale !== "en";
+    const airports =
+      results?.airports ??
+      results?.island_overview?.airports ??
+      planPayload?.airports ??
+      [];
+    const center =
+      cyclingRegionCenter ??
+      (trip.destination_lat != null &&
+      trip.destination_lon != null &&
+      Number.isFinite(trip.destination_lat) &&
+      Number.isFinite(trip.destination_lon)
+        ? { lat: trip.destination_lat, lng: trip.destination_lon }
+        : null);
+    const origin = trip.origin_label ?? trip.origin_iata ?? "";
+    return {
+      travelHint: formatOriginToDestinationHint(origin, trip.travel_mode, pl),
+      airportHint: formatAirportTravelHint(airports, center, pl),
+    };
+  }, [
+    results,
+    planPayload?.airports,
+    cyclingRegionCenter,
+    trip.destination_lat,
+    trip.destination_lon,
+    trip.origin_label,
+    trip.origin_iata,
+    trip.travel_mode,
+    locale,
+  ]);
+
   const showDataInfo =
     dataStatus &&
     !dataStatus.search_ready &&
@@ -1378,18 +1595,13 @@ function SearchPageContent() {
         }}
       />
 
-      <TripContextBar trip={trip} onEdit={editTripOnHome} searchStep={step} />
-
-      {showActivitiesStep && trip.exploration_scope !== "island" && (
-        <SearchScopeParamsPanel
-          matchMode={matchMode}
-          onMatchModeChange={setMatchMode}
-          maxRadius={maxRadius}
-          onMaxRadiusChange={handleMaxRadiusChange}
-          minPerActivity={minPerActivity}
-          onMinPerActivityChange={setMinPerActivity}
-        />
-      )}
+      <TripContextBar
+        trip={trip}
+        onEdit={editTripOnHome}
+        searchStep={step}
+        travelHint={step >= 6 ? travelContextHints.travelHint : null}
+        airportHint={step >= 6 ? travelContextHints.airportHint : null}
+      />
 
       {missingDestinationCoords && (
         <Card className="mb-6 border-warning/40 bg-orange-50/60">
@@ -1423,6 +1635,7 @@ function SearchPageContent() {
           destinationLon={trip.destination_lon}
           selectedScope={trip.exploration_scope ?? "region"}
           onSelectScope={setExplorationScope}
+          isCycling={isCyclingTrip(trip)}
           onContinue={() => {
             if (missingDestinationCoords) return;
             setStep(3);
@@ -1715,10 +1928,10 @@ function SearchPageContent() {
       )}
 
       {error && <p className="mb-4 text-danger">Błąd: {error}</p>}
-      {isSearching && <SkeletonList count={5} />}
+      {(isSearching || planEnriching) && showPlanStep && <SkeletonList count={5} />}
 
-      {showResultsStep && results && !isSearching && (
-        <section className="mt-8">
+      {showPlanStep && results && !isSearching && (
+        <section className="mt-8 space-y-8">
           {isCyclingTrip(trip) && (
             <CyclingSearchPanel
               destinationLabel={
@@ -1726,10 +1939,82 @@ function SearchPageContent() {
               }
               destinationLat={trip.destination_lat}
               destinationLon={trip.destination_lon}
+              regionCenter={cyclingRegionCenter}
+              regionRadiusKm={DEFAULT_REGION_RADIUS_KM}
               planRouteIds={cyclingPlanRouteIds}
               onTogglePlanRoute={toggleCyclingPlanRoute}
             />
           )}
+
+          {planPayload && !planEnriching && (
+            <DestinationPlanWizard
+              payload={{
+                ...planPayload,
+                selectedCyclingRoutes:
+                  plannedCyclingRoutes.length > 0
+                    ? plannedCyclingRoutes
+                    : planPayload.selectedCyclingRoutes,
+              }}
+              withKids={hasChildrenInPassengers(trip.passengers)}
+              onComplete={handlePlanComplete}
+              onCancel={() => {
+                setStep(6);
+                syncUrl(trip, 6);
+              }}
+              onBackToActivities={() => {
+                setStep(6);
+                syncUrl(trip, 6);
+              }}
+              onBackToRegions={
+                skipRegionsStep
+                  ? undefined
+                  : () => {
+                      setStep(5);
+                      syncUrl(trip, 5);
+                    }
+              }
+            />
+          )}
+        </section>
+      )}
+
+      {showResultsStep && results && !isSearching && (
+        <section className="mt-8">
+          {planPayload?.planComplete && planPayload.lodgingBase && (
+            <Card className="mb-8 border-brand-200 bg-brand-50/30">
+              <CardBody className="space-y-3">
+                <p className="font-display text-lg font-bold text-text-primary">
+                  {locale !== "en" ? "Twój plan jest gotowy" : "Your plan is ready"}
+                </p>
+                <p className="text-sm text-text-secondary">
+                  {locale !== "en"
+                    ? `Baza: ${planPayload.lodgingBase.name} · ${planPayload.selectedAttractionIds?.length ?? 0} miejsc · ${planPayload.selectedCyclingRoutes?.length ?? 0} tras rowerowych`
+                    : `Base: ${planPayload.lodgingBase.name} · ${planPayload.selectedAttractionIds?.length ?? 0} places · ${planPayload.selectedCyclingRoutes?.length ?? 0} cycling routes`}
+                </p>
+                {travelContextHints.airportHint && (
+                  <p className="text-sm text-brand-800">{travelContextHints.airportHint}</p>
+                )}
+                <Button size="lg" onClick={openFinalOffer}>
+                  {locale !== "en"
+                    ? "Loty, hotele i transport →"
+                    : "Flights, hotels & transport →"}
+                </Button>
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setStep(7);
+                      syncUrl(trip, 7);
+                    }}
+                  >
+                    {locale !== "en" ? "← Zmień plan" : "← Edit plan"}
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
           {attractionMapOverview ? (
             <IslandOverviewSection
               results={{ ...results, island_overview: attractionMapOverview }}
@@ -1741,7 +2026,9 @@ function SearchPageContent() {
               variant={results.view_mode === "island" ? "island" : "region"}
               onNarrowScope={narrowScopeToRegion}
               onExtendTrip={extendTripOnHome}
-              onPlanTrip={openIslandPlan}
+              onPlanTrip={
+                planPayload?.planComplete ? undefined : openIslandPlan
+              }
               plannedCyclingRoutes={plannedCyclingRoutes}
               onRemoveCyclingRoute={removeCyclingPlanRoute}
             />

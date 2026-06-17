@@ -8,6 +8,8 @@ interface Props {
   activity?: string;
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  regionCenter?: { lat: number; lng: number } | null;
+  regionRadiusKm?: number;
   defaultShowCyclOsm?: boolean;
   planRouteIds?: Set<string>;
   onTogglePlanRoute?: (route: ActivityRoute) => void;
@@ -17,6 +19,8 @@ export function ActivityPanel({
   activity,
   destinationId,
   destinationCenter,
+  regionCenter,
+  regionRadiusKm,
   defaultShowCyclOsm = false,
   planRouteIds,
   onTogglePlanRoute,
@@ -38,6 +42,8 @@ export function ActivityPanel({
       <CyclingActivityProvider
         destinationId={destinationId}
         destinationCenter={destinationCenter}
+        regionCenter={regionCenter}
+        regionRadiusKm={regionRadiusKm}
         defaultShowCyclOsm={defaultShowCyclOsm}
         planRouteIds={planRouteIds}
         onTogglePlanRoute={onTogglePlanRoute}

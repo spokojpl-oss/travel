@@ -5,17 +5,22 @@ import { ActivityPanel } from "@/components/activities/ActivityPanel";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { useT } from "@/i18n/locale-provider";
 import type { ActivityRoute } from "@/types/activities";
+import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 
 export function CyclingSearchPanel({
   destinationLabel,
   destinationLat,
   destinationLon,
+  regionCenter,
+  regionRadiusKm = DEFAULT_REGION_RADIUS_KM,
   planRouteIds,
   onTogglePlanRoute,
 }: {
   destinationLabel: string;
   destinationLat?: number | null;
   destinationLon?: number | null;
+  regionCenter?: { lat: number; lng: number } | null;
+  regionRadiusKm?: number;
   planRouteIds?: Set<string>;
   onTogglePlanRoute?: (route: ActivityRoute) => void;
 }) {
@@ -72,7 +77,7 @@ export function CyclingSearchPanel({
     };
   }, [destinationLabel, destinationLat, destinationLon, t]);
 
-  const routeCenter =
+  const destinationCenter =
     destinationLat != null &&
     destinationLon != null &&
     Number.isFinite(destinationLat) &&
@@ -80,11 +85,18 @@ export function CyclingSearchPanel({
       ? { lat: destinationLat, lng: destinationLon }
       : center;
 
+  const effectiveRegionCenter = regionCenter ?? destinationCenter;
+
   return (
     <section className="mb-10">
-      <h2 className="font-display mb-6 text-xl font-bold text-text-primary">
+      <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
         {t("search.cyclingRoutesTitle")}
       </h2>
+      {regionCenter && (
+        <p className="mb-4 text-sm text-text-secondary">
+          Trasy w promieniu ±{regionRadiusKm} km od wybranego rejonu.
+        </p>
+      )}
 
       {loading && <SkeletonList count={4} />}
       {error && !loading && (
@@ -92,11 +104,13 @@ export function CyclingSearchPanel({
           {error}
         </p>
       )}
-      {!loading && destinationId && routeCenter && (
+      {!loading && destinationId && effectiveRegionCenter && destinationCenter && (
         <ActivityPanel
           activity="cycling"
           destinationId={destinationId}
-          destinationCenter={routeCenter}
+          destinationCenter={destinationCenter}
+          regionCenter={effectiveRegionCenter}
+          regionRadiusKm={regionRadiusKm}
           defaultShowCyclOsm
           planRouteIds={planRouteIds}
           onTogglePlanRoute={onTogglePlanRoute}
