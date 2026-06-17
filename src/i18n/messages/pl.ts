@@ -13,7 +13,9 @@ export const pl = {
   },
   hero: {
     title1: "Zaplanuj wakacje",
-    titleCycling: "Zaplanuj wyjazd rowerowy",
+    title2: "dopasowane do rodziny",
+    titleCycling1: "Zaplanuj wyjazd rowerowy",
+    titleCycling2: "z trasami i profilem wysokości",
     subtitle:
       "Skąd jedziecie, jak i kiedy — znajdziemy regiony, noclegi i transport dopasowany do Waszego sposobu podróżowania.",
     tabDestination: "Destynacja",

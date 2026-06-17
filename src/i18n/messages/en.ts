@@ -15,7 +15,9 @@ export const en: Messages = {
   },
   hero: {
     title1: "Plan your holiday",
-    titleCycling: "Plan your cycling trip",
+    title2: "tailored to your family",
+    titleCycling1: "Plan your cycling trip",
+    titleCycling2: "with routes & elevation profiles",
     subtitle:
       "Where you're leaving from, how you travel, and when — we'll find regions, stays, and transport that fit your trip.",
     tabDestination: "Destination",

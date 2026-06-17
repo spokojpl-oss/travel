@@ -189,7 +189,11 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
                 : "text-4xl md:text-5xl lg:text-6xl xl:text-7xl",
             )}
           >
-            {isCyclingTab ? t("hero.titleCycling") : t("hero.title1")}
+            {isCyclingTab ? t("hero.titleCycling1") : t("hero.title1")}
+            <br />
+            <span className="text-accent-500">
+              {isCyclingTab ? t("hero.titleCycling2") : t("hero.title2")}
+            </span>
           </h1>
           {!compact && (
             <p className="mx-auto mt-4 max-w-2xl text-base text-white/70">
