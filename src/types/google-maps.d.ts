@@ -20,6 +20,8 @@ declare namespace google.maps {
   interface Map {
     fitBounds(bounds: LatLngBounds, padding?: number | Padding): void;
     setCenter(latlng: LatLngLiteral): void;
+    setZoom(zoom: number): void;
+    getZoom(): number | undefined;
     overlayMapTypes: OverlayMapTypes;
   }
 
@@ -136,6 +138,14 @@ declare namespace google.maps {
 
   interface MapsEventListener {
     remove(): void;
+  }
+
+  namespace event {
+    function addListenerOnce(
+      instance: Map,
+      eventName: string,
+      handler: () => void,
+    ): MapsEventListener;
   }
 
   class Map {

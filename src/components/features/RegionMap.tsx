@@ -10,6 +10,7 @@ import {
   googleMapsDirectionsUrl,
   googleMapsPlaceUrl,
 } from "@/lib/maps/google-maps-config";
+import { applyNeutralMapViewport } from "@/lib/maps/map-viewport";
 import type { MapPoint, MapPointType, MapRouteSegment, ResolvedMapRoute } from "@/lib/maps/types";
 import type { MapCyclingRouteOverlay } from "@/lib/maps/cycling-route-overlays";
 
@@ -129,17 +130,14 @@ export function RegionMap({
         const center = points[0];
         const map = new maps.Map(containerRef.current, {
           center: { lat: center.lat, lng: center.lon },
-          zoom: 10,
+          zoom: 9,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
         });
 
-        const bounds = new maps.LatLngBounds();
-
         for (const point of points) {
           const position = { lat: point.lat, lng: point.lon };
-          bounds.extend(position);
 
           const marker = new maps.Marker({
             position,
@@ -179,7 +177,11 @@ export function RegionMap({
           overlaysRef.current.push(marker);
         }
 
-        map.fitBounds(bounds, 48);
+        applyNeutralMapViewport(
+          map,
+          maps,
+          points.map((point) => ({ lat: point.lat, lng: point.lon })),
+        );
         mapRef.current = map;
         setMapReady(true);
         setMapError(null);
@@ -287,14 +289,8 @@ export function RegionMap({
     if (!maps) return;
 
     const polylines: google.maps.Polyline[] = [];
-    const bounds = new maps.LatLngBounds();
-
-    for (const point of points) {
-      bounds.extend({ lat: point.lat, lng: point.lon });
-    }
 
     for (const route of cyclingRoutes) {
-      for (const p of route.path) bounds.extend(p);
       const polyline = new maps.Polyline({
         path: route.path,
         map,
@@ -305,10 +301,6 @@ export function RegionMap({
       });
       polylines.push(polyline);
       overlaysRef.current.push(polyline);
-    }
-
-    if (points.length > 0 || cyclingRoutes.some((r) => r.path.length > 0)) {
-      map.fitBounds(bounds, 52);
     }
 
     return () => {

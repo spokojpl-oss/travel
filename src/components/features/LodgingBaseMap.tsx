@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import { getGoogleMapsApiKey } from "@/lib/maps/google-maps-config";
+import { applyNeutralMapViewport } from "@/lib/maps/map-viewport";
 import type { LodgingAreaOption } from "@/lib/plan/lodging-sub-areas";
 import type { IslandMapAirport } from "@/lib/maps/build-island-map";
 import type { MapCyclingRouteOverlay } from "@/lib/maps/cycling-route-overlays";
@@ -47,6 +48,7 @@ export function LodgingBaseMap({
   const overlaysRef = useRef<Array<google.maps.Marker | google.maps.Polyline>>([]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const viewportKeyRef = useRef<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export function LodgingBaseMap({
 
         const map = new maps.Map(containerRef.current, {
           center: { lat: options[0]!.lat, lng: options[0]!.lon },
-          zoom: 11,
+          zoom: 9,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
@@ -86,6 +88,13 @@ export function LodgingBaseMap({
         mapRef.current = map;
         setMapReady(true);
         setMapError(null);
+
+        const viewportPoints = options.map((option) => ({
+          lat: option.lat,
+          lng: option.lon,
+        }));
+        applyNeutralMapViewport(map, maps, viewportPoints);
+        viewportKeyRef.current = optionsKey;
       })
       .catch((error) => {
         setMapError(
@@ -104,17 +113,28 @@ export function LodgingBaseMap({
     const map = mapRef.current;
     const maps = mapsApiRef.current;
     if (!map || !maps || !mapReady || options.length === 0) return;
+    if (viewportKeyRef.current !== optionsKey) {
+      const viewportPoints = options.map((option) => ({
+        lat: option.lat,
+        lng: option.lon,
+      }));
+      applyNeutralMapViewport(map, maps, viewportPoints);
+      viewportKeyRef.current = optionsKey;
+    }
+  }, [mapReady, options, optionsKey]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = mapsApiRef.current;
+    if (!map || !maps || !mapReady || options.length === 0) return;
 
     for (const overlay of overlaysRef.current) {
       overlay.setMap(null);
     }
     overlaysRef.current = [];
 
-    const bounds = new maps.LatLngBounds();
-
     for (const airport of airports) {
       const pos = { lat: airport.lat, lng: airport.lon };
-      bounds.extend(pos);
       const marker = new maps.Marker({
         map,
         position: pos,
@@ -132,7 +152,6 @@ export function LodgingBaseMap({
     }
 
     for (const route of cyclingRoutes) {
-      for (const p of route.path) bounds.extend(p);
       const polyline = new maps.Polyline({
         path: route.path,
         map,
@@ -146,7 +165,6 @@ export function LodgingBaseMap({
 
     for (const attraction of attractions) {
       const pos = { lat: attraction.lat, lng: attraction.lon };
-      bounds.extend(pos);
       const marker = new maps.Marker({
         map,
         position: pos,
@@ -167,8 +185,6 @@ export function LodgingBaseMap({
       const center = { lat: option.lat, lng: option.lon };
       const isSelected = selectedId === option.id;
       const color = AREA_COLORS[index % AREA_COLORS.length]!;
-
-      bounds.extend(center);
 
       const marker = new maps.Marker({
         map,
@@ -196,8 +212,6 @@ export function LodgingBaseMap({
 
       overlaysRef.current.push(marker);
     });
-
-    map.fitBounds(bounds, 64);
   }, [mapReady, options, optionsKey, selectedId, attractions, airports, cyclingRoutes]);
 
   if (options.length === 0) return null;

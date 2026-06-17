@@ -9,6 +9,7 @@ import { useCyclingActivity } from "./CyclingActivityContext";
 import type { ActivityComponentProps } from "@/lib/activities/registry";
 import { getGoogleMapsApiKey } from "@/lib/maps/google-maps-config";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
+import { applyNeutralMapViewport } from "@/lib/maps/map-viewport";
 import { useLocale } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/Button";
 import {
@@ -54,9 +55,25 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
   const { locale } = useLocale();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapsApiRef = useRef<typeof google.maps | null>(null);
+  const viewportKeyRef = useRef<string | null>(null);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  const viewportPoints = useMemo(() => {
+    if (regionCenters.length > 0) {
+      return regionCenters.map((region) => ({
+        lat: region.lat,
+        lng: region.lng,
+      }));
+    }
+    return routeCenter ? [routeCenter] : [];
+  }, [regionCenters, routeCenter]);
+
+  const viewportKey = viewportPoints
+    .map((point) => `${point.lat},${point.lng}`)
+    .join("|");
 
   useEffect(() => {
     const apiKey = getGoogleMapsApiKey();
@@ -70,12 +87,13 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
 
         const map = new maps.Map(mapContainerRef.current, {
           center: routeCenter ?? { lat: 39.6, lng: 2.9 },
-          zoom: 11,
+          zoom: 9,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
         });
         mapRef.current = map;
+        mapsApiRef.current = maps;
         setMapInstance(map);
         setMapReady(true);
       })
@@ -88,31 +106,17 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     return () => {
       cancelled = true;
     };
-  }, [locale, destinationId, routeCenter]);
+  }, [locale, destinationId]);
 
   useEffect(() => {
-    if (!mapInstance || routePaths.length === 0) return;
-    const selected = routePaths.find(
-      (r) => r.id === selectedRouteId && r.path.length > 0,
-    );
-    const bounds = new google.maps.LatLngBounds();
-    let pointCount = 0;
-    if (selected) {
-      for (const point of selected.path) {
-        bounds.extend(point);
-        pointCount++;
-      }
-    } else {
-      for (const route of routePaths) {
-        for (const point of route.path) {
-          bounds.extend(point);
-          pointCount++;
-        }
-      }
-    }
-    if (pointCount === 0) return;
-    mapInstance.fitBounds(bounds, 48);
-  }, [routePaths, mapInstance, selectedRouteId]);
+    const map = mapInstance;
+    const maps = mapsApiRef.current;
+    if (!map || !maps || !mapReady || viewportPoints.length === 0) return;
+    if (viewportKeyRef.current === viewportKey) return;
+
+    applyNeutralMapViewport(map, maps, viewportPoints);
+    viewportKeyRef.current = viewportKey;
+  }, [mapInstance, mapReady, viewportPoints, viewportKey]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] lg:items-start">
