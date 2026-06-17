@@ -29,7 +29,10 @@ import {
 import {
   buildRegionBatchTargets,
 } from "@/lib/activities/cycling/route-distribution";
-import { isPlausibleStoredRoute } from "@/lib/activities/cycling/route-validation";
+import {
+  isPlausibleStoredRoute,
+  isPlausibleStoredRouteForRegions,
+} from "@/lib/activities/cycling/route-validation";
 import {
   buildRoutesQueryParams,
   parseRouteGeometry,
@@ -76,7 +79,20 @@ function filterPlausibleRoutes(
   routes: ActivityRoute[],
   center: { lat: number; lng: number } | null | undefined,
   maxRadiusKm: number,
+  regionCenters: CyclingRegionCenter[] = [],
 ): ActivityRoute[] {
+  if (regionCenters.length > 1) {
+    const regions = regionCenters.map((region) => ({
+      lat: region.lat,
+      lng: region.lng,
+      radiusKm: region.radiusKm ?? maxRadiusKm,
+    }));
+    return routes.filter((route) => {
+      const path = parseRouteGeometry(route.geometry);
+      return isPlausibleStoredRouteForRegions(route.distance_m, path, regions);
+    });
+  }
+
   if (!center) return routes;
   return routes.filter((route) => {
     const path = parseRouteGeometry(route.geometry);
@@ -188,6 +204,7 @@ export function CyclingActivityProvider({
           resolvedRegionCenters.length === 1
             ? (resolvedRegionCenters[0]?.radiusKm ?? regionRadiusKm)
             : DEFAULT_DESTINATION_RADIUS_KM,
+          resolvedRegionCenters,
         ),
       );
       setRoutes(nextRoutes);
@@ -225,24 +242,49 @@ export function CyclingActivityProvider({
   }, [destinationId, destinationLabel, refreshRoutes, routeCenter, regionRadiusKm]);
 
   const runOsmScrapeInBackground = useCallback(() => {
-    if (scrapeStartedRef.current || !routeCenter) return;
+    if (scrapeStartedRef.current) return;
+
+    const scrapeTargets =
+      resolvedRegionCenters.length > 0
+        ? resolvedRegionCenters.map((region) => ({
+            centerLat: region.lat,
+            centerLng: region.lng,
+            radiusKm: region.radiusKm ?? regionRadiusKm,
+          }))
+        : routeCenter
+          ? [
+              {
+                centerLat: routeCenter.lat,
+                centerLng: routeCenter.lng,
+                radiusKm: regionRadiusKm,
+              },
+            ]
+          : [];
+
+    if (scrapeTargets.length === 0) return;
     scrapeStartedRef.current = true;
-    void fetch("/api/activities/cycling/scrape-osm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        destinationId,
-        centerLat: routeCenter.lat,
-        centerLng: routeCenter.lng,
-        radiusKm: regionRadiusKm,
-      }),
-    })
+
+    void Promise.all(
+      scrapeTargets.map((target) =>
+        fetch("/api/activities/cycling/scrape-osm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinationId,
+            centerLat: target.centerLat,
+            centerLng: target.centerLng,
+            radiusKm: target.radiusKm,
+          }),
+        }),
+      ),
+    )
       .then(() => refreshRoutes({ silent: true }))
       .catch(() => null);
     runKomootScrapeInBackground();
   }, [
     destinationId,
     refreshRoutes,
+    resolvedRegionCenters,
     routeCenter,
     regionRadiusKm,
     runKomootScrapeInBackground,
@@ -369,12 +411,13 @@ export function CyclingActivityProvider({
 
     await generateRoutes({
       count: INITIAL_DESTINATION_ROUTE_COUNT,
-      mode: "destination",
+      mode: resolvedRegionCenters.length > 1 ? "regions" : "destination",
     });
   }, [
     destinationId,
     destinationCenter,
     routeCenter,
+    resolvedRegionCenters.length,
     generateRoutes,
     refreshRoutes,
     fetchAllRouteCount,

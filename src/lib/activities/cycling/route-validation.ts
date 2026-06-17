@@ -74,3 +74,27 @@ export function isPlausibleStoredRoute(
   );
   return maxFromCenter <= maxRadiusKm * 1000;
 }
+
+export type RouteRegionCenter = {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+};
+
+/** Trasa pasuje, jeśli leży w promieniu co najmniej jednego wybranego rejonu. */
+export function isPlausibleStoredRouteForRegions(
+  distanceM: number,
+  coordinates: Array<{ lat: number; lng: number }>,
+  regions: RouteRegionCenter[],
+): boolean {
+  if (regions.length === 0) return true;
+  return regions.some((region) =>
+    isPlausibleStoredRoute(
+      distanceM,
+      coordinates,
+      region.lat,
+      region.lng,
+      region.radiusKm,
+    ),
+  );
+}
