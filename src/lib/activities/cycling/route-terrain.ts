@@ -2,6 +2,7 @@ import { distanceKm } from "@/lib/search/geo-clustering";
 import { parseRouteGeometry, parseRouteStartPoint } from "@/lib/supabase/activity-routes";
 import type { ActivityRoute } from "@/types/activities";
 import type { GeoPoint } from "@/types/domain";
+import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import {
   type CyclingRouteRegionTarget,
 } from "@/lib/activities/cycling/route-distribution";
@@ -68,7 +69,10 @@ export function computeInlandCenter(
     beaches?: GeoPoint[];
   },
 ): { lat: number; lng: number } {
-  const offsetKm = Math.min(Math.max(radiusKm * 0.5, 10), 22);
+  const offsetKm = Math.min(
+    Math.max(radiusKm * 0.55, 12),
+    Math.round(radiusKm * 0.7),
+  );
 
   if (options?.beaches && options.beaches.length > 0) {
     const beachCentroid = {
@@ -155,7 +159,7 @@ export function expandRegionTargetsWithTerrain(
 
     const inlandCenter = computeInlandCenter(
       { lat: target.centerLat, lng: target.centerLng },
-      target.maxRadiusKm ?? 30,
+      target.maxRadiusKm ?? DEFAULT_REGION_RADIUS_KM,
       { seed: regionKey, beaches },
     );
 
@@ -214,7 +218,7 @@ export function buildTerrainAwareTopUpTargets(
   const regions: RegionPoint[] = regionCenters.map((region) => ({
     lat: region.lat,
     lng: region.lng,
-    radiusKm: region.radiusKm ?? 30,
+    radiusKm: region.radiusKm ?? DEFAULT_REGION_RADIUS_KM,
     label: region.label,
     id: region.id,
   }));
@@ -306,7 +310,7 @@ export function inlandScrapeCentersFromRegions(
   allBeaches: GeoPoint[] = [],
 ): Array<{ lat: number; lng: number; radiusKm: number; label?: string }> {
   return regionCenters.map((region) => {
-    const radiusKm = region.radiusKm ?? 30;
+    const radiusKm = region.radiusKm ?? DEFAULT_REGION_RADIUS_KM;
     const beaches = beachesForRegion(
       { lat: region.lat, lng: region.lng, radiusKm, label: region.label },
       allBeaches,

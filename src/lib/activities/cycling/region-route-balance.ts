@@ -6,6 +6,7 @@ import {
   type CyclingRouteRegionTarget,
 } from "@/lib/activities/cycling/route-distribution";
 import { storedRouteMatchesRegionCenter } from "@/lib/activities/cycling/route-validation";
+import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 
 type RegionPoint = {
@@ -77,7 +78,7 @@ export function buildRegionTopUpTargets(
   const regions: RegionPoint[] = regionCenters.map((region) => ({
     lat: region.lat,
     lng: region.lng,
-    radiusKm: region.radiusKm ?? 30,
+    radiusKm: region.radiusKm ?? DEFAULT_REGION_RADIUS_KM,
     label: region.label,
   }));
 

@@ -16,7 +16,7 @@ export {
   INITIAL_DESTINATION_ROUTE_COUNT,
 } from "@/lib/activities/cycling/route-distribution";
 
-export const DEFAULT_REGION_RADIUS_KM = 30;
+export const DEFAULT_REGION_RADIUS_KM = 55;
 export const DEFAULT_DESTINATION_RADIUS_KM = 55;
 
 const ROUTE_PRESET_TEMPLATES: Array<{
