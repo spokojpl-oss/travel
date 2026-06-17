@@ -14,7 +14,9 @@ export type TripRhythmPreset =
   | "beach_focus"
   | "balanced"
   | "culture_focus"
-  | "active";
+  | "active"
+  | "cycling_beach_mix"
+  | "cycling_only";
 
 export type TripRhythm = {
   days: Record<TripDayTheme, number>;
@@ -56,6 +58,16 @@ const PRESET_RATIOS: Record<
     active_outdoor: 2,
     nature: 2,
     city_culture: 1,
+  },
+  cycling_beach_mix: {
+    beach_relax: 3,
+    active_outdoor: 3,
+    free: 1,
+  },
+  cycling_only: {
+    active_outdoor: 5,
+    nature: 1,
+    free: 1,
   },
 };
 
@@ -186,13 +198,14 @@ export function applyRhythmPreset(
 export function defaultRhythmForTrip(
   departureDate: string,
   returnDate: string | null,
-  options?: { includeKids?: boolean },
+  options?: { includeKids?: boolean; cycling?: boolean },
 ): TripRhythm {
   const totalDays = daysBetweenIso(
     departureDate,
     returnDate ?? departureDate,
   );
-  return applyRhythmPreset("balanced", totalDays, options);
+  const preset = options?.cycling ? "cycling_beach_mix" : "balanced";
+  return applyRhythmPreset(preset, totalDays, options);
 }
 
 export function normalizeRhythm(
@@ -238,7 +251,9 @@ export function tripRhythmFromParams(params: URLSearchParams): TripRhythm | null
     presetRaw === "beach_focus" ||
     presetRaw === "balanced" ||
     presetRaw === "culture_focus" ||
-    presetRaw === "active"
+    presetRaw === "active" ||
+    presetRaw === "cycling_beach_mix" ||
+    presetRaw === "cycling_only"
       ? presetRaw
       : null;
 

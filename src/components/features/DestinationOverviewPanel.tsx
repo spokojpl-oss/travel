@@ -1,17 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DestinationClimateBudgetPanel } from "@/components/features/DestinationClimateBudgetPanel";
-import { DestinationStoryHero } from "@/components/features/DestinationStoryHero";
-import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
-import {
-  matchingRegionsForDestination,
-  resolveDestinationStory,
-} from "@/lib/plan/destination-story";
 import type { DestinationDiscovery } from "@/lib/search/destination-discover";
-import { useLocale, useT } from "@/i18n/locale-provider";
+import { useT } from "@/i18n/locale-provider";
 
 export function DestinationOverviewPanel({
   destinationLabel,
@@ -43,63 +36,29 @@ export function DestinationOverviewPanel({
   onChooseActivities: () => void;
 }) {
   const t = useT();
-  const { locale } = useLocale();
-
-  const story = useMemo(() => {
-    const regions = matchingRegionsForDestination(
-      SEED_TOURIST_REGIONS,
-      destinationLabel,
-    );
-    return resolveDestinationStory({
-      destinationLabel,
-      regions,
-      locale,
-    });
-  }, [destinationLabel, locale]);
 
   const loading = waitingForCoords || (discovering && !discovery);
   const refreshingWeather = discovering && discovery != null;
-
-  if (loading) {
-    return (
-      <>
-        <DestinationStoryHero
-          story={story}
-          tripDays={tripDays}
-          loading
-          subtitle={discovering || waitingForCoords ? t("search.overviewLoading") : undefined}
-        />
-        {discoveryError && !discovering && !waitingForCoords && (
-          <div className="mb-8 rounded-2xl border border-danger/30 bg-orange-50/80 p-6 text-center">
-            <p className="font-medium text-text-primary">{t("search.discoverError")}</p>
-            <p className="mt-2 text-sm text-text-secondary">{discoveryError}</p>
-            {onRetry && (
-              <Button className="mt-4" onClick={onRetry}>
-                {t("search.discoverRetry")}
-              </Button>
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
 
   return (
     <div className="overview-content-enter">
       {discoveryError && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-text-secondary">
           {discoveryError}
+          {!discovering && !waitingForCoords && onRetry && (
+            <Button className="mt-3" size="sm" onClick={onRetry}>
+              {t("search.discoverRetry")}
+            </Button>
+          )}
         </div>
       )}
 
-      <DestinationStoryHero story={story} tripDays={tripDays} />
-
-      {(discovery?.weather || refreshingWeather) && (
+      {(loading || discovery?.weather || refreshingWeather) && (
         <Card className="mb-6 border-brand-100 bg-brand-50/40">
           <CardHeader title={t("search.overviewWeather")} />
           <CardBody className="text-sm text-text-secondary">
-            {refreshingWeather && !discovery?.weather ? (
-              <p>{t("search.overviewWeatherRefreshing")}</p>
+            {loading || (refreshingWeather && !discovery?.weather) ? (
+              <p>{t("search.overviewLoading")}</p>
             ) : discovery?.weather ? (
               <>
                 <p className={refreshingWeather ? "opacity-60" : undefined}>

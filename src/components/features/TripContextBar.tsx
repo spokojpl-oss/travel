@@ -72,7 +72,7 @@ export function TripContextBar({
 
   if (trip.activity === "cycling") {
     items.unshift({
-      icon: "target",
+      icon: "bike",
       label: t("context.mode"),
       value: t("context.cyclingMode"),
     });

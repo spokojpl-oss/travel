@@ -32,6 +32,23 @@ const PRESETS: Array<{
   { id: "active", titleKey: "rhythm.presetActive", descKey: "rhythm.presetActiveDesc" },
 ];
 
+const CYCLING_PRESETS: Array<{
+  id: TripRhythmPreset;
+  titleKey: string;
+  descKey: string;
+}> = [
+  {
+    id: "cycling_beach_mix",
+    titleKey: "rhythm.presetCyclingBeachMix",
+    descKey: "rhythm.presetCyclingBeachMixDesc",
+  },
+  {
+    id: "cycling_only",
+    titleKey: "rhythm.presetCyclingOnly",
+    descKey: "rhythm.presetCyclingOnlyDesc",
+  },
+];
+
 export function TripRhythmStep({
   departureDate,
   returnDate,
@@ -40,6 +57,7 @@ export function TripRhythmStep({
   onChange,
   onContinue,
   continueLabel,
+  isCycling = false,
 }: {
   departureDate: string;
   returnDate: string | null;
@@ -48,6 +66,7 @@ export function TripRhythmStep({
   onChange: (rhythm: TripRhythm) => void;
   onContinue: () => void;
   continueLabel?: string;
+  isCycling?: boolean;
 }) {
   const t = useT();
   const totalDays = daysBetweenIso(departureDate, returnDate ?? departureDate);
@@ -55,6 +74,7 @@ export function TripRhythmStep({
   const themes = adjustableThemes({ includeKids });
   const allocated = rhythmTotalDays(rhythm);
   const isComplete = allocated === totalDays;
+  const presets = isCycling ? CYCLING_PRESETS : PRESETS;
 
   function applyPreset(preset: TripRhythmPreset) {
     onChange(applyRhythmPreset(preset, totalDays, { includeKids }));
@@ -77,7 +97,7 @@ export function TripRhythmStep({
           {t("rhythm.presetsTitle")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {PRESETS.map((preset) => (
+          {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"

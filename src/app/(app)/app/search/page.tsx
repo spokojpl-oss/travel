@@ -55,6 +55,7 @@ import {
   matchActivitySlugsFromText,
   daysBetweenIso,
   resolveDestinationCoords,
+  isCyclingTrip,
   tripContextFromParams,
   tripContextToParams,
   type ExplorationScope,
@@ -324,7 +325,10 @@ function SearchPageContent() {
           trip_rhythm: defaultRhythmForTrip(
             merged.departure_date,
             merged.return_date,
-            { includeKids: hasChildrenInPassengers(merged.passengers) },
+            {
+              includeKids: hasChildrenInPassengers(merged.passengers),
+              cycling: isCyclingTrip(merged),
+            },
           ),
         });
       }
@@ -745,6 +749,7 @@ function SearchPageContent() {
           prev.trip_rhythm ??
           defaultRhythmForTrip(prev.departure_date, prev.return_date, {
             includeKids: hasChildrenInPassengers(prev.passengers),
+            cycling: isCyclingTrip(prev),
           }),
       };
       syncUrl(next, 4);
@@ -1322,6 +1327,7 @@ function SearchPageContent() {
                 ...prev,
                 trip_rhythm: defaultRhythmForTrip(prev.departure_date, prev.return_date, {
                   includeKids: hasChildrenInPassengers(prev.passengers),
+                  cycling: isCyclingTrip(prev),
                 }),
               };
               syncUrl(next, s);
@@ -1433,6 +1439,7 @@ function SearchPageContent() {
           rhythm={trip.trip_rhythm}
           onChange={updateRhythm}
           onContinue={goAfterRhythmStep}
+          isCycling={isCyclingTrip(trip)}
           continueLabel={
             skipRegionsStep ? t("rhythm.continueActivities") : undefined
           }

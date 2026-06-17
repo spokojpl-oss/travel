@@ -28,7 +28,8 @@ export type IconName =
   | "share"
   | "siren"
   | "menu"
-  | "bookmark";
+  | "bookmark"
+  | "bike";
 
 const paths: Record<IconName, React.ReactNode> = {
   target: (
@@ -176,6 +177,14 @@ const paths: Record<IconName, React.ReactNode> = {
     </>
   ),
   bookmark: <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />,
+  bike: (
+    <>
+      <circle cx="18.5" cy="17.5" r="3.5" />
+      <circle cx="5.5" cy="17.5" r="3.5" />
+      <circle cx="15" cy="5" r="1" />
+      <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+    </>
+  ),
 };
 
 export function Icon({

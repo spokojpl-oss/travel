@@ -211,7 +211,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
                 active={isCyclingTab}
                 onClick={selectCyclingTab}
                 label={t("hero.tabCycling")}
-                icon="target"
+                icon="bike"
               />
             )}
           </div>
@@ -286,7 +286,7 @@ function TabButton({
   active: boolean;
   onClick: () => void;
   label: string;
-  icon: "target" | "map-pin";
+  icon: "bike" | "map-pin";
 }) {
   return (
     <button
