@@ -56,6 +56,7 @@ import {
 } from "@/lib/plan/cluster-island-guard";
 import {
   centroidOfTouristRegions,
+  buildClusterFromTouristRegions,
   filterAttractionsToTouristRegions,
   filterClustersToTouristRegions,
   reanchorClusterToTouristRegions,
@@ -213,6 +214,7 @@ function SearchPageContent() {
   >(new Set());
   const interestsMatchedRef = useRef(false);
   const wizardSectionRef = useRef<HTMLDivElement>(null);
+  const pendingWizardScrollRef = useRef(false);
 
   const cyclingPlanRouteIds = useMemo(
     () => new Set(cyclingPlanRoutes.keys()),
@@ -1290,28 +1292,12 @@ function SearchPageContent() {
           attractions: regionAttrs,
           destinationLabel,
           id: `regions-${Date.now()}`,
-        }) ?? null
+        }) ??
+        buildClusterFromTouristRegions(regions, destinationLabel)
       );
     }
 
-    const center = centroidOfTouristRegions(regions);
-    if (!center) return null;
-
-    return {
-      id: `regions-${Date.now()}`,
-      center,
-      bbox: {
-        north: center.lat + 0.2,
-        south: center.lat - 0.2,
-        east: center.lon + 0.2,
-        west: center.lon - 0.2,
-      },
-      radius_km: Math.max(...regions.map((r) => r.radius_km ?? 20)),
-      attractions: [],
-      covered_activities: [],
-      score: 1,
-      activity_counts: {},
-    };
+    return buildClusterFromTouristRegions(regions, destinationLabel);
   }
 
   function resolvePlanClusterAndPool(): {
@@ -1323,7 +1309,14 @@ function SearchPageContent() {
     const pool =
       results.island_overview?.attractions ??
       resultClusters.flatMap((c) => c.attractions);
-    if (pool.length === 0 && resultClusters.length === 0) return null;
+    const regions = selectedTouristRegions();
+
+    if (pool.length === 0 && resultClusters.length === 0) {
+      if (regions.length === 0) return null;
+      const cluster = buildClusterFromTouristRegions(regions, label);
+      if (!cluster) return null;
+      return { cluster, pool: [] };
+    }
 
     let cluster: GeoCluster | null =
       resultClusters[0] ??
@@ -1331,10 +1324,12 @@ function SearchPageContent() {
         attractions: pool,
         destinationLabel: label,
         id: `plan-${Date.now()}`,
-      });
+      }) ??
+      (regions.length > 0
+        ? buildClusterFromTouristRegions(regions, label)
+        : null);
     if (!cluster) return null;
 
-    const regions = selectedTouristRegions();
     if (regions.length > 0) {
       cluster = reanchorClusterToTouristRegions(cluster, regions, label);
     }
@@ -1443,6 +1438,7 @@ function SearchPageContent() {
         trip.return_date ?? trip.departure_date,
       ),
       airports,
+      isCycling: isCyclingTrip(trip),
     };
     storeDestinationBuildPayload(buildId, payload);
     setPlanPayload(payload);
@@ -1479,38 +1475,69 @@ function SearchPageContent() {
     pool: AttractionWithActivities[],
   ) {
     setSelectedAttractionPlanIds(new Set(selectedIds));
-    openIslandPlan(
-      selectedIds,
-      pool,
+    pendingWizardScrollRef.current = true;
+
+    const label = trip.destination_label ?? trip.destination ?? "";
+    const routes =
+      plannedCyclingRoutes.length > 0 ? plannedCyclingRoutes : undefined;
+    const attractionIds =
+      selectedIds.length > 0 ? selectedIds : undefined;
+
+    if (planPayload && !planPayload.planComplete) {
+      setPlanPayload({
+        ...planPayload,
+        selectedAttractionIds: attractionIds,
+        selectedCyclingRoutes: routes,
+      });
+      window.setTimeout(scrollToPlanWizard, 100);
+      return;
+    }
+
+    const selected = pool.filter((a) => selectedIds.includes(a.id));
+    let cluster =
+      buildClusterFromAttractions({
+        attractions: selected.length > 0 ? selected : pool,
+        destinationLabel: label,
+        id: `plan-${Date.now()}`,
+      }) ?? null;
+
+    if (!cluster) {
+      const regions = selectedTouristRegions();
+      cluster =
+        resolvePlanClusterAndPool()?.cluster ??
+        buildClusterFromTouristRegions(regions, label);
+    }
+    if (!cluster) {
+      pendingWizardScrollRef.current = false;
+      return;
+    }
+
+    const regions = selectedTouristRegions();
+    if (regions.length > 0) {
+      cluster = reanchorClusterToTouristRegions(cluster, regions, label);
+    }
+
+    const resolvedPool = resolvePlanClusterAndPool()?.pool ?? pool;
+    const fullPool = filterAttractionsToDestinationIsland(
+      resolvedPool,
+      label,
+      cluster.center,
     );
-    window.setTimeout(scrollToPlanWizard, 150);
+
+    storeAndGoToPlan(
+      cluster.id,
+      cluster,
+      fullPool,
+      attractionIds,
+      routes,
+    );
   }
 
   function openIslandPlan(
     selectedIds: string[],
     pool: AttractionWithActivities[],
   ) {
-    const label = trip.destination_label ?? trip.destination ?? "";
-    const selected = pool.filter((a) => selectedIds.includes(a.id));
-    let cluster =
-      buildClusterFromAttractions({
-        attractions: selected.length > 0 ? selected : pool,
-        destinationLabel: label,
-        id: `island-${Date.now()}`,
-      }) ?? null;
-    if (!cluster) return;
-    const regions = selectedTouristRegions();
-    if (regions.length > 0) {
-      cluster = reanchorClusterToTouristRegions(cluster, regions, label);
-    }
-    const fullPool = filterAttractionsToDestinationIsland(pool, label, cluster.center);
-    storeAndGoToPlan(
-      cluster.id,
-      cluster,
-      fullPool,
-      selectedIds.length > 0 ? selectedIds : undefined,
-      plannedCyclingRoutes.length > 0 ? plannedCyclingRoutes : undefined,
-    );
+    handleCyclingPlanTrip(selectedIds, pool);
   }
 
   const dbReady = dataStatus?.search_ready ?? false;
@@ -1660,6 +1687,14 @@ function SearchPageContent() {
       cancelled = true;
     };
   }, [planPayload, showPlanStep, trip]);
+
+  useEffect(() => {
+    if (planEnriching || !planPayload || !pendingWizardScrollRef.current) {
+      return;
+    }
+    pendingWizardScrollRef.current = false;
+    window.requestAnimationFrame(() => scrollToPlanWizard());
+  }, [planEnriching, planPayload]);
 
   const travelContextHints = useMemo(() => {
     const pl = locale !== "en";
@@ -2109,7 +2144,7 @@ function SearchPageContent() {
       )}
 
       {error && <p className="mb-4 text-danger">Błąd: {error}</p>}
-      {(isSearching || planEnriching) && showPlanStep && <SkeletonList count={5} />}
+      {isSearching && showPlanStep && <SkeletonList count={5} />}
 
       {showPlanStep && results && !isSearching && (
         <section className="mt-8 space-y-8">
@@ -2173,7 +2208,20 @@ function SearchPageContent() {
             id="destination-plan-wizard"
             className="scroll-mt-6"
           >
-          {planPayload && !planEnriching && (
+            {planPayload && planEnriching && (
+              <div className="space-y-4">
+                <h2 className="font-display text-xl font-bold text-text-primary">
+                  {t("search.titlePlan")}
+                </h2>
+                <p className="text-sm text-text-secondary">
+                  {locale === "en"
+                    ? "Preparing places and lodging options…"
+                    : "Przygotowujemy miejsca i opcje noclegu…"}
+                </p>
+                <SkeletonList count={4} />
+              </div>
+            )}
+            {planPayload && !planEnriching && (
             <DestinationPlanWizard
               payload={{
                 ...planPayload,

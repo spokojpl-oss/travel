@@ -50,6 +50,38 @@ export function centroidOfTouristRegions(
   };
 }
 
+/** Klastr z wybranych rejonów — gdy brak atrakcji OSM (np. same trasy rowerowe). */
+export function buildClusterFromTouristRegions(
+  regions: TouristRegion[],
+  destinationLabel?: string | null,
+  id = `regions-${Date.now()}`,
+): GeoCluster | null {
+  const center = centroidOfTouristRegions(regions);
+  if (!center) return null;
+
+  const radius_km = Math.max(
+    ...regions.map((r) => regionMapRadiusKm(r, destinationLabel)),
+    20,
+  );
+
+  const pad = radius_km / 111;
+  return {
+    id,
+    center,
+    bbox: {
+      north: center.lat + pad,
+      south: center.lat - pad,
+      east: center.lon + pad,
+      west: center.lon - pad,
+    },
+    radius_km,
+    attractions: [],
+    covered_activities: [],
+    score: 1,
+    activity_counts: {},
+  };
+}
+
 export function clusterInSelectedRegions(
   cluster: GeoCluster,
   regions: TouristRegion[],
