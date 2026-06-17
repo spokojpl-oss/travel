@@ -20,6 +20,50 @@ declare namespace google.maps {
   interface Map {
     fitBounds(bounds: LatLngBounds, padding?: number | Padding): void;
     setCenter(latlng: LatLngLiteral): void;
+    overlayMapTypes: OverlayMapTypes;
+  }
+
+  interface OverlayMapTypes {
+    getArray(): ImageMapType[];
+    insertAt(index: number, overlay: ImageMapType): void;
+    removeAt(index: number): void;
+  }
+
+  interface Size {
+    width: number;
+    height: number;
+  }
+
+  interface ImageMapTypeOptions {
+    getTileUrl: (coord: { x: number; y: number }, zoom: number) => string;
+    tileSize: Size;
+    opacity?: number;
+    name?: string;
+  }
+
+  interface ImageMapType {
+    // marker interface for overlay tiles
+  }
+
+  interface PolylineOptions {
+    path: LatLngLiteral[];
+    map?: Map | null;
+    strokeColor?: string;
+    strokeWeight?: number;
+    strokeOpacity?: number;
+    zIndex?: number;
+    icons?: Array<{
+      icon: SymbolIcon;
+      offset: string;
+      repeat: string;
+    }>;
+  }
+
+  interface Polyline {
+    setMap(map: Map | null): void;
+    setPath(path: LatLngLiteral[]): void;
+    setOptions(options: Partial<PolylineOptions>): void;
+    addListener(event: string, handler: () => void): MapsEventListener;
   }
 
   interface Padding {
@@ -77,24 +121,6 @@ declare namespace google.maps {
     addListener(event: string, handler: () => void): MapsEventListener;
   }
 
-  interface PolylineOptions {
-    path: LatLngLiteral[];
-    map?: Map | null;
-    strokeColor?: string;
-    strokeWeight?: number;
-    strokeOpacity?: number;
-    icons?: Array<{
-      icon: SymbolIcon;
-      offset: string;
-      repeat: string;
-    }>;
-  }
-
-  interface Polyline {
-    setMap(map: Map | null): void;
-    addListener(event: string, handler: () => void): MapsEventListener;
-  }
-
   interface InfoWindowOptions {
     content?: string;
   }
@@ -126,6 +152,14 @@ declare namespace google.maps {
 
   class Polyline {
     constructor(opts?: PolylineOptions);
+  }
+
+  class ImageMapType {
+    constructor(opts?: ImageMapTypeOptions);
+  }
+
+  class Size {
+    constructor(width: number, height: number);
   }
 
   class InfoWindow {

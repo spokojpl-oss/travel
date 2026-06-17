@@ -31,6 +31,8 @@ import { hasChildrenInPassengers } from "@/lib/search/trip-rhythm";
 import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 import { LocalServicesSection } from "@/components/features/LocalServicesSection";
+import { ActivityModeToggle } from "@/components/activities/ActivityModeToggle";
+import { ActivityPanel } from "@/components/activities/ActivityPanel";
 
 type BuildEvent = {
   type: string;
@@ -94,6 +96,7 @@ export default function DestinationPage() {
   const buildId = searchParams.get("build_id");
   const clusterData = searchParams.get("cluster");
   const activitiesParam = searchParams.get("activities");
+  const activityMode = searchParams.get("activity") ?? undefined;
 
   const trip = useMemo(
     () =>
@@ -434,20 +437,27 @@ export default function DestinationPage() {
       </button>
 
       <header className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-text-primary">
-          {pageTitle}
-        </h1>
-        {destination && (
-          <p className="mt-2 text-sm text-text-secondary">
-            {destination.country_code} · {destination.destination_type} ·{" "}
-            {destination.timezone}
-          </p>
-        )}
-        {isBuilding && !destination && planComplete && (
-          <p className="mt-2 text-sm text-text-secondary">
-            Przygotowujemy opis, pogodę i oferty podróży…
-          </p>
-        )}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-text-primary">
+              {pageTitle}
+            </h1>
+            {destination && (
+              <p className="mt-2 text-sm text-text-secondary">
+                {destination.country_code} · {destination.destination_type} ·{" "}
+                {destination.timezone}
+              </p>
+            )}
+            {isBuilding && !destination && planComplete && (
+              <p className="mt-2 text-sm text-text-secondary">
+                Przygotowujemy opis, pogodę i oferty podróży…
+              </p>
+            )}
+          </div>
+          {planComplete && destination && (
+            <ActivityModeToggle currentActivity={activityMode} />
+          )}
+        </div>
       </header>
 
       {!planComplete && planPayload && !planEnriching && (
@@ -652,6 +662,15 @@ export default function DestinationPage() {
             attractions={hotelsAttractions}
           />
         </ErrorBoundary>
+      )}
+
+      {planComplete && destination && activityMode && (
+        <section className="mb-8">
+          <ActivityPanel
+            activity={activityMode}
+            destinationId={destination.id}
+          />
+        </section>
       )}
 
       {planComplete && isComplete && destination && (

@@ -1,0 +1,137 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { ActivityRoute } from "@/types/activities";
+import type { CyclingRouteFilters } from "@/lib/activities/cycling/types";
+import {
+  buildRoutesQueryParams,
+  parseRouteGeometry,
+} from "@/lib/supabase/activity-routes";
+
+type CyclingActivityContextValue = {
+  destinationId: string;
+  filters: CyclingRouteFilters;
+  setFilters: (next: CyclingRouteFilters) => void;
+  routes: ActivityRoute[];
+  loading: boolean;
+  error: string | null;
+  selectedRouteId: string | null;
+  setSelectedRouteId: (id: string | null) => void;
+  planRouteIds: Set<string>;
+  togglePlanRoute: (id: string) => void;
+  showCyclOsm: boolean;
+  setShowCyclOsm: (value: boolean) => void;
+  refreshRoutes: () => Promise<void>;
+  routePaths: Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
+};
+
+const CyclingActivityContext = createContext<CyclingActivityContextValue | null>(
+  null,
+);
+
+export function CyclingActivityProvider({
+  destinationId,
+  children,
+}: {
+  destinationId: string;
+  children: ReactNode;
+}) {
+  const [filters, setFilters] = useState<CyclingRouteFilters>({});
+  const [routes, setRoutes] = useState<ActivityRoute[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [planRouteIds, setPlanRouteIds] = useState<Set<string>>(new Set());
+  const [showCyclOsm, setShowCyclOsm] = useState(false);
+
+  const refreshRoutes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = buildRoutesQueryParams(destinationId, filters);
+      const res = await fetch(`/api/activities/cycling/routes?${params}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Nie udało się pobrać tras");
+      }
+      const data = (await res.json()) as { routes: ActivityRoute[] };
+      setRoutes(data.routes ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Błąd pobierania tras");
+      setRoutes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [destinationId, filters]);
+
+  const togglePlanRoute = useCallback((id: string) => {
+    setPlanRouteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const routePaths = useMemo(
+    () =>
+      routes.map((route) => ({
+        id: route.id,
+        path: parseRouteGeometry(route.geometry),
+      })),
+    [routes],
+  );
+
+  const value = useMemo(
+    () => ({
+      destinationId,
+      filters,
+      setFilters,
+      routes,
+      loading,
+      error,
+      selectedRouteId,
+      setSelectedRouteId,
+      planRouteIds,
+      togglePlanRoute,
+      showCyclOsm,
+      setShowCyclOsm,
+      refreshRoutes,
+      routePaths,
+    }),
+    [
+      destinationId,
+      filters,
+      routes,
+      loading,
+      error,
+      selectedRouteId,
+      planRouteIds,
+      showCyclOsm,
+      refreshRoutes,
+      routePaths,
+      togglePlanRoute,
+    ],
+  );
+
+  return (
+    <CyclingActivityContext.Provider value={value}>
+      {children}
+    </CyclingActivityContext.Provider>
+  );
+}
+
+export function useCyclingActivity() {
+  const ctx = useContext(CyclingActivityContext);
+  if (!ctx) {
+    throw new Error("useCyclingActivity must be used within CyclingActivityProvider");
+  }
+  return ctx;
+}

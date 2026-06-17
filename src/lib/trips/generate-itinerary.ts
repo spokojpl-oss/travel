@@ -5,6 +5,7 @@ import {
   type ValidationResult,
 } from "@/lib/synthesis/anti-hallucination";
 import { planTripPacing, type DayPlan } from "./pacing";
+import type { ActivityCategory } from "@/types/activities";
 import type { Attraction, Destination, IntensityLevel } from "@/types/domain";
 
 export type ItineraryDay = DayPlan & {
@@ -35,12 +36,19 @@ const ITINERARY_SCHEMA = `{
 
 export { CLAUDE_MODEL };
 
+export type ActivityPlanContext = {
+  category: ActivityCategory;
+  selectedRouteIds: string[];
+  userProfile?: { ftp?: number; weeklyHours?: number; experience?: string };
+};
+
 export async function generateItinerary({
   trip,
   destination,
   attractions,
   weatherDays,
   groupInfo,
+  activityContext,
 }: {
   trip: { name: string; date_from: string; date_to: string };
   destination: Destination;
@@ -60,6 +68,7 @@ export async function generateItinerary({
     children_ages: number[];
     travel_style?: string;
   };
+  activityContext?: ActivityPlanContext;
 }): Promise<{
   itinerary: GeneratedItinerary;
   validation: ValidationResult;
@@ -92,7 +101,18 @@ ZASADY:
 - NIE generyczne typu "ciesz się dniem".
 - Język naturalny, polski, jak człowiek do rodziny.
 - general_notes: max 3, ogólne rzeczy odnoszące się do całego pobytu.
-- Musisz zwrócić dokładnie ${pacing.total_days} elementów w tablicy "days".`;
+- Musisz zwrócić dokładnie ${pacing.total_days} elementów w tablicy "days".${
+    activityContext
+      ? `
+
+KONTEKST AKTYWNOŚCI (${activityContext.category}):
+Użytkownik planuje wyjazd rowerowy. Wybrane trasy są w danych wejściowych.
+Układaj dni tak, aby queen stage był w środku tygodnia, dzień regeneracji przed nim,
+unikaj dwóch dni z rzędu z >2000 m przewyższenia.
+Dla każdego dnia rowerowego podaj godzinę startu z uwzględnieniem wschodu słońca i temperatury.
+NIE wymyślaj tras — używaj wyłącznie podanych ID tras.`
+      : ""
+  }`;
 
   const userPrompt = buildItineraryPrompt({
     trip,
@@ -101,6 +121,7 @@ ZASADY:
     weatherDays,
     groupInfo,
     attractions,
+    activityContext,
   });
 
   const { data, usage } = await callClaudeJson<{
@@ -153,6 +174,7 @@ function buildItineraryPrompt({
   weatherDays,
   groupInfo,
   attractions,
+  activityContext,
 }: {
   trip: { name: string; date_from: string; date_to: string };
   destination: Destination;
@@ -165,6 +187,7 @@ function buildItineraryPrompt({
   }>;
   groupInfo: { adults: number; children_ages: number[]; travel_style?: string };
   attractions: Array<{ id: string; name: string; description?: string | null }>;
+  activityContext?: ActivityPlanContext;
 }): string {
   const sections: string[] = [];
   const attractionMap = new Map(attractions.map((a) => [a.id, a]));
@@ -178,6 +201,15 @@ Daty: ${trip.date_from} do ${trip.date_to} (${pacing.total_days} dni)`);
 Dorośli: ${groupInfo.adults}
 Dzieci: ${groupInfo.children_ages.length > 0 ? `wiek ${groupInfo.children_ages.join(", ")}` : "brak"}
 Styl: ${groupInfo.travel_style ?? "mixed"}`);
+
+  if (activityContext) {
+    sections.push(`# WYBRANE TRASY ROWEROWE (ID)
+${activityContext.selectedRouteIds.map((id) => `- ${id}`).join("\n")}`);
+    if (activityContext.userProfile) {
+      sections.push(`# PROFIL KOLARZA
+${JSON.stringify(activityContext.userProfile)}`);
+    }
+  }
 
   sections.push(`# POGODA W TYCH DNIACH
 ${(weatherDays ?? [])

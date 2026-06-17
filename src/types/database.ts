@@ -321,6 +321,104 @@ export type Database = {
           },
         ];
       };
+      activity_routes: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"];
+          cached_at: string;
+          category: Database["public"]["Enums"]["activity_category"];
+          created_at: string;
+          description: string | null;
+          destination_id: string;
+          difficulty: Database["public"]["Enums"]["activity_difficulty"] | null;
+          distance_m: number;
+          duration_min: number | null;
+          elevation_gain_m: number | null;
+          elevation_loss_m: number | null;
+          elevation_profile: Json | null;
+          end_point: string | null;
+          expires_at: string | null;
+          external_url: string | null;
+          geometry: string;
+          highlights: Json | null;
+          id: string;
+          is_loop: boolean;
+          max_gradient_pct: number | null;
+          name: string;
+          popularity_score: number | null;
+          preview_image_url: string | null;
+          source: Database["public"]["Enums"]["activity_route_source"];
+          source_external_id: string | null;
+          start_point: string;
+          surface_mix: Json | null;
+        };
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"];
+          cached_at?: string;
+          category: Database["public"]["Enums"]["activity_category"];
+          created_at?: string;
+          description?: string | null;
+          destination_id: string;
+          difficulty?: Database["public"]["Enums"]["activity_difficulty"] | null;
+          distance_m: number;
+          duration_min?: number | null;
+          elevation_gain_m?: number | null;
+          elevation_loss_m?: number | null;
+          elevation_profile?: Json | null;
+          end_point?: string | null;
+          expires_at?: string | null;
+          external_url?: string | null;
+          geometry: string;
+          highlights?: Json | null;
+          id?: string;
+          is_loop?: boolean;
+          max_gradient_pct?: number | null;
+          name: string;
+          popularity_score?: number | null;
+          preview_image_url?: string | null;
+          source: Database["public"]["Enums"]["activity_route_source"];
+          source_external_id?: string | null;
+          start_point: string;
+          surface_mix?: Json | null;
+        };
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"];
+          cached_at?: string;
+          category?: Database["public"]["Enums"]["activity_category"];
+          created_at?: string;
+          description?: string | null;
+          destination_id?: string;
+          difficulty?: Database["public"]["Enums"]["activity_difficulty"] | null;
+          distance_m?: number;
+          duration_min?: number | null;
+          elevation_gain_m?: number | null;
+          elevation_loss_m?: number | null;
+          elevation_profile?: Json | null;
+          end_point?: string | null;
+          expires_at?: string | null;
+          external_url?: string | null;
+          geometry?: string;
+          highlights?: Json | null;
+          id?: string;
+          is_loop?: boolean;
+          max_gradient_pct?: number | null;
+          name?: string;
+          popularity_score?: number | null;
+          preview_image_url?: string | null;
+          source?: Database["public"]["Enums"]["activity_route_source"];
+          source_external_id?: string | null;
+          start_point?: string;
+          surface_mix?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_routes_destination_id_fkey";
+            columns: ["destination_id"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       attraction_activity_tags: {
         Row: {
           activity_slug: string;
@@ -1541,6 +1639,15 @@ export type Database = {
       };
     };
     Enums: {
+      activity_category: "cycling" | "hiking" | "running" | "water_sports";
+      activity_difficulty: "easy" | "moderate" | "hard" | "expert";
+      activity_route_source: "osm" | "ors_generated" | "komoot" | "user_curated";
+      activity_type:
+        | "cycling_road"
+        | "cycling_gravel"
+        | "cycling_mtb"
+        | "cycling_ebike"
+        | "cycling_touring";
       advisory_category:
         | "flights_dates"
         | "airport_choice"
