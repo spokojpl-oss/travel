@@ -153,9 +153,12 @@ export const pl = {
   search: {
     breadcrumb: "Wyniki wyszukiwania",
     titleResults: "Wyniki wyszukiwania",
+    titleCyclingRegions: "Wybierz region rowerowy",
+    subtitleCyclingRegions:
+      "Porównaj rejony pod kolarstwo — przewyższenia, wypożyczalnie, plaże i bazy noclegowe.",
     titleCyclingResults: "Regiony rowerowe",
     subtitleCyclingResults:
-      "Wybierz bazę kolarską — zobaczysz trasy, profil wysokości i opis regionu pod szosę, gravel i MTB.",
+      "Wybierz bazę kolarską — potem trasy, nocleg i oferta lotów.",
     cyclingResultsHeading: "Bazy kolarskie",
     cyclingResultsSubheading:
       "Każdy rejon ma mapę tras i opis pod kolarstwo — bez treści rodzinnych.",

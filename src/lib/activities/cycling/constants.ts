@@ -27,7 +27,9 @@ export const DIFFICULTY_LABELS: Record<ActivityDifficulty, string> = {
 export const CYCLING_TAXONOMY_SLUGS = [
   "mountain_biking",
   "bike_rental",
+  "ebike_rental",
   "cycling",
+  "sandy_beaches",
 ] as const;
 
 export const CYCLING_DIFFICULTIES: ActivityDifficulty[] = [

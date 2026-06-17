@@ -128,7 +128,7 @@ function HeroSearchContent({ compact = false }: { compact?: boolean }) {
         interests: "",
         destination: nextTrip.destination_label,
       });
-      params.set("step", isCyclingTab ? "7" : "2");
+      params.set("step", "2");
       router.push(`/app/search?${params.toString()}`);
     } finally {
       setSubmitting(false);

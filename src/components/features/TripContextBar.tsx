@@ -141,7 +141,23 @@ export function SearchStepIndicator({
   const steps = cyclingMode
     ? [
         { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
-        { displayN: 2, label: t("steps.results"), key: "results", goto: 7 as SearchStep },
+        { displayN: 2, label: t("steps.scope"), key: "scope", goto: 2 as SearchStep },
+        ...(skipRegionsStep
+          ? []
+          : [
+              {
+                displayN: 3,
+                label: t("steps.regions"),
+                key: "regions",
+                goto: 5 as SearchStep,
+              },
+            ]),
+        {
+          displayN: skipRegionsStep ? 3 : 4,
+          label: t("steps.results"),
+          key: "results",
+          goto: 7 as SearchStep,
+        },
       ]
     : tripMode === "destination"
       ? [
@@ -191,7 +207,9 @@ export function SearchStepIndicator({
   const currentStep = cyclingMode
     ? step >= 7
       ? 7
-      : 2
+      : step === 5
+        ? 5
+        : 2
     : tripMode === "destination"
       ? step
       : step >= 6

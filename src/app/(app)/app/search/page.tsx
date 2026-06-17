@@ -317,9 +317,6 @@ function SearchPageContent() {
 
       if (isCyclingTrip(merged)) {
         setSelectedActivities(new Set(CYCLING_TAXONOMY_SLUGS));
-        if (resolvedStep < 7) {
-          resolvedStep = 7;
-        }
       }
 
       setStep(resolvedStep);
@@ -328,7 +325,8 @@ function SearchPageContent() {
         merged.mode === "destination" &&
         !merged.trip_rhythm &&
         merged.departure_date &&
-        resolvedStep >= 4
+        resolvedStep >= 4 &&
+        !isCyclingTrip(merged)
       ) {
         merged = mergeTripContext(merged, {
           trip_rhythm: defaultRhythmForTrip(
@@ -348,7 +346,16 @@ function SearchPageContent() {
     if (!initialized || !isCyclingTrip(trip) || step !== 7) return;
     if (results || isSearching) return;
     if (!dataStatus?.search_ready) return;
-    goToCyclingResults();
+    if (
+      trip.tourist_region_ids.length === 0 &&
+      trip.exploration_scope !== "island"
+    ) {
+      return;
+    }
+    void handleSearch({
+      ...getSearchParams(),
+      activities: [...CYCLING_TAXONOMY_SLUGS],
+    });
   }, [
     initialized,
     trip.activity,
@@ -609,11 +616,10 @@ function SearchPageContent() {
   const isDestinationFlow = trip.mode === "destination";
   const isCyclingFlow = isCyclingTrip(trip);
   const skipRegionsStep = trip.exploration_scope === "island";
-  const showScopeStep = isDestinationFlow && !isCyclingFlow && step === 2;
+  const showScopeStep = isDestinationFlow && step === 2;
   const showOverviewStep = isDestinationFlow && !isCyclingFlow && step === 3;
   const showRhythmStep = isDestinationFlow && !isCyclingFlow && step === 4;
-  const showRegionsStep =
-    isDestinationFlow && !isCyclingFlow && step === 5 && !skipRegionsStep;
+  const showRegionsStep = isDestinationFlow && step === 5 && !skipRegionsStep;
   const showActivitiesStep =
     isDestinationFlow && !isCyclingFlow ? step === 6 : !isDestinationFlow && step === 2;
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
@@ -669,9 +675,8 @@ function SearchPageContent() {
   );
 
   useEffect(() => {
-    if (!initialized || !isDestinationFlow || step !== 5 || !trip.trip_rhythm) {
-      return;
-    }
+    if (!initialized || !isDestinationFlow || step !== 5) return;
+    if (!isCyclingFlow && !trip.trip_rhythm) return;
 
     const label = trip.destination_label ?? trip.destination ?? "";
     if (!label || !trip.departure_date) return;
@@ -1194,7 +1199,7 @@ function SearchPageContent() {
     });
     const tripParams = tripContextToParams(trip);
     tripParams.set("build_id", buildId);
-    const path = isCyclingFlow ? "/app/cycling/destination" : "/app/destination";
+    const path = "/app/destination";
     router.push(`${path}?${tripParams.toString()}`);
   }
 
@@ -1337,7 +1342,9 @@ function SearchPageContent() {
               : showRhythmStep
                 ? t("search.titleRhythm")
                 : showRegionsStep
-                  ? t("search.titleRegions")
+                  ? isCyclingFlow
+                    ? t("search.titleCyclingRegions")
+                    : t("search.titleRegions")
                   : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
@@ -1352,7 +1359,9 @@ function SearchPageContent() {
               : showRhythmStep
                 ? t("search.subtitleRhythm")
                 : showRegionsStep
-                  ? t("search.subtitleRegions")
+                  ? isCyclingFlow
+                    ? t("search.subtitleCyclingRegions")
+                    : t("search.subtitleRegions")
                   : t("search.subtitleActivities")}
       </p>
 
@@ -1364,7 +1373,7 @@ function SearchPageContent() {
         skipActivitiesStep={isCyclingFlow}
         cyclingMode={isCyclingFlow}
         onStep={(s) => {
-          if (isCyclingFlow && s !== 7 && s !== 2) {
+          if (isCyclingFlow && (s === 3 || s === 4 || s === 6)) {
             return;
           }
           if (
@@ -1438,6 +1447,15 @@ function SearchPageContent() {
           onSelectScope={setExplorationScope}
           onContinue={() => {
             if (missingDestinationCoords) return;
+            if (isCyclingFlow) {
+              if (skipRegionsStep) {
+                goToCyclingResults();
+              } else {
+                setStep(5);
+                syncUrl(trip, 5);
+              }
+              return;
+            }
             setStep(3);
             syncUrl(trip, 3);
           }}
@@ -1507,12 +1525,13 @@ function SearchPageContent() {
               destinationLabel={
                 trip.destination_label ?? trip.destination ?? ""
               }
+              cyclingMode={isCyclingFlow}
               onChooseWholeIsland={handleWholeIslandChoice}
               onContinue={goToActivitiesStep}
               onSkip={goToActivitiesStep}
               onBack={() => {
-                setStep(4);
-                syncUrl(trip, 4);
+                setStep(2);
+                syncUrl(trip, 2);
               }}
             />
           )}

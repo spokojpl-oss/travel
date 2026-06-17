@@ -155,6 +155,9 @@ export const en: Messages = {
   search: {
     breadcrumb: "Search results",
     titleResults: "Search results",
+    titleCyclingRegions: "Choose a cycling region",
+    subtitleCyclingRegions:
+      "Compare areas for cycling — elevation, rentals, beaches, and lodging bases.",
     titleCyclingResults: "Cycling regions",
     subtitleCyclingResults:
       "Pick a cycling base — routes, elevation profiles, and region info for road, gravel, and MTB.",
