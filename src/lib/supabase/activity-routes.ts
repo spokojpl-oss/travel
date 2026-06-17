@@ -1,5 +1,11 @@
 import type { ActivityCategory, ActivityRoute } from "@/types/activities";
 import type { CyclingRouteFilters } from "@/lib/activities/cycling/types";
+import {
+  lineStringGeoJson,
+  pointGeoJson,
+  wktLineStringToGeoJson,
+  wktPointToGeoJson,
+} from "@/lib/activities/cycling/geometry";
 
 export function parseActivityRouteRow(row: ActivityRoute): ActivityRoute {
   return {
@@ -46,18 +52,25 @@ export function parseRouteGeometry(
 ): Array<{ lat: number; lng: number }> {
   if (!geometry) return [];
 
+  let value: unknown = geometry;
   if (typeof geometry === "string") {
-    const wktMatch = geometry.match(/LINESTRING\s*\(([^)]+)\)/i);
-    if (wktMatch) {
-      return wktMatch[1]!.split(",").map((pair) => {
-        const [lng, lat] = pair.trim().split(/\s+/).map(Number);
-        return { lat, lng };
-      });
+    if (geometry.trim().startsWith("{")) {
+      try {
+        value = JSON.parse(geometry) as unknown;
+      } catch {
+        /* fall through to WKT */
+      }
+    }
+    if (typeof value === "string") {
+      const geo = wktLineStringToGeoJson(value);
+      if (geo) {
+        return geo.coordinates.map(([lng, lat]) => ({ lat, lng }));
+      }
     }
   }
 
-  if (typeof geometry === "object" && geometry !== null) {
-    const geo = geometry as {
+  if (typeof value === "object" && value !== null) {
+    const geo = value as {
       type?: string;
       coordinates?: number[][];
     };

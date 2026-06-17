@@ -1,5 +1,10 @@
 import type { ActivityType } from "@/types/activities";
 import type { ElevationPoint } from "@/types/activities";
+import {
+  lineStringGeoJson,
+  pointGeoJson,
+  type GeoJsonLineString,
+} from "@/lib/activities/cycling/geometry";
 
 const ORS_PROFILES: Partial<Record<ActivityType, string>> = {
   cycling_road: "cycling-road",
@@ -73,6 +78,10 @@ export async function generateCyclingRoute(input: GenerateInput) {
   const coords = feature.geometry.coordinates;
 
   const geometryWkt = `LINESTRING(${coords.map((c) => `${c[0]} ${c[1]}`).join(", ")})`;
+  const geometryGeoJson: GeoJsonLineString = {
+    type: "LineString",
+    coordinates: coords.map(([lng, lat]) => [lng, lat]),
+  };
 
   const elevation_profile: ElevationPoint[] = coords.map((c, i) => ({
     km: (i * (summary.distance / coords.length)) / 1000,
@@ -85,6 +94,7 @@ export async function generateCyclingRoute(input: GenerateInput) {
     elevation_loss_m: Math.round(feature.properties.descent ?? 0),
     surface_mix: null,
     geometryWkt,
+    geometryGeoJson,
     elevation_profile,
   };
 }

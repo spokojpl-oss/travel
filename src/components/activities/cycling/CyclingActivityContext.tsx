@@ -29,6 +29,8 @@ type CyclingActivityContextValue = {
   showCyclOsm: boolean;
   setShowCyclOsm: (value: boolean) => void;
   refreshRoutes: () => Promise<void>;
+  generateRoute: () => Promise<void>;
+  generating: boolean;
   routePaths: Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
 };
 
@@ -38,9 +40,11 @@ const CyclingActivityContext = createContext<CyclingActivityContextValue | null>
 
 export function CyclingActivityProvider({
   destinationId,
+  destinationCenter,
   children,
 }: {
   destinationId: string;
+  destinationCenter?: { lat: number; lng: number } | null;
   children: ReactNode;
 }) {
   const [filters, setFilters] = useState<CyclingRouteFilters>({});
@@ -50,6 +54,8 @@ export function CyclingActivityProvider({
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [planRouteIds, setPlanRouteIds] = useState<Set<string>>(new Set());
   const [showCyclOsm, setShowCyclOsm] = useState(false);
+
+  const [generating, setGenerating] = useState(false);
 
   const refreshRoutes = useCallback(async () => {
     setLoading(true);
@@ -91,6 +97,42 @@ export function CyclingActivityProvider({
     });
   }, []);
 
+  const generateRoute = useCallback(async () => {
+    if (!destinationCenter) {
+      setError("Brak współrzędnych destynacji — nie można wygenerować trasy.");
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/activities/cycling/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationId,
+          startLat: destinationCenter.lat,
+          startLng: destinationCenter.lng,
+          targetDistanceKm: 45,
+          activityType: "cycling_road",
+          loop: true,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "Generowanie trasy nie powiodło się",
+        );
+      }
+      await refreshRoutes();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Błąd generowania trasy");
+    } finally {
+      setGenerating(false);
+    }
+  }, [destinationCenter, destinationId, refreshRoutes]);
+
   const routePaths = useMemo(
     () =>
       routes.map((route) => ({
@@ -115,6 +157,8 @@ export function CyclingActivityProvider({
       showCyclOsm,
       setShowCyclOsm,
       refreshRoutes,
+      generateRoute,
+      generating,
       routePaths,
     }),
     [
@@ -127,6 +171,8 @@ export function CyclingActivityProvider({
       planRouteIds,
       showCyclOsm,
       refreshRoutes,
+      generateRoute,
+      generating,
       routePaths,
       togglePlanRoute,
     ],

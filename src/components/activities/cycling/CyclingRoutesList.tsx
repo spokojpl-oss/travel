@@ -25,6 +25,8 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     setShowCyclOsm,
     routePaths,
     refreshRoutes,
+    generateRoute,
+    generating,
   } = useCyclingActivity();
 
   const { locale } = useLocale();
@@ -81,9 +83,19 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         <CardHeader
           title="Trasy rowerowe"
           action={
-            <Button size="sm" variant="ghost" onClick={() => void refreshRoutes()}>
-              Odśwież
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={generating}
+                onClick={() => void generateRoute()}
+              >
+                {generating ? "Generuję…" : "Wygeneruj trasę"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => void refreshRoutes()}>
+                Odśwież
+              </Button>
+            </div>
           }
         />
         <CardBody className="space-y-3">
@@ -91,8 +103,8 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
           {error && <p className="text-sm text-danger">{error}</p>}
           {!loading && !error && routes.length === 0 && (
             <p className="text-sm text-text-secondary">
-              Brak tras w bazie dla tej destynacji. Uruchom scraper OSM lub
-              wygeneruj trasę przez API.
+              Brak tras w bazie. Kliknij <strong>Wygeneruj trasę</strong> (wymaga
+              ORS_API_KEY) albo uruchom scraper OSM lokalnie.
             </p>
           )}
           {routes.map((route) => (

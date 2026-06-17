@@ -13,6 +13,7 @@
     "scrape:europe": "node_modules/.bin/tsx --env-file=.env.local scripts/initial-scrape.ts -- --europe",
     "audit:osm": "node_modules/.bin/tsx --env-file=.env.local scripts/audit-europe-coverage.ts",
     "scrape:cycling-osm": "node_modules/.bin/tsx --env-file=.env.local scripts/scrape-osm-cycling.ts",
+    "list:cycling-destinations": "node_modules/.bin/tsx --env-file=.env.local scripts/list-cycling-destinations.ts",
     "seed:europe": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-europe-climate.ts",
     "seed:tourist-regions": "node_modules/.bin/tsx --env-file=.env.local scripts/seed-tourist-regions.ts",
     "generate:airports-sql": "node scripts/generate-airports-sql.mjs",

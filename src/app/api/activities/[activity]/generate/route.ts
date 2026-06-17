@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateCyclingRoute } from "@/lib/activities/cycling/ors-client";
+import { pointGeoJson } from "@/lib/activities/cycling/geometry";
 import type { Json } from "@/types/database";
 
 const Body = z.object({
@@ -52,8 +53,11 @@ export async function POST(
         elevation_loss_m: route.elevation_loss_m,
         surface_mix: route.surface_mix,
         is_loop: parsed.data.loop,
-        start_point: `POINT(${parsed.data.startLng} ${parsed.data.startLat})`,
-        geometry: route.geometryWkt,
+        start_point: pointGeoJson(
+          parsed.data.startLng,
+          parsed.data.startLat,
+        ) as unknown as Json,
+        geometry: route.geometryGeoJson as unknown as Json,
         elevation_profile: route.elevation_profile as unknown as Json,
       })
       .select()

@@ -6,9 +6,14 @@ import { CyclingActivityProvider } from "@/components/activities/cycling/Cycling
 interface Props {
   activity?: string;
   destinationId: string;
+  destinationCenter?: { lat: number; lng: number } | null;
 }
 
-export function ActivityPanel({ activity, destinationId }: Props) {
+export function ActivityPanel({
+  activity,
+  destinationId,
+  destinationCenter,
+}: Props) {
   const mod = getActivityModule(activity);
   if (!mod) return null;
 
@@ -26,7 +31,10 @@ export function ActivityPanel({ activity, destinationId }: Props) {
 
   if (mod.category === "cycling") {
     return (
-      <CyclingActivityProvider destinationId={destinationId}>
+      <CyclingActivityProvider
+        destinationId={destinationId}
+        destinationCenter={destinationCenter}
+      >
         {content}
       </CyclingActivityProvider>
     );

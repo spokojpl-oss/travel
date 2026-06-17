@@ -335,10 +335,10 @@ export type Database = {
           elevation_gain_m: number | null;
           elevation_loss_m: number | null;
           elevation_profile: Json | null;
-          end_point: string | null;
+          end_point: Json | null;
           expires_at: string | null;
           external_url: string | null;
-          geometry: string;
+          geometry: Json;
           highlights: Json | null;
           id: string;
           is_loop: boolean;
@@ -348,7 +348,7 @@ export type Database = {
           preview_image_url: string | null;
           source: Database["public"]["Enums"]["activity_route_source"];
           source_external_id: string | null;
-          start_point: string;
+          start_point: Json;
           surface_mix: Json | null;
         };
         Insert: {
@@ -364,10 +364,10 @@ export type Database = {
           elevation_gain_m?: number | null;
           elevation_loss_m?: number | null;
           elevation_profile?: Json | null;
-          end_point?: string | null;
+          end_point?: Json | null;
           expires_at?: string | null;
           external_url?: string | null;
-          geometry: string;
+          geometry: Json;
           highlights?: Json | null;
           id?: string;
           is_loop?: boolean;
@@ -377,7 +377,7 @@ export type Database = {
           preview_image_url?: string | null;
           source: Database["public"]["Enums"]["activity_route_source"];
           source_external_id?: string | null;
-          start_point: string;
+          start_point: Json;
           surface_mix?: Json | null;
         };
         Update: {
@@ -393,10 +393,10 @@ export type Database = {
           elevation_gain_m?: number | null;
           elevation_loss_m?: number | null;
           elevation_profile?: Json | null;
-          end_point?: string | null;
+          end_point?: Json | null;
           expires_at?: string | null;
           external_url?: string | null;
-          geometry?: string;
+          geometry?: Json;
           highlights?: Json | null;
           id?: string;
           is_loop?: boolean;
@@ -406,7 +406,7 @@ export type Database = {
           preview_image_url?: string | null;
           source?: Database["public"]["Enums"]["activity_route_source"];
           source_external_id?: string | null;
-          start_point?: string;
+          start_point?: Json;
           surface_mix?: Json | null;
         };
         Relationships: [

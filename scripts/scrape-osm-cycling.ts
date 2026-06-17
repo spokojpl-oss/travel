@@ -9,6 +9,10 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/types/database";
 import type { BoundingBox } from "../src/types/domain";
 import {
+  pointGeoJson,
+  wktLineStringToGeoJson,
+} from "../src/lib/activities/cycling/geometry";
+import {
   buildRelationLineString,
   fetchCyclingNetwork,
   indexOverpassElements,
@@ -135,6 +139,12 @@ async function scrapeDestination(
       continue;
     }
 
+    const geometryGeoJson = wktLineStringToGeoJson(geometryWkt);
+    if (!geometryGeoJson) {
+      skipped++;
+      continue;
+    }
+
     const [startLng, startLat] = startCoords;
     const activityType = mapNetworkToActivityType(tags);
     const sourceExternalId = `osm:relation/${relation.id}`;
@@ -150,8 +160,8 @@ async function scrapeDestination(
       description: tags.description ?? tags.note ?? null,
       distance_m: distanceM,
       is_loop: false,
-      start_point: `POINT(${startLng} ${startLat})`,
-      geometry: geometryWkt,
+      start_point: pointGeoJson(startLng, startLat),
+      geometry: geometryGeoJson,
       popularity_score:
         tags.network === "icn" || tags.network === "ncn"
           ? 80

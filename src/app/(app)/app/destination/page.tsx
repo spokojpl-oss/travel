@@ -496,6 +496,10 @@ export default function DestinationPage() {
           <ActivityPanel
             activity={activityMode}
             destinationId={destination.id}
+            destinationCenter={{
+              lat: Number(destination.center_lat),
+              lng: Number(destination.center_lon),
+            }}
           />
         </section>
       )}
