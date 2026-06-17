@@ -11,7 +11,7 @@ import { SEED_TOURIST_REGIONS_CYCLING_EUROPE } from "./tourist-regions-seed-cycl
 import { SEED_TOURIST_REGIONS_CYCLING_MECCA } from "./tourist-regions-seed-cycling-mecca";
 import { SEED_TOURIST_REGIONS_PORTUGAL } from "./tourist-regions-seed-portugal";
 
-export const SEED_TOURIST_REGIONS: TouristRegion[] = [
+export const SEED_TOURIST_REGIONS_RAW: TouristRegion[] = [
   {
     "id": "al-ksamil",
     "destination_keys": [
@@ -858,3 +858,25 @@ export const SEED_TOURIST_REGIONS: TouristRegion[] = [
   ...SEED_TOURIST_REGIONS_CYCLING_EUROPE,
   ...SEED_TOURIST_REGIONS_CYCLING_MECCA,
 ] as TouristRegion[];
+
+/** Ostatni wpis wygrywa przy tym samym `id`; przy konflikcie `slug` zostaje pierwszy. */
+export function dedupeTouristRegionSeeds(regions: TouristRegion[]): TouristRegion[] {
+  const byId = new Map<string, TouristRegion>();
+  for (const region of regions) {
+    byId.set(region.id, region);
+  }
+
+  const slugOwner = new Map<string, string>();
+  const result: TouristRegion[] = [];
+  for (const region of byId.values()) {
+    const existingId = slugOwner.get(region.slug);
+    if (existingId && existingId !== region.id) {
+      continue;
+    }
+    slugOwner.set(region.slug, region.id);
+    result.push(region);
+  }
+  return result;
+}
+
+export const SEED_TOURIST_REGIONS = dedupeTouristRegionSeeds(SEED_TOURIST_REGIONS_RAW);

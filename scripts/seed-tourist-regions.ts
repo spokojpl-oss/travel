@@ -2,7 +2,10 @@ import { seedTouristRegionsFromDefaults } from "@/lib/destinations/tourist-regio
 
 async function main() {
   const result = await seedTouristRegionsFromDefaults();
-  console.log(`Seeded ${result.upserted} tourist regions.`);
+  console.log(
+    `Seeded ${result.upserted} tourist regions` +
+      (result.skipped > 0 ? ` (${result.skipped} duplicate entries skipped).` : "."),
+  );
 }
 
 main().catch((error) => {

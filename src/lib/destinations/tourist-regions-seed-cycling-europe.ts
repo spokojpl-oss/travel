@@ -556,7 +556,7 @@ export const SEED_TOURIST_REGIONS_CYCLING_EUROPE: TouristRegion[] = [
   {
     id: "cy-it-dolomites-cortina",
     destination_keys: ["cortina", "cortina d'ampezzo", "dolomity", "wlochy", "italy"],
-    slug: "dolomites-cortina-cycling",
+    slug: "cy-dolomites-cortina-cycling",
     name_pl: "Dolomity — Cortina",
     name_en: "Dolomites — Cortina",
     character: "wild",
@@ -1601,7 +1601,7 @@ export const SEED_TOURIST_REGIONS_CYCLING_EUROPE: TouristRegion[] = [
   {
     id: "cy-gr-zagori-ext",
     destination_keys: ["zagori", "ioannina", "epirus", "grecja", "greece"],
-    slug: "zagori-cycling",
+    slug: "cy-zagori-epirus-cycling",
     name_pl: "Zagori — Epir",
     name_en: "Zagori — Epirus",
     character: "wild",

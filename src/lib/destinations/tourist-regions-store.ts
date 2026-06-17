@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SEED_TOURIST_REGIONS } from "@/lib/destinations/tourist-regions-seed";
+import { SEED_TOURIST_REGIONS, dedupeTouristRegionSeeds, SEED_TOURIST_REGIONS_RAW } from "@/lib/destinations/tourist-regions-seed";
 import {
   findTouristRegionsInCatalog,
   mapDbRowToTouristRegion,
@@ -193,12 +193,17 @@ export async function upsertTouristRegionFromSeed(
 
 export async function seedTouristRegionsFromDefaults(): Promise<{
   upserted: number;
+  skipped: number;
 }> {
+  const regions = dedupeTouristRegionSeeds(SEED_TOURIST_REGIONS_RAW);
   let upserted = 0;
-  for (let i = 0; i < SEED_TOURIST_REGIONS.length; i++) {
-    await upsertTouristRegionFromSeed(SEED_TOURIST_REGIONS[i]!, i);
+  for (let i = 0; i < regions.length; i++) {
+    await upsertTouristRegionFromSeed(regions[i]!, i);
     upserted += 1;
   }
   invalidateTouristRegionsCache();
-  return { upserted };
+  return {
+    upserted,
+    skipped: SEED_TOURIST_REGIONS_RAW.length - regions.length,
+  };
 }
