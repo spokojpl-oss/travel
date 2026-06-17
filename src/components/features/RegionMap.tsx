@@ -113,6 +113,10 @@ export function RegionMap({
     if (!containerRef.current || points.length === 0) return;
 
     let cancelled = false;
+    const t0 = Date.now();
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H4',location:'RegionMap.tsx:init:start',message:'RegionMap init started',data:{pointCount:points.length,pointsKey},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     const clearOverlays = () => {
       for (const overlay of overlaysRef.current) {
@@ -188,6 +192,9 @@ export function RegionMap({
         mapRef.current = map;
         setMapReady(true);
         setMapError(null);
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H4',location:'RegionMap.tsx:init:done',message:'RegionMap init finished',data:{elapsedMs:Date.now()-t0,pointCount:points.length},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       })
       .catch((error) => {
         setMapError(

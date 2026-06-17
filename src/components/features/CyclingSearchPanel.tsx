@@ -45,6 +45,10 @@ export function CyclingSearchPanel({
     setLoading(true);
     setError(null);
     setDestinationId(null);
+    const t0 = Date.now();
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingSearchPanel.tsx:resolve:start',message:'resolve destination started',data:{destinationLabel},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     fetch("/api/activities/cycling/resolve-destination", {
       method: "POST",
@@ -71,6 +75,9 @@ export function CyclingSearchPanel({
         }
         setDestinationId(data.id);
         setCenter(data.center);
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingSearchPanel.tsx:resolve:done',message:'resolve destination finished',data:{elapsedMs:Date.now()-t0,hasId:Boolean(data.id)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       })
       .catch((e) => {
         if (cancelled) return;
@@ -112,14 +119,16 @@ export function CyclingSearchPanel({
       {regionCenters.length === 1 && (
         <p className="mb-4 text-sm text-text-secondary">
           Trasy w promieniu ±
-          {regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu.
+          {regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu
+          — ok. 2/3 nad morzem i 1/3 w głąb lądu.
         </p>
       )}
       {regionCenters.length > 1 && regionBatchSplit && (
         <p className="mb-4 text-sm text-text-secondary">
           {regionCenters.length} wybrane rejony — startowo 20 tras dla całej
           destynacji, potem po {BATCH_ROUTE_COUNT} tras na partię (
-          {regionBatchSplit} na rejon).
+          {regionBatchSplit} na rejon). W każdym rejonie: 2 trasy przy morzu na
+          1 w głąb lądu.
         </p>
       )}
 

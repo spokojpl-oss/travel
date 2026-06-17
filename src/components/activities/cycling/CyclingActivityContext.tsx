@@ -30,7 +30,11 @@ import {
   buildRegionBatchTargets,
 } from "@/lib/activities/cycling/route-distribution";
 import {
-  buildRegionTopUpTargets,
+  buildTerrainAwareTopUpTargets,
+  expandRegionTargetsWithTerrain,
+  inlandScrapeCentersFromRegions,
+} from "@/lib/activities/cycling/route-terrain";
+import {
   formatRegionBatchSummary,
 } from "@/lib/activities/cycling/region-route-balance";
 import {
@@ -41,6 +45,8 @@ import {
   buildRoutesQueryParams,
   parseRouteGeometry,
 } from "@/lib/supabase/activity-routes";
+import { distanceKm } from "@/lib/search/geo-clustering";
+import type { GeoPoint } from "@/types/domain";
 
 const ROUTES_FETCH_LIMIT = 50;
 
@@ -172,7 +178,36 @@ export function CyclingActivityProvider({
     [regionCenters, regionCenter, regionRadiusKm],
   );
 
+  const beachPoints = useMemo(
+    (): GeoPoint[] =>
+      beachAttractions.map((a) => ({
+        lat: Number(a.lat),
+        lon: Number(a.lon),
+      })),
+    [beachAttractions],
+  );
+
+  const beachesByRegion = useMemo(() => {
+    const map = new Map<string, GeoPoint[]>();
+    for (const region of resolvedRegionCenters) {
+      const key = region.label ?? `${region.lat},${region.lng}`;
+      map.set(
+        key,
+        beachPoints.filter(
+          (b) =>
+            distanceKm(b, { lat: region.lat, lon: region.lng }) <=
+            (region.radiusKm ?? regionRadiusKm) + 6,
+        ),
+      );
+    }
+    return map;
+  }, [resolvedRegionCenters, beachPoints, regionRadiusKm]);
+
   const refreshRoutes = useCallback(async (options?: { silent?: boolean }) => {
+    const t0 = Date.now();
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingActivityContext.tsx:refreshRoutes:start',message:'refreshRoutes started',data:{silent:Boolean(options?.silent),destinationId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!options?.silent) setLoading(true);
     setError(null);
     try {
@@ -214,6 +249,9 @@ export function CyclingActivityProvider({
         ),
       );
       setRoutes(nextRoutes);
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H2',location:'CyclingActivityContext.tsx:refreshRoutes:done',message:'refreshRoutes finished',data:{count:nextRoutes.length,elapsedMs:Date.now()-t0,silent:Boolean(options?.silent)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return nextRoutes;
     } catch (e) {
       const message = e instanceof Error ? e.message : "Błąd pobierania tras";
@@ -232,31 +270,95 @@ export function CyclingActivityProvider({
   const runKomootScrapeInBackground = useCallback(() => {
     if (komootScrapeStartedRef.current || !routeCenter) return;
     komootScrapeStartedRef.current = true;
-    void fetch("/api/activities/cycling/scrape-komoot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        destinationId,
-        centerLat: routeCenter.lat,
-        centerLng: routeCenter.lng,
-        radiusKm: regionRadiusKm,
-        destinationLabel,
-      }),
-    })
-      .then(() => refreshRoutes({ silent: true }))
-      .catch(() => null);
-  }, [destinationId, destinationLabel, refreshRoutes, routeCenter, regionRadiusKm]);
 
-  const runOsmScrapeInBackground = useCallback(() => {
-    if (scrapeStartedRef.current) return;
-
-    const scrapeTargets =
+    const coastalTargets =
       resolvedRegionCenters.length > 0
         ? resolvedRegionCenters.map((region) => ({
             centerLat: region.lat,
             centerLng: region.lng,
             radiusKm: region.radiusKm ?? regionRadiusKm,
           }))
+        : [
+            {
+              centerLat: routeCenter.lat,
+              centerLng: routeCenter.lng,
+              radiusKm: regionRadiusKm,
+            },
+          ];
+
+    const inlandTargets =
+      resolvedRegionCenters.length > 0
+        ? inlandScrapeCentersFromRegions(resolvedRegionCenters, beachPoints).map(
+            (inland) => ({
+              centerLat: inland.lat,
+              centerLng: inland.lng,
+              radiusKm: Math.round(inland.radiusKm * 0.85),
+            }),
+          )
+        : [];
+
+    void Promise.all([
+      ...coastalTargets.map((target) =>
+        fetch("/api/activities/cycling/scrape-komoot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinationId,
+            centerLat: target.centerLat,
+            centerLng: target.centerLng,
+            radiusKm: target.radiusKm,
+            destinationLabel,
+            maxTours: 10,
+          }),
+        }),
+      ),
+      ...inlandTargets.map((target) =>
+        fetch("/api/activities/cycling/scrape-komoot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinationId,
+            centerLat: target.centerLat,
+            centerLng: target.centerLng,
+            radiusKm: target.radiusKm,
+            destinationLabel,
+            maxTours: 6,
+          }),
+        }),
+      ),
+    ])
+      .then(() => refreshRoutes({ silent: true }))
+      .catch(() => null);
+  }, [
+    destinationId,
+    destinationLabel,
+    refreshRoutes,
+    routeCenter,
+    regionRadiusKm,
+    resolvedRegionCenters,
+    beachPoints,
+  ]);
+
+  const runOsmScrapeInBackground = useCallback(() => {
+    if (scrapeStartedRef.current) return;
+
+    const scrapeTargets =
+      resolvedRegionCenters.length > 0
+        ? [
+            ...resolvedRegionCenters.map((region) => ({
+              centerLat: region.lat,
+              centerLng: region.lng,
+              radiusKm: region.radiusKm ?? regionRadiusKm,
+            })),
+            ...inlandScrapeCentersFromRegions(
+              resolvedRegionCenters,
+              beachPoints,
+            ).map((inland) => ({
+              centerLat: inland.lat,
+              centerLng: inland.lng,
+              radiusKm: inland.radiusKm,
+            })),
+          ]
         : routeCenter
           ? [
               {
@@ -294,6 +396,7 @@ export function CyclingActivityProvider({
     routeCenter,
     regionRadiusKm,
     runKomootScrapeInBackground,
+    beachPoints,
   ]);
 
   const generateRoutes = useCallback(
@@ -314,6 +417,7 @@ export function CyclingActivityProvider({
         count: number;
         maxRadiusKm: number;
         label?: string;
+        terrain?: "coastal" | "inland";
       }> = [];
       let summary: string | null = null;
 
@@ -325,14 +429,20 @@ export function CyclingActivityProvider({
           label: r.label,
         }));
 
-        const targets =
+        const baseTargets =
           options?.topUpOnly === true
-            ? buildRegionTopUpTargets(
+            ? buildTerrainAwareTopUpTargets(
                 routes,
                 resolvedRegionCenters,
                 totalCount,
+                beachPoints,
               )
             : buildRegionBatchTargets(regionInputs, totalCount);
+
+        const targets = expandRegionTargetsWithTerrain(
+          baseTargets,
+          beachesByRegion,
+        );
 
         if (targets.length === 0) return;
 
@@ -342,26 +452,47 @@ export function CyclingActivityProvider({
           count: t.count,
           maxRadiusKm: t.maxRadiusKm ?? regionRadiusKm,
           label: t.label,
+          terrain: t.terrain,
         }));
         summary = targets
-          .map((t) => (t.label && t.count > 0 ? `${t.label}: ${t.count}` : null))
+          .map((t) => {
+            if (!t.label || t.count <= 0) return null;
+            const kind =
+              t.terrain === "inland" ? "ląd" : "morze";
+            return `${t.label} (${kind}): ${t.count}`;
+          })
           .filter(Boolean)
           .join(" · ");
       } else {
-        regionsPayload = [
-          {
-            centerLat: destCenter.lat,
-            centerLng: destCenter.lng,
-            count: totalCount,
-            maxRadiusKm: DEFAULT_DESTINATION_RADIUS_KM,
-          },
-        ];
+        const expanded = expandRegionTargetsWithTerrain(
+          [
+            {
+              centerLat: destCenter.lat,
+              centerLng: destCenter.lng,
+              count: totalCount,
+              maxRadiusKm: DEFAULT_DESTINATION_RADIUS_KM,
+            },
+          ],
+          beachesByRegion,
+        );
+        regionsPayload = expanded.map((t) => ({
+          centerLat: t.centerLat,
+          centerLng: t.centerLng,
+          count: t.count,
+          maxRadiusKm: t.maxRadiusKm ?? DEFAULT_DESTINATION_RADIUS_KM,
+          label: t.label,
+          terrain: t.terrain,
+        }));
       }
 
       setGenerating(true);
       setGeneratingCount(regionsPayload.reduce((sum, r) => sum + r.count, 0));
       setRegionBatchSummary(summary);
       setError(null);
+      const genT0 = Date.now();
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:generateRoutes:start',message:'generateRoutes started',data:{totalJobs:regionsPayload.reduce((s,r)=>s+r.count,0),topUpOnly:Boolean(options?.topUpOnly)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       try {
         const res = await fetch("/api/activities/cycling/generate-batch", {
           method: "POST",
@@ -404,6 +535,9 @@ export function CyclingActivityProvider({
 
         await refreshRoutes({ silent: true });
         runOsmScrapeInBackground();
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:generateRoutes:done',message:'generateRoutes finished',data:{elapsedMs:Date.now()-genT0},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       } catch (e) {
         setError(e instanceof Error ? e.message : "Błąd generowania tras");
       } finally {
@@ -418,7 +552,9 @@ export function CyclingActivityProvider({
       regionRadiusKm,
       resolvedRegionCenters,
       routeCenter,
-      routes.length,
+      routes,
+      beachPoints,
+      beachesByRegion,
       runOsmScrapeInBackground,
     ],
   );
@@ -428,15 +564,20 @@ export function CyclingActivityProvider({
     if (!destinationCenter && !routeCenter) return;
 
     seededDestinationRef.current = destinationId;
+    const t0 = Date.now();
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:ensureInitialRoutes:start',message:'ensureInitialRoutes started',data:{destinationId,regionCount:resolvedRegionCenters.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     const currentRoutes = await refreshRoutes();
     runOsmScrapeInBackground();
 
     if (resolvedRegionCenters.length > 1) {
-      const topUp = buildRegionTopUpTargets(
+      const topUp = buildTerrainAwareTopUpTargets(
         currentRoutes,
         resolvedRegionCenters,
         INITIAL_DESTINATION_ROUTE_COUNT,
+        beachPoints,
       );
       if (topUp.length === 0) return;
       await generateRoutes({
@@ -447,12 +588,22 @@ export function CyclingActivityProvider({
       return;
     }
 
-    if (currentRoutes.length >= INITIAL_DESTINATION_ROUTE_COUNT) return;
+    if (currentRoutes.length >= INITIAL_DESTINATION_ROUTE_COUNT) {
+      const coastalCount = currentRoutes.filter(
+        (r) => !/ · ląd\b| · inland\b/i.test(r.name),
+      ).length;
+      const inlandCount = currentRoutes.length - coastalCount;
+      const requiredInland = Math.floor(coastalCount / 2);
+      if (inlandCount >= requiredInland) return;
+    }
 
     await generateRoutes({
       count: INITIAL_DESTINATION_ROUTE_COUNT,
       mode: "destination",
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H1',location:'CyclingActivityContext.tsx:ensureInitialRoutes:done',message:'ensureInitialRoutes finished',data:{elapsedMs:Date.now()-t0,initialCount:currentRoutes.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   }, [
     destinationId,
     destinationCenter,
@@ -461,6 +612,7 @@ export function CyclingActivityProvider({
     generateRoutes,
     refreshRoutes,
     runOsmScrapeInBackground,
+    beachPoints,
   ]);
 
   const togglePlanRoute = useCallback(

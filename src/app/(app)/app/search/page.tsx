@@ -20,6 +20,10 @@ import { buildAttractionOverviewFromClusters } from "@/lib/maps/build-attraction
 import { getTouristRegionById, regionDisplayName, regionMapRadiusKm } from "@/lib/destinations/tourist-regions";
 import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
+import {
+  defaultCyclingActivitySlugs,
+  splitTaxonomyForCycling,
+} from "@/lib/activities/cycling/constants";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
 import { beachAttractionsFromPool, isBeachAttraction } from "@/lib/plan/cycling-plan";
 import {
@@ -282,6 +286,8 @@ function SearchPageContent() {
     if (restored) {
       setSelectedActivities(new Set(restored.activities));
       clearSearchRestoreState();
+    } else if (isCyclingTrip(merged)) {
+      setSelectedActivities(new Set(defaultCyclingActivitySlugs()));
     }
 
     if (Object.keys(fromUrl).length > 0) {
@@ -359,6 +365,10 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!initialized || interestsMatchedRef.current || taxonomy.length === 0) return;
+    if (isCyclingTrip(trip)) {
+      interestsMatchedRef.current = true;
+      return;
+    }
     if (!trip.interests?.trim()) return;
 
     const matched = matchActivitySlugsFromText(trip.interests, taxonomy);
@@ -366,7 +376,7 @@ function SearchPageContent() {
       setSelectedActivities(new Set(matched));
       interestsMatchedRef.current = true;
     }
-  }, [initialized, taxonomy, trip.interests]);
+  }, [initialized, taxonomy, trip.interests, trip.activity]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -718,6 +728,9 @@ function SearchPageContent() {
   ]);
 
   const { primaryGroups, optionalGroups } = useMemo(() => {
+    if (isCyclingTrip(trip) && taxonomy.length > 0) {
+      return splitTaxonomyForCycling(taxonomy);
+    }
     if (!trip.trip_rhythm) {
       return { primaryGroups: taxonomy, optionalGroups: [] as typeof taxonomy };
     }
@@ -727,7 +740,7 @@ function SearchPageContent() {
       return { primaryGroups: taxonomy, optionalGroups: [] as typeof taxonomy };
     }
     return { primaryGroups: primary, optionalGroups: optional };
-  }, [taxonomy, trip.trip_rhythm]);
+  }, [taxonomy, trip.trip_rhythm, trip.activity]);
 
   function syncUrl(nextTrip: TripContext, nextStep?: SearchStep) {
     const p = tripContextToParams(nextTrip);
@@ -788,17 +801,20 @@ function SearchPageContent() {
   }
 
   function goToActivitiesStep() {
-    let nextActivities = selectedActivities;
-    if (trip.trip_rhythm && selectedActivities.size === 0) {
-      nextActivities = new Set(
-        suggestActivitiesFromRhythm({
-          rhythm: trip.trip_rhythm,
-          counts: activityCounts,
-          weather: discovery?.weather ?? null,
-          passengers: trip.passengers,
-        }),
-      );
-      setSelectedActivities(nextActivities);
+    if (selectedActivities.size === 0) {
+      const slugs = isCyclingTrip(trip)
+        ? defaultCyclingActivitySlugs()
+        : trip.trip_rhythm
+          ? suggestActivitiesFromRhythm({
+              rhythm: trip.trip_rhythm,
+              counts: activityCounts,
+              weather: discovery?.weather ?? null,
+              passengers: trip.passengers,
+            })
+          : [];
+      if (slugs.length > 0) {
+        setSelectedActivities(new Set(slugs));
+      }
     }
     setStep(6);
     syncUrl(trip, 6);
@@ -820,18 +836,22 @@ function SearchPageContent() {
       .map((id) => scoredRegions.find((r) => r.id === id))
       .filter((r): r is ScoredTouristRegion => r != null);
 
-    if (rhythm && selectedRegions.length > 0) {
-      const extraSlugs = [
-        ...new Set(selectedRegions.flatMap((r) => r.activity_slugs)),
-      ];
-      const slugs = suggestActivitiesFromRhythm({
-        rhythm,
-        counts: activityCounts,
-        weather: discovery?.weather ?? null,
-        passengers: trip.passengers,
-        extraSlugs,
-      });
-      setSelectedActivities(new Set(slugs));
+    if (selectedRegions.length > 0) {
+      if (isCyclingTrip(trip)) {
+        setSelectedActivities(new Set(defaultCyclingActivitySlugs()));
+      } else if (rhythm) {
+        const extraSlugs = [
+          ...new Set(selectedRegions.flatMap((r) => r.activity_slugs)),
+        ];
+        const slugs = suggestActivitiesFromRhythm({
+          rhythm,
+          counts: activityCounts,
+          weather: discovery?.weather ?? null,
+          passengers: trip.passengers,
+          extraSlugs,
+        });
+        setSelectedActivities(new Set(slugs));
+      }
     }
 
     const center = centroidOfRegions(selectedRegions);
@@ -857,16 +877,21 @@ function SearchPageContent() {
       tourist_region_ids: [] as string[],
       tourist_region_id: null as string | null,
     };
-    if (nextTrip.trip_rhythm && selectedActivities.size === 0) {
-      nextActivities = new Set(
-        suggestActivitiesFromRhythm({
-          rhythm: nextTrip.trip_rhythm,
-          counts: activityCounts,
-          weather: discovery?.weather ?? null,
-          passengers: nextTrip.passengers,
-        }),
-      );
-      setSelectedActivities(nextActivities);
+    if (selectedActivities.size === 0) {
+      const slugs = isCyclingTrip(nextTrip)
+        ? defaultCyclingActivitySlugs()
+        : nextTrip.trip_rhythm
+          ? suggestActivitiesFromRhythm({
+              rhythm: nextTrip.trip_rhythm,
+              counts: activityCounts,
+              weather: discovery?.weather ?? null,
+              passengers: nextTrip.passengers,
+            })
+          : [];
+      if (slugs.length > 0) {
+        nextActivities = new Set(slugs);
+        setSelectedActivities(nextActivities);
+      }
     }
     setTrip(nextTrip);
     setStep(6);
@@ -1788,9 +1813,16 @@ function SearchPageContent() {
           <Card id="search-activities" className="mb-8 scroll-mt-6">
             <CardHeader title={t("search.activities")} />
             <CardBody>
-              {trip.trip_rhythm && isDestinationFlow && (
+              {trip.trip_rhythm && isDestinationFlow && !isCyclingTrip(trip) && (
                 <p className="mb-4 text-sm text-text-secondary">
                   {t("search.activitiesFromRhythm")}
+                </p>
+              )}
+              {isCyclingTrip(trip) && (
+                <p className="mb-4 text-sm text-text-secondary">
+                  {locale === "en"
+                    ? "We pre-selected bike rentals and beaches. Expand “Other activities” for more options."
+                    : "Domyślnie zaznaczyliśmy wypożyczalnie rowerów i plaże. Więcej opcji znajdziesz w „Inne aktywności”."}
                 </p>
               )}
               {pageLoading && <SkeletonList count={3} />}
@@ -1812,7 +1844,7 @@ function SearchPageContent() {
                   <div key={group.slug} className="mb-6 last:mb-0">
                     <h3 className="mb-3 font-semibold text-text-primary">
                       {locale === "en" ? group.name_en : group.name_pl}
-                      {trip.trip_rhythm && (
+                      {(trip.trip_rhythm || isCyclingTrip(trip)) && (
                         <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-800">
                           {locale === "en" ? "Suggested" : "Sugerowane"}
                         </span>

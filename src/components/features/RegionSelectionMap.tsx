@@ -73,6 +73,7 @@ export function RegionSelectionMap({
   const [mapReady, setMapReady] = useState(false);
 
   const regionsKey = regions.map((r) => r.id).join("|");
+  const viewportInitializedRef = useRef(false);
 
   /** Jednorazowa inicjalizacja mapy — bez niszczenia przy kliknięciu numerka. */
   useEffect(() => {
@@ -223,6 +224,12 @@ export function RegionSelectionMap({
     }
 
     map.fitBounds(bounds, 48);
+    // #region agent log
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    fetch('http://127.0.0.1:7245/ingest/173647fd-e041-4dc5-8254-79e68a12fc0f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d400df'},body:JSON.stringify({sessionId:'d400df',runId:'pre-fix',hypothesisId:'H5',location:'RegionSelectionMap.tsx:fitBounds',message:'fitBounds called',data:{viewportInitialized:viewportInitializedRef.current,regionCount:regions.length,selectedCount:selectedIds.length,focusedId,latSpan:Math.abs(ne.lat()-sw.lat()),lngSpan:Math.abs(ne.lng()-sw.lng()),zoom:map.getZoom()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    viewportInitializedRef.current = true;
   }, [mapReady, regions, regionsKey, focusedId, selectedIds, locale, t]);
 
   if (regions.length === 0) return null;

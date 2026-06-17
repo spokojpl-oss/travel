@@ -10,6 +10,8 @@ export type CyclingRouteRegionTarget = {
   count: number;
   maxRadiusKm?: number;
   label?: string;
+  /** coastal = nad morzem (domyślnie), inland = w głąb lądu */
+  terrain?: "coastal" | "inland";
 };
 
 /** Dzieli `total` tras między `regionCount` rejonów (np. 10 ÷ 3 → 4, 3, 3). */

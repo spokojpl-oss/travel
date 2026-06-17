@@ -67,6 +67,7 @@ type RouteJob = {
   centerLng: number;
   maxRadiusKm: number;
   label?: string;
+  terrain?: "coastal" | "inland";
   globalIndex: number;
 };
 
@@ -141,6 +142,10 @@ async function tryCreateRouteJob(
 
       const typeLabel = job.preset.activityType.replace("cycling_", "");
       const regionSuffix = job.label ? ` · ${job.label}` : "";
+      const terrainSuffix =
+        job.terrain === "inland" && !/ · ląd\b| · inland\b/i.test(regionSuffix)
+          ? " · ląd"
+          : "";
 
       const { data, error } = await supabase
         .from("activity_routes")
@@ -149,7 +154,7 @@ async function tryCreateRouteJob(
           category: "cycling",
           activity_type: job.preset.activityType,
           source: "ors_generated",
-          name: `Trasa ${Math.round(route.distance_m / 1000)} km · ${typeLabel}${regionSuffix}`,
+          name: `Trasa ${Math.round(route.distance_m / 1000)} km · ${typeLabel}${regionSuffix}${terrainSuffix}`,
           distance_m: route.distance_m,
           elevation_gain_m: route.elevation_gain_m,
           elevation_loss_m: route.elevation_loss_m,
@@ -207,6 +212,7 @@ export async function generateCyclingRoutesBatch({
         centerLng: region.centerLng,
         maxRadiusKm,
         label: region.label,
+        terrain: region.terrain,
         globalIndex,
       };
       globalIndex += 1;

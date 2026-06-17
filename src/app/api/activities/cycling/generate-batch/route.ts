@@ -14,6 +14,7 @@ const regionSchema = z.object({
   count: z.number().int().min(1).max(25),
   maxRadiusKm: z.number().min(5).max(80).optional(),
   label: z.string().optional(),
+  terrain: z.enum(["coastal", "inland"]).optional(),
 });
 
 const bodySchema = z
