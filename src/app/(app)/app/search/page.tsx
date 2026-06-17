@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
 import { RegionResultCard } from "@/components/features/RegionResultCard";
-import { CyclingRegionResultCard } from "@/components/features/CyclingRegionResultCard";
 import {
   SearchStepIndicator,
   TripContextBar,
@@ -52,7 +51,6 @@ import {
   formatTripDateRange,
   formatTravelSummary,
   hasTripParams,
-  isCyclingTrip,
   mergeTripContext,
   matchActivitySlugsFromText,
   daysBetweenIso,
@@ -62,7 +60,6 @@ import {
   type ExplorationScope,
   type TripContext,
 } from "@/lib/search/trip-context";
-import { CYCLING_TAXONOMY_SLUGS } from "@/lib/activities/cycling/constants";
 import {
   clearSearchRestoreState,
   consumeSearchRerunFlag,
@@ -312,62 +309,30 @@ function SearchPageContent() {
         merged.exploration_scope === "island" &&
         resolvedStep === 5
       ) {
-        resolvedStep = isCyclingTrip(merged) ? 7 : 6;
-      }
-
-      if (isCyclingTrip(merged)) {
-        setSelectedActivities(new Set(CYCLING_TAXONOMY_SLUGS));
+        resolvedStep = 6;
       }
 
       setStep(resolvedStep);
 
-      if (merged.mode === "destination" && !merged.trip_rhythm && merged.departure_date) {
-        const skipRegionsOnInit = merged.exploration_scope === "island";
-        const needsRhythmForFamily = resolvedStep >= 4 && !isCyclingTrip(merged);
-        const needsRhythmForCycling =
-          isCyclingTrip(merged) && resolvedStep >= 5 && !skipRegionsOnInit;
-        if (needsRhythmForFamily || needsRhythmForCycling) {
-          merged = mergeTripContext(merged, {
-            trip_rhythm: defaultRhythmForTrip(
-              merged.departure_date,
-              merged.return_date,
-              {
-                includeKids:
-                  !isCyclingTrip(merged) &&
-                  hasChildrenInPassengers(merged.passengers),
-              },
-            ),
-          });
-        }
+      if (
+        merged.mode === "destination" &&
+        !merged.trip_rhythm &&
+        merged.departure_date &&
+        resolvedStep >= 4
+      ) {
+        merged = mergeTripContext(merged, {
+          trip_rhythm: defaultRhythmForTrip(
+            merged.departure_date,
+            merged.return_date,
+            { includeKids: hasChildrenInPassengers(merged.passengers) },
+          ),
+        });
       }
     }
 
     setTrip(merged);
     setInitialized(true);
   }, [initialized, searchParams, locale]);
-
-  useEffect(() => {
-    if (!initialized || !isCyclingTrip(trip) || step !== 7) return;
-    if (results || isSearching) return;
-    if (!dataStatus?.search_ready) return;
-    if (
-      trip.tourist_region_ids.length === 0 &&
-      trip.exploration_scope !== "island"
-    ) {
-      return;
-    }
-    void handleSearch({
-      ...getSearchParams(),
-      activities: [...CYCLING_TAXONOMY_SLUGS],
-    });
-  }, [
-    initialized,
-    trip.activity,
-    step,
-    results,
-    isSearching,
-    dataStatus?.search_ready,
-  ]);
 
   useEffect(() => {
     if (!initialized || interestsMatchedRef.current || taxonomy.length === 0) return;
@@ -618,14 +583,12 @@ function SearchPageContent() {
   }
 
   const isDestinationFlow = trip.mode === "destination";
-  const isCyclingFlow = isCyclingTrip(trip);
   const skipRegionsStep = trip.exploration_scope === "island";
   const showScopeStep = isDestinationFlow && step === 2;
-  const showOverviewStep = isDestinationFlow && !isCyclingFlow && step === 3;
-  const showRhythmStep = isDestinationFlow && !isCyclingFlow && step === 4;
+  const showOverviewStep = isDestinationFlow && step === 3;
+  const showRhythmStep = isDestinationFlow && step === 4;
   const showRegionsStep = isDestinationFlow && step === 5 && !skipRegionsStep;
-  const showActivitiesStep =
-    isDestinationFlow && !isCyclingFlow ? step === 6 : !isDestinationFlow && step === 2;
+  const showActivitiesStep = isDestinationFlow ? step === 6 : step === 2;
   const showResultsStep = isDestinationFlow ? step === 7 : step === 3;
 
   const tripDays = useMemo(
@@ -680,7 +643,7 @@ function SearchPageContent() {
 
   useEffect(() => {
     if (!initialized || !isDestinationFlow || step !== 5) return;
-    if (!isCyclingFlow && !trip.trip_rhythm) return;
+    if (!trip.trip_rhythm) return;
 
     const label = trip.destination_label ?? trip.destination ?? "";
     if (!label || !trip.departure_date) return;
@@ -721,7 +684,6 @@ function SearchPageContent() {
   }, [
     initialized,
     isDestinationFlow,
-    isCyclingFlow,
     step,
     trip.trip_rhythm,
     trip.destination_label,
@@ -799,23 +761,7 @@ function SearchPageContent() {
     syncUrl(trip, 5);
   }
 
-  function goToCyclingResults() {
-    const acts = [...CYCLING_TAXONOMY_SLUGS];
-    setSelectedActivities(new Set(acts));
-    setStep(7);
-    syncUrl(trip, 7);
-    void handleSearch({
-      ...getSearchParams(),
-      activities: acts,
-    });
-  }
-
   function goToActivitiesStep() {
-    if (isCyclingFlow) {
-      goToCyclingResults();
-      return;
-    }
-
     let nextActivities = selectedActivities;
     if (trip.trip_rhythm && selectedActivities.size === 0) {
       nextActivities = new Set(
@@ -897,10 +843,6 @@ function SearchPageContent() {
       setSelectedActivities(nextActivities);
     }
     setTrip(nextTrip);
-    if (isCyclingFlow) {
-      goToCyclingResults();
-      return;
-    }
     setStep(6);
     syncUrl(nextTrip, 6);
   }
@@ -1337,9 +1279,7 @@ function SearchPageContent() {
 
       <h1 className="font-display mb-2 text-3xl font-bold text-text-primary">
         {showResultsStep
-          ? isCyclingFlow
-            ? t("search.titleCyclingResults")
-            : t("search.titleResults")
+          ? t("search.titleResults")
           : showScopeStep
             ? t("search.titleScope")
             : showOverviewStep
@@ -1347,16 +1287,12 @@ function SearchPageContent() {
               : showRhythmStep
                 ? t("search.titleRhythm")
                 : showRegionsStep
-                  ? isCyclingFlow
-                    ? t("search.titleCyclingRegions")
-                    : t("search.titleRegions")
+                  ? t("search.titleRegions")
                   : t("search.titleActivities")}
       </h1>
       <p className="mb-4 text-sm text-text-secondary">
         {showResultsStep
-          ? isCyclingFlow
-            ? t("search.subtitleCyclingResults")
-            : t("search.subtitleResults")
+          ? t("search.subtitleResults")
           : showScopeStep
             ? t("search.subtitleScope")
             : showOverviewStep
@@ -1364,9 +1300,7 @@ function SearchPageContent() {
               : showRhythmStep
                 ? t("search.subtitleRhythm")
                 : showRegionsStep
-                  ? isCyclingFlow
-                    ? t("search.subtitleCyclingRegions")
-                    : t("search.subtitleRegions")
+                  ? t("search.subtitleRegions")
                   : t("search.subtitleActivities")}
       </p>
 
@@ -1375,12 +1309,7 @@ function SearchPageContent() {
         tripMode={trip.mode}
         tripComplete
         skipRegionsStep={skipRegionsStep}
-        skipActivitiesStep={isCyclingFlow}
-        cyclingMode={isCyclingFlow}
         onStep={(s) => {
-          if (isCyclingFlow && (s === 3 || s === 4 || s === 6)) {
-            return;
-          }
           if (
             s === 5 &&
             skipRegionsStep
@@ -1452,27 +1381,6 @@ function SearchPageContent() {
           onSelectScope={setExplorationScope}
           onContinue={() => {
             if (missingDestinationCoords) return;
-            if (isCyclingFlow) {
-              if (skipRegionsStep) {
-                goToCyclingResults();
-              } else {
-                setTrip((prev) => {
-                  const next = {
-                    ...prev,
-                    trip_rhythm:
-                      prev.trip_rhythm ??
-                      defaultRhythmForTrip(
-                        prev.departure_date!,
-                        prev.return_date,
-                      ),
-                  };
-                  syncUrl(next, 5);
-                  return next;
-                });
-                setStep(5);
-              }
-              return;
-            }
             setStep(3);
             syncUrl(trip, 3);
           }}
@@ -1531,7 +1439,7 @@ function SearchPageContent() {
         />
       )}
 
-      {showRegionsStep && (isCyclingFlow || trip.trip_rhythm) && (
+      {showRegionsStep && trip.trip_rhythm && (
         <>
           {regionsLoading && <SkeletonList count={2} />}
           {!regionsLoading && (
@@ -1542,7 +1450,6 @@ function SearchPageContent() {
               destinationLabel={
                 trip.destination_label ?? trip.destination ?? ""
               }
-              cyclingMode={isCyclingFlow}
               onChooseWholeIsland={handleWholeIslandChoice}
               onContinue={goToActivitiesStep}
               onSkip={goToActivitiesStep}
@@ -1767,7 +1674,7 @@ function SearchPageContent() {
 
       {showResultsStep && results && !isSearching && (
         <section className="mt-8">
-          {attractionMapOverview && !isCyclingFlow ? (
+          {attractionMapOverview ? (
             <IslandOverviewSection
               results={{ ...results, island_overview: attractionMapOverview }}
               activityNames={activityNames}
@@ -1783,18 +1690,14 @@ function SearchPageContent() {
           ) : (
             <>
               <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
-                {isCyclingFlow
-                  ? t("search.cyclingResultsHeading")
-                  : `Regiony (${resultClusters.length})`}
+                {`Regiony (${resultClusters.length})`}
               </h2>
               <p className="mb-6 text-sm text-text-secondary">
-                {isCyclingFlow
-                  ? t("search.cyclingResultsSubheading")
-                  : `${formatTravelSummary(trip)} · ${formatTripDateRange(trip)} ·${
-                      trip.tourist_region_ids.length > 0
-                        ? " Wyniki ograniczone do wybranych rejonów — wybierz bazę na nocleg"
-                        : " Każdy rejon ma mapę i krótki opis — wybierz bazę na nocleg"
-                    }`}
+                {`${formatTravelSummary(trip)} · ${formatTripDateRange(trip)} ·${
+                  trip.tourist_region_ids.length > 0
+                    ? " Wyniki ograniczone do wybranych rejonów — wybierz bazę na nocleg"
+                    : " Każdy rejon ma mapę i krótki opis — wybierz bazę na nocleg"
+                }`}
               </p>
 
               {resultClusters.length === 0 && (
@@ -1810,31 +1713,19 @@ function SearchPageContent() {
                 />
               )}
 
-              {resultClusters.map((cluster, idx) =>
-                isCyclingFlow ? (
-                  <CyclingRegionResultCard
-                    key={cluster.id}
-                    cluster={cluster}
-                    idx={idx}
-                    airports={results.airports ?? []}
-                    destinationLabel={trip.destination_label ?? undefined}
-                    locale={locale}
-                    onOpen={() => openDestination(cluster)}
-                  />
-                ) : (
-                  <RegionResultCard
-                    key={cluster.id}
-                    cluster={cluster}
-                    idx={idx}
-                    airports={results.airports ?? []}
-                    destinationLabel={trip.destination_label ?? undefined}
-                    activityNames={activityNames}
-                    locale={locale}
-                    onOpen={() => openDestination(cluster)}
-                    ctaLabel="Zaplanuj wyjazd w tym rejonie →"
-                  />
-                ),
-              )}
+              {resultClusters.map((cluster, idx) => (
+                <RegionResultCard
+                  key={cluster.id}
+                  cluster={cluster}
+                  idx={idx}
+                  airports={results.airports ?? []}
+                  destinationLabel={trip.destination_label ?? undefined}
+                  activityNames={activityNames}
+                  locale={locale}
+                  onOpen={() => openDestination(cluster)}
+                  ctaLabel="Zaplanuj wyjazd w tym rejonie →"
+                />
+              ))}
             </>
           )}
         </section>

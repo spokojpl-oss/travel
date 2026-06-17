@@ -32,9 +32,6 @@ import { resolveFlightOriginsFromTrip } from "@/lib/flights/polish-airports";
 import { parsePassengers } from "@/components/ui/PassengerSelector";
 import { LocalServicesSection } from "@/components/features/LocalServicesSection";
 import { ActivityPanel } from "@/components/activities/ActivityPanel";
-import { CyclingPlanWizard } from "@/components/activities/cycling/CyclingPlanWizard";
-import { CYCLING_TAXONOMY_SLUGS } from "@/lib/activities/cycling/constants";
-import type { CyclingDestinationSummary } from "@/lib/synthesis/cycling-destination-summary";
 import { useT } from "@/i18n/locale-provider";
 
 type BuildEvent = {
@@ -81,8 +78,6 @@ export default function DestinationPage() {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [buildTitle, setBuildTitle] = useState<string | null>(null);
   const [summary, setSummary] = useState<DestinationSummary | null>(null);
-  const [cyclingSummary, setCyclingSummary] =
-    useState<CyclingDestinationSummary | null>(null);
   const [googlePlaces, setGooglePlaces] = useState<GooglePlace[]>([]);
   const [attractions, setAttractions] = useState<
     Pick<Attraction, "id" | "name">[]
@@ -98,19 +93,12 @@ export default function DestinationPage() {
   const [planEnriching, setPlanEnriching] = useState(false);
   const [planComplete, setPlanComplete] = useState(false);
   const startedRef = useRef(false);
-  const cyclingPrefetchRef = useRef(false);
 
   const buildId = searchParams.get("build_id");
   const clusterData = searchParams.get("cluster");
   const activitiesParam = searchParams.get("activities");
   const activityMode = searchParams.get("activity") ?? undefined;
   const isCyclingMode = activityMode === "cycling";
-
-  useEffect(() => {
-    if (!isCyclingMode) return;
-    const params = new URLSearchParams(searchParams.toString());
-    router.replace(`/app/cycling/destination?${params.toString()}`);
-  }, [isCyclingMode, searchParams, router]);
 
   const trip = useMemo(
     () =>
@@ -193,20 +181,10 @@ export default function DestinationPage() {
     }
 
     if (!parsedCluster || !activities?.length) {
-      if (isCyclingMode) {
-        activities = [...CYCLING_TAXONOMY_SLUGS];
-        if (!parsedCluster) {
-          setError(
-            "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
-          );
-          return;
-        }
-      } else {
-        setError(
-          "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
-        );
-        return;
-      }
+      setError(
+        "Brak danych regionu — wróć do wyszukiwarki i wybierz region ponownie",
+      );
+      return;
     }
 
     startedRef.current = true;
@@ -218,12 +196,6 @@ export default function DestinationPage() {
         activities,
         attractionPool: parsedCluster.attractions,
       };
-
-    if (isCyclingMode && !basePayload.planComplete) {
-      setPlanPayload(basePayload);
-      setCluster(parsedCluster);
-      return;
-    }
 
     if (storedPayload?.planComplete) {
       const finalCluster = applyPlanToCluster(storedPayload);
@@ -242,13 +214,12 @@ export default function DestinationPage() {
       },
     );
     setCluster(parsedCluster);
-  }, [buildId, clusterData, activitiesParam, isCyclingMode]);
+  }, [buildId, clusterData, activitiesParam]);
 
   useEffect(() => {
     if (!planPayload || planPayload.planComplete || planPayload.poolEnriched) {
       return;
     }
-    if (isCyclingMode) return;
 
     let cancelled = false;
     setPlanEnriching(true);
@@ -321,14 +292,7 @@ export default function DestinationPage() {
     return () => {
       cancelled = true;
     };
-  }, [planPayload, trip, buildId, isCyclingMode]);
-
-  useEffect(() => {
-    if (!isCyclingMode || !planPayload || planComplete || destination) return;
-    if (cyclingPrefetchRef.current) return;
-    cyclingPrefetchRef.current = true;
-    void startBuild(planPayload.cluster, [...CYCLING_TAXONOMY_SLUGS]);
-  }, [isCyclingMode, planPayload, planComplete, destination]);
+  }, [planPayload, trip, buildId]);
 
   function handlePlanComplete(updated: DestinationBuildPayload) {
     const finalCluster = applyPlanToCluster(updated);
@@ -369,15 +333,7 @@ export default function DestinationPage() {
     } else if (event.type === "google_places_loaded") {
       setGooglePlaces((event.places as GooglePlace[]) ?? []);
     } else if (event.type === "ai_synthesis_loaded") {
-      const s = event.summary;
-      if (
-        event.mode === "cycling" ||
-        (typeof s === "object" && s !== null && "why_good_for_cycling" in s)
-      ) {
-        setCyclingSummary(s as CyclingDestinationSummary);
-      } else {
-        setSummary(s as DestinationSummary);
-      }
+      setSummary(event.summary as DestinationSummary);
     } else if (event.type === "error") {
       const step = String(event.step ?? "");
       const message = String(event.message ?? "Błąd budowania");
@@ -410,7 +366,7 @@ export default function DestinationPage() {
             adults: passengers.adults,
             children_ages: passengers.childAges,
           },
-          mode: isCyclingMode ? "cycling" : "family",
+          mode: "family",
         }),
       });
 
@@ -512,60 +468,7 @@ export default function DestinationPage() {
         )}
       </header>
 
-      {planComplete && destination && isCyclingMode && cyclingSummary && (
-        <Card className="mb-8">
-          <CardHeader title="Region na rower" />
-          <CardBody className="space-y-4">
-            <p className="text-text-secondary">{cyclingSummary.overview}</p>
-            <p className="text-sm">
-              <strong>Dlaczego warto:</strong> {cyclingSummary.why_good_for_cycling}
-            </p>
-            {cyclingSummary.wind_and_weather && (
-              <p className="text-sm text-text-secondary">
-                <strong>Pogoda i wiatr:</strong> {cyclingSummary.wind_and_weather}
-              </p>
-            )}
-            {cyclingSummary.road_warnings.length > 0 && (
-              <ul className="list-disc pl-5 text-sm text-text-secondary">
-                {cyclingSummary.road_warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
-      )}
-
-      {planComplete && destination && isCyclingMode && (
-        <section className="mb-8">
-          <ActivityPanel
-            activity={activityMode}
-            destinationId={destination.id}
-            destinationCenter={{
-              lat: Number(destination.center_lat),
-              lng: Number(destination.center_lon),
-            }}
-          />
-        </section>
-      )}
-
-      {isCyclingMode && !planComplete && planPayload && (
-        <CyclingPlanWizard
-          payload={planPayload}
-          destinationId={destination?.id ?? null}
-          destinationCenter={{
-            lat: planPayload.cluster.center.lat,
-            lng: planPayload.cluster.center.lon,
-          }}
-          onComplete={handlePlanComplete}
-          onBackToRegions={
-            skipRegionsStep ? undefined : () => navigateToSearchStep(5)
-          }
-          onBackToResults={() => navigateToSearchStep(7, { rerunSearch: true })}
-        />
-      )}
-
-      {!isCyclingMode && !planComplete && planPayload && !planEnriching && (
+      {!planComplete && planPayload && !planEnriching && (
         <DestinationPlanWizard
           payload={planPayload}
           withKids={hasChildrenInPassengers(trip.passengers)}
@@ -579,7 +482,7 @@ export default function DestinationPage() {
         />
       )}
 
-      {!isCyclingMode && !planComplete && planEnriching && (
+      {!planComplete && planEnriching && (
         <Card>
           <CardBody>
             <SkeletonList count={4} />
@@ -590,21 +493,13 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {!isCyclingMode && planComplete && mapData && (
+      {planComplete && mapData && (
         <section className="mb-8">
           <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
             Mapa regionu
           </h2>
           <RegionMap points={mapData.points} segments={mapData.segments} />
         </section>
-      )}
-
-      {planComplete && isCyclingMode && !destination && (
-        <Card className="mb-8">
-          <CardBody className="text-sm text-text-secondary">
-            <p>Ładujemy trasy rowerowe dla tej destynacji…</p>
-          </CardBody>
-        </Card>
       )}
 
       {planComplete && buildWarnings.length > 0 && (
@@ -622,7 +517,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && !isCyclingMode && summary && (
+      {planComplete && summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -698,7 +593,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && isBuilding && !summary && !cyclingSummary && (
+      {planComplete && isBuilding && !summary && (
         <Card className="mb-8">
           <CardHeader title="Podsumowanie" />
           <CardBody>
@@ -707,7 +602,7 @@ export default function DestinationPage() {
         </Card>
       )}
 
-      {planComplete && !isCyclingMode && googlePlaces.length > 0 && selectedActivities.length > 0 && (
+      {planComplete && googlePlaces.length > 0 && selectedActivities.length > 0 && (
         <LocalServicesSection
           places={googlePlaces}
           selectedActivities={selectedActivities}
@@ -775,6 +670,22 @@ export default function DestinationPage() {
             attractions={hotelsAttractions}
           />
         </ErrorBoundary>
+      )}
+
+      {planComplete && destination && isCyclingMode && (
+        <section className="mb-8">
+          <h2 className="font-display mb-4 text-lg font-bold text-text-primary">
+            Trasy rowerowe
+          </h2>
+          <ActivityPanel
+            activity={activityMode}
+            destinationId={destination.id}
+            destinationCenter={{
+              lat: Number(destination.center_lat),
+              lng: Number(destination.center_lon),
+            }}
+          />
+        </section>
       )}
 
       {planComplete && isComplete && destination && (

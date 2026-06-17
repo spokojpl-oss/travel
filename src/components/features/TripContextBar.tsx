@@ -123,7 +123,6 @@ export function SearchStepIndicator({
   tripMode = "activities",
   skipRegionsStep = false,
   skipActivitiesStep = false,
-  cyclingMode = false,
 }: {
   step: SearchStep;
   onStep?: (s: SearchStep) => void;
@@ -131,35 +130,12 @@ export function SearchStepIndicator({
   tripMode?: "activities" | "destination";
   /** Ukryj krok „Region” gdy user wybrał całą wyspę. */
   skipRegionsStep?: boolean;
-  /** Ukryj krok „Aktywności” w flow kolarstwa. */
+  /** Ukryj krok „Aktywności” (np. wybrana cała wyspa bez regionów). */
   skipActivitiesStep?: boolean;
-  /** Uproszczony stepper: tylko wyjazd + wyniki. */
-  cyclingMode?: boolean;
 }) {
   const t = useT();
 
-  const steps = cyclingMode
-    ? [
-        { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
-        { displayN: 2, label: t("steps.scope"), key: "scope", goto: 2 as SearchStep },
-        ...(skipRegionsStep
-          ? []
-          : [
-              {
-                displayN: 3,
-                label: t("steps.regions"),
-                key: "regions",
-                goto: 5 as SearchStep,
-              },
-            ]),
-        {
-          displayN: skipRegionsStep ? 3 : 4,
-          label: t("steps.results"),
-          key: "results",
-          goto: 7 as SearchStep,
-        },
-      ]
-    : tripMode === "destination"
+  const steps = tripMode === "destination"
       ? [
           { displayN: 1, label: t("steps.trip"), key: "trip", goto: 2 as SearchStep },
           { displayN: 2, label: t("steps.scope"), key: "scope", goto: 2 as SearchStep },
@@ -204,13 +180,8 @@ export function SearchStepIndicator({
           { displayN: 3, label: t("steps.results"), key: "results", goto: 3 as SearchStep },
         ];
 
-  const currentStep = cyclingMode
-    ? step >= 7
-      ? 7
-      : step === 5
-        ? 5
-        : 2
-    : tripMode === "destination"
+  const currentStep =
+    tripMode === "destination"
       ? step
       : step >= 6
         ? 3
