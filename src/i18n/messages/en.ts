@@ -230,6 +230,12 @@ export const en: Messages = {
       "On the next step you'll pick activities — we'll match regions to your scope.",
     overviewEnriching: "Refining weather and a short summary in the background…",
     subtitleResults: "Regions matched to your trip and selected activities.",
+    cyclingRoutesTitle: "Cycling routes",
+    cyclingRoutesSubtitle:
+      "Filter routes, toggle the CyclOSM map overlay, and add segments to your plan. You can also generate a ~45 km loop via OpenRouteService.",
+    cyclingRoutesLoadError: "Could not load the cycling routes module.",
+    cyclingRoutesMissingDestination:
+      "Destination not in database — go back and pick a place from suggestions.",
     subtitleActivities:
       "Trip details from the home page — select what you want to do and search regions.",
     activities: "Activities",

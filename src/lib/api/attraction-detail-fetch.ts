@@ -4,7 +4,7 @@ import {
   resolveGooglePhotoMediaUrls,
   type GooglePlaceReview,
 } from "@/lib/api/google-places";
-import { fetchWikipediaPageSummary } from "@/lib/api/wikipedia-summary";
+import { fetchWikipediaPageSummary, searchWikipediaPageSummary } from "@/lib/api/wikipedia-summary";
 import {
   attractionNameSearchVariants,
   buildInlineAttractionDetail,
@@ -58,7 +58,12 @@ async function fetchWikipediaOverview(
   attraction: AttractionWithActivities,
   tags: Record<string, string>,
   locale: Locale,
-): Promise<{ overview: string; wikipediaUrl?: string; thumbnail?: string | null } | null> {
+): Promise<{
+  overview: string;
+  wikipediaUrl?: string;
+  thumbnail?: string | null;
+  wikiLocale: Locale;
+} | null> {
   const wikiFromTag = wikipediaTargetFromOsmTags(tags, locale);
   const candidates: Array<{ page: string; wikiLocale: Locale }> = [];
 
@@ -71,11 +76,17 @@ async function fetchWikipediaOverview(
         page: wikipediaSearchTitle(toPolishAttractionName(variant, "pl")),
         wikiLocale: "pl",
       });
-      candidates.push({ page: wikipediaSearchTitle(variant), wikiLocale: "en" });
     }
   }
 
   const seen = new Set<string>();
+  let enFallback: {
+    overview: string;
+    wikipediaUrl?: string;
+    thumbnail?: string | null;
+    wikiLocale: Locale;
+  } | null = null;
+
   for (const candidate of candidates) {
     const key = `${candidate.wikiLocale}:${candidate.page}`;
     if (seen.has(key)) continue;
@@ -87,14 +98,53 @@ async function fetchWikipediaOverview(
       4000,
     );
     if (wiki?.extract && !isWeakAttractionDescription(wiki.extract)) {
-      return {
+      const hit = {
         overview: wiki.extract,
         wikipediaUrl: `https://${candidate.wikiLocale === "pl" ? "pl" : "en"}.wikipedia.org/wiki/${encodeURIComponent(candidate.page)}`,
         thumbnail: wiki.thumbnail,
+        wikiLocale: candidate.wikiLocale,
       };
+      if (candidate.wikiLocale === locale) return hit;
+      if (candidate.wikiLocale === "en" && !enFallback) enFallback = hit;
     }
   }
 
+  if (locale === "pl") {
+    for (const variant of attractionNameSearchVariants(attraction.name, locale).slice(0, 4)) {
+      const wiki = await searchWikipediaPageSummary(variant, "pl", 4000);
+      if (wiki?.extract && !isWeakAttractionDescription(wiki.extract)) {
+        return {
+          overview: wiki.extract,
+          wikipediaUrl: `https://pl.wikipedia.org/wiki/${encodeURIComponent(wiki.pageTitle ?? variant)}`,
+          thumbnail: wiki.thumbnail,
+          wikiLocale: "pl",
+        };
+      }
+    }
+  }
+
+  return locale === "en" ? enFallback : null;
+}
+
+async function fetchWikipediaThumbnailOnly(
+  attraction: AttractionWithActivities,
+  tags: Record<string, string>,
+): Promise<string | null> {
+  const wikiFromTag = wikipediaTargetFromOsmTags(tags, "en");
+  const candidates: string[] = [];
+  if (wikiFromTag) candidates.push(wikiFromTag.page);
+  for (const variant of attractionNameSearchVariants(attraction.name, "en").slice(0, 4)) {
+    candidates.push(wikipediaSearchTitle(variant));
+  }
+
+  const seen = new Set<string>();
+  for (const page of candidates) {
+    const key = page.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const wiki = await fetchWikipediaPageSummary(page, "en", 3000);
+    if (wiki?.thumbnail) return wiki.thumbnail;
+  }
   return null;
 }
 
@@ -156,6 +206,10 @@ export async function resolveAttractionDetail(
   if (photoUrls.length === 0 && wiki?.thumbnail) {
     photoUrls = [wiki.thumbnail];
   }
+  if (photoUrls.length === 0) {
+    const thumb = await fetchWikipediaThumbnailOnly(attraction, tags);
+    if (thumb) photoUrls = [thumb];
+  }
 
   const googleEnrichment: AttractionGoogleEnrichment | undefined = match
     ? {
@@ -180,6 +234,8 @@ export async function resolveAttractionDetail(
       : undefined;
 
   const googleText = googleOverviewText(details);
+  const plWiki =
+    locale === "pl" && wiki?.wikiLocale === "pl" ? wiki : null;
 
   if (hasStrongInline) {
     return {
@@ -197,37 +253,36 @@ export async function resolveAttractionDetail(
   const googleIsUsable =
     googleText &&
     !isWeakAttractionDescription(googleText) &&
-    !(locale === "pl" && isLikelyEnglish(googleText) && wiki);
+    !(locale === "pl" && isLikelyEnglish(googleText));
 
-  if (locale === "pl" && wiki) {
-    overview = wiki.overview;
+  if (plWiki) {
+    overview = plWiki.overview;
     source = "wikipedia";
-    wikipediaUrl = wiki.wikipediaUrl;
+    wikipediaUrl = plWiki.wikipediaUrl;
   } else if (googleIsUsable) {
     overview = googleText;
     source = "google";
-  } else if (wiki) {
+  } else if (locale === "en" && wiki) {
     overview = wiki.overview;
     source = "wikipedia";
     wikipediaUrl = wiki.wikipediaUrl;
-  } else if (googleText) {
-    overview = googleText;
-    source = "google";
-  } else if (inline.overview) {
+  } else if (inline.overview && !(locale === "pl" && isLikelyEnglish(inline.overview))) {
     overview = inline.overview;
     source = inlineSource(attraction, inline.overview);
+  } else if (googleText && !(locale === "pl" && isLikelyEnglish(googleText))) {
+    overview = googleText;
+    source = "google";
   }
 
   if (
     googleText &&
-    wiki &&
-    source === "google" &&
-    googleText.length < 140 &&
-    wiki.overview.length > googleText.length + 80
+    plWiki &&
+    source === "wikipedia" &&
+    googleText.length > plWiki.overview.length + 80 &&
+    !isLikelyEnglish(googleText)
   ) {
-    overview = wiki.overview;
-    source = "wikipedia";
-    wikipediaUrl = wiki.wikipediaUrl;
+    overview = googleText;
+    source = "google";
   }
 
   return {

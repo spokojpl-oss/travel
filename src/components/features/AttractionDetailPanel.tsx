@@ -89,6 +89,9 @@ export function AttractionDetailPanel({
   const [wikipediaUrl, setWikipediaUrl] = useState<string | null>(null);
   const [google, setGoogle] = useState<DetailResponse["google"]>(undefined);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -100,6 +103,7 @@ export function AttractionDetailPanel({
     setWikipediaUrl(null);
     setGoogle(undefined);
     setPhotoIndex(0);
+    setFailedPhotoUrls(new Set());
 
     fetch("/api/search/attraction-detail", {
       method: "POST",
@@ -135,7 +139,9 @@ export function AttractionDetailPanel({
     };
   }, [attraction.id, locale]);
 
-  const photos = google?.photoUrls ?? [];
+  const photos = (google?.photoUrls ?? []).filter((url) => !failedPhotoUrls.has(url));
+  const activePhotoIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
+  const activePhotoUrl = photos[activePhotoIndex];
   const hasContent = Boolean(
     overview ||
       photos.length > 0 ||
@@ -147,13 +153,21 @@ export function AttractionDetailPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      {photos.length > 0 && (
+      {activePhotoUrl && (
         <div className="relative overflow-hidden rounded-xl border border-border-default">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={photos[photoIndex] ?? photos[0]}
+            src={activePhotoUrl}
             alt=""
             className="aspect-[16/10] w-full object-cover"
+            onError={() => {
+              setFailedPhotoUrls((prev) => {
+                const next = new Set(prev);
+                next.add(activePhotoUrl);
+                return next;
+              });
+              setPhotoIndex(0);
+            }}
           />
           {photos.length > 1 && (
             <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
@@ -164,7 +178,7 @@ export function AttractionDetailPanel({
                   aria-label={`Photo ${i + 1}`}
                   onClick={() => setPhotoIndex(i)}
                   className={`h-1.5 w-1.5 rounded-full ${
-                    i === photoIndex ? "bg-white" : "bg-white/50"
+                    i === activePhotoIndex ? "bg-white" : "bg-white/50"
                   }`}
                 />
               ))}

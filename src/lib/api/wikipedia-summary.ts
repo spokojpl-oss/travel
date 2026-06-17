@@ -195,6 +195,7 @@ export function resolveWikipediaPageName(
 export type WikipediaSummary = {
   extract: string;
   thumbnail: string | null;
+  pageTitle?: string;
 };
 
 function upscaleWikiThumbnail(url: string | undefined): string | null {
@@ -233,6 +234,7 @@ async function fetchWikipediaSummaryLive(
     return {
       extract: extract.length > 480 ? `${extract.slice(0, 477).trim()}…` : extract,
       thumbnail: upscaleWikiThumbnail(json.thumbnail?.source),
+      pageTitle: pageName.replace(/_/g, " "),
     };
   } catch {
     return null;
@@ -256,6 +258,54 @@ export async function fetchWikipediaSummary(
   });
 
   return data;
+}
+
+async function searchWikipediaPageTitleLive(
+  query: string,
+  locale: Locale,
+  timeoutMs: number,
+): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const host = locale === "pl" ? "pl.wikipedia.org" : "en.wikipedia.org";
+    const url = new URL(`https://${host}/w/api.php`);
+    url.searchParams.set("action", "query");
+    url.searchParams.set("list", "search");
+    url.searchParams.set("srsearch", query);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("srlimit", "3");
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "TravelAggregator/1.0 (personal use)" },
+      next: { revalidate: 0 },
+    });
+    if (!response.ok) return null;
+
+    const json = (await response.json()) as {
+      query?: { search?: Array<{ title?: string }> };
+    };
+    return json.query?.search?.[0]?.title?.trim() ?? null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Wyszukaj artykuł po frazie (gdy dokładny tytuł nie istnieje). */
+export async function searchWikipediaPageSummary(
+  query: string,
+  locale: Locale = "pl",
+  timeoutMs = 3500,
+): Promise<WikipediaSummary | null> {
+  const title = await searchWikipediaPageTitleLive(query, locale, timeoutMs);
+  if (!title) return null;
+  const summary = await fetchWikipediaPageSummary(title, locale, timeoutMs);
+  if (!summary) return null;
+  return { ...summary, pageTitle: title };
 }
 
 /** Artykuł Wikipedii po tytule strony (np. z tagu OSM wikipedia=pl:Mdina). */

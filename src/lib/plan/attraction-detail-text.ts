@@ -69,13 +69,47 @@ export function isLikelyEnglish(text: string): boolean {
   const lower = text.toLowerCase();
   const polishChars = /[ąćęłńóśźż]/;
   if (polishChars.test(lower)) return false;
-  const englishHints = [" the ", " and ", " with ", " beach ", " popular ", " backed ", " seasonal "];
-  const polishHints = [" plaż", " zatok", " nad ", " oraz ", " morze", " piaszcz"];
+  const englishHints = [
+    " the ",
+    " and ",
+    " with ",
+    " beach ",
+    " popular ",
+    " backed ",
+    " seasonal ",
+    " are ",
+    " is ",
+    " on the ",
+    " of the ",
+    " island ",
+    " system ",
+  ];
+  const polishHints = [" plaż", " zatok", " nad ", " oraz ", " morze", " piaszcz", " jaskin", " wysp"];
   let en = 0;
   let pl = 0;
   for (const h of englishHints) if (lower.includes(h)) en++;
   for (const h of polishHints) if (lower.includes(h)) pl++;
   return en > pl;
+}
+
+function formatFeeValue(fee: string, pl: boolean): string {
+  const v = fee.trim().toLowerCase();
+  if (v === "yes") return pl ? "płatne" : "paid";
+  if (v === "no") return pl ? "bezpłatne" : "free";
+  return fee.trim();
+}
+
+function localizeOpeningHours(hours: string, pl: boolean): string {
+  if (!pl) return hours.trim();
+  return hours
+    .trim()
+    .replace(/\bMo\b/g, "Pn")
+    .replace(/\bTu\b/g, "Wt")
+    .replace(/\bWe\b/g, "Śr")
+    .replace(/\bTh\b/g, "Cz")
+    .replace(/\bFr\b/g, "Pt")
+    .replace(/\bSa\b/g, "So")
+    .replace(/\bSu\b/g, "Nd");
 }
 
 export function attractionNameSearchVariants(
@@ -127,7 +161,11 @@ function usefulHighlights(
   }
 
   if (tags.fee?.trim() && tags.fee !== "no") {
-    lines.push(pl ? `Opłata: ${tags.fee}.` : `Fee: ${tags.fee}.`);
+    lines.push(
+      pl
+        ? `Opłata: ${formatFeeValue(tags.fee, true)}.`
+        : `Fee: ${formatFeeValue(tags.fee, false)}.`,
+    );
   }
 
   if (tags.access?.trim() && !/^(yes|public)$/i.test(tags.access)) {
@@ -145,11 +183,8 @@ function usefulHighlights(
   }
 
   if (attraction.opening_hours?.trim() && attraction.opening_hours.length < 120) {
-    lines.push(
-      pl
-        ? `Godziny: ${attraction.opening_hours.trim()}`
-        : `Hours: ${attraction.opening_hours.trim()}`,
-    );
+    const hours = localizeOpeningHours(attraction.opening_hours, pl);
+    lines.push(pl ? `Godziny: ${hours}` : `Hours: ${hours}`);
   }
 
   return lines.slice(0, 3);
@@ -177,7 +212,10 @@ export function buildInlineAttractionDetail(
     };
   }
 
-  return { overview: null, highlights: [] };
+  return {
+    overview: null,
+    highlights: usefulHighlights(tags, attraction, locale),
+  };
 }
 
 export function wikipediaTargetFromOsmTags(

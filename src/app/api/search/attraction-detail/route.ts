@@ -56,8 +56,14 @@ export async function POST(request: Request) {
     .select("activity_slug, confidence")
     .eq("attraction_id", row.id);
 
+  const description =
+    locale === "pl" && row.description?.trim() && isLikelyEnglish(row.description)
+      ? null
+      : row.description;
+
   const attraction = {
     ...row,
+    description,
     activity_tags: tagRows ?? [],
   } as AttractionWithActivities;
 

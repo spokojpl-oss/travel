@@ -16,6 +16,7 @@ import { TouristRegionCards } from "@/components/features/TouristRegionCards";
 import { ExplorationScopeStep } from "@/components/features/ExplorationScopeStep";
 import { SearchScopeParamsPanel } from "@/components/features/SearchScopeParamsPanel";
 import { IslandOverviewSection } from "@/components/features/IslandOverviewSection";
+import { CyclingSearchPanel } from "@/components/features/CyclingSearchPanel";
 import { buildAttractionOverviewFromClusters } from "@/lib/maps/build-attraction-overview";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import {
@@ -1681,6 +1682,15 @@ function SearchPageContent() {
 
       {showResultsStep && results && !isSearching && (
         <section className="mt-8">
+          {isCyclingTrip(trip) && (
+            <CyclingSearchPanel
+              destinationLabel={
+                trip.destination_label ?? trip.destination ?? ""
+              }
+              destinationLat={trip.destination_lat}
+              destinationLon={trip.destination_lon}
+            />
+          )}
           {attractionMapOverview ? (
             <IslandOverviewSection
               results={{ ...results, island_overview: attractionMapOverview }}

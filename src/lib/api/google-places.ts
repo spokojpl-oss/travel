@@ -247,32 +247,17 @@ function namesLikelyMatch(a: string, b: string): boolean {
   return overlap >= 2 || (wordsA.length === 1 && wordsB.has(wordsA[0]!));
 }
 
-/** Resolve Places photo resource names to short-lived CDN URLs (for `<img src>`). */
+/** Stable app URLs that proxy Google Places photos (direct CDN links expire quickly). */
 export async function resolveGooglePhotoMediaUrls(
   photoNames: string[],
   max = 4,
 ): Promise<string[]> {
   if (!apiEnv.GOOGLE_PLACES_API_KEY || photoNames.length === 0) return [];
 
-  const key = requireGooglePlacesKey();
-  const urls: string[] = [];
-
-  for (const photoName of photoNames.slice(0, max)) {
-    if (!photoName.startsWith("places/") || !photoName.includes("/photos/")) continue;
-    try {
-      const response = await fetch(
-        `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=480&maxWidthPx=800&skipHttpRedirect=true`,
-        { headers: { "X-Goog-Api-Key": key } },
-      );
-      if (!response.ok) continue;
-      const body = (await response.json()) as { photoUri?: string };
-      if (body.photoUri) urls.push(body.photoUri);
-    } catch {
-      /* pojedyncze zdjęcie — kontynuuj */
-    }
-  }
-
-  return urls;
+  return photoNames
+    .slice(0, max)
+    .filter((name) => name.startsWith("places/") && name.includes("/photos/"))
+    .map((name) => googlePlacePhotoUrl(name));
 }
 
 /** Proxy URL for a Places photo resource (served by `/api/places/photo`). */

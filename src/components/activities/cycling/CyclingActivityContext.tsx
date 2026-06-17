@@ -42,10 +42,12 @@ const CyclingActivityContext = createContext<CyclingActivityContextValue | null>
 export function CyclingActivityProvider({
   destinationId,
   destinationCenter,
+  defaultShowCyclOsm = false,
   children,
 }: {
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  defaultShowCyclOsm?: boolean;
   children: ReactNode;
 }) {
   const [filters, setFilters] = useState<CyclingRouteFilters>({});
@@ -54,7 +56,7 @@ export function CyclingActivityProvider({
   const [error, setError] = useState<string | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [planRouteIds, setPlanRouteIds] = useState<Set<string>>(new Set());
-  const [showCyclOsm, setShowCyclOsm] = useState(false);
+  const [showCyclOsm, setShowCyclOsm] = useState(defaultShowCyclOsm);
 
   const [generating, setGenerating] = useState(false);
 

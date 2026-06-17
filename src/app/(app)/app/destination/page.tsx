@@ -684,6 +684,7 @@ export default function DestinationPage() {
               lat: Number(destination.center_lat),
               lng: Number(destination.center_lon),
             }}
+            defaultShowCyclOsm
           />
         </section>
       )}

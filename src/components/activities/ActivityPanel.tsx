@@ -7,12 +7,14 @@ interface Props {
   activity?: string;
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  defaultShowCyclOsm?: boolean;
 }
 
 export function ActivityPanel({
   activity,
   destinationId,
   destinationCenter,
+  defaultShowCyclOsm = false,
 }: Props) {
   const mod = getActivityModule(activity);
   if (!mod) return null;
@@ -34,6 +36,7 @@ export function ActivityPanel({
       <CyclingActivityProvider
         destinationId={destinationId}
         destinationCenter={destinationCenter}
+        defaultShowCyclOsm={defaultShowCyclOsm}
       >
         {content}
       </CyclingActivityProvider>

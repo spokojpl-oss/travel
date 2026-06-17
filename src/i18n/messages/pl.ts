@@ -229,6 +229,12 @@ export const pl = {
     overviewEnriching: "Doprecyzowujemy pogodę i krótki opis w tle…",
     subtitleResults:
       "Regiony dopasowane do Twojej podróży i wybranych aktywności.",
+    cyclingRoutesTitle: "Trasy rowerowe",
+    cyclingRoutesSubtitle:
+      "Filtruj trasy, włącz nakładkę CyclOSM na mapie i dodawaj odcinki do planu. Możesz też wygenerować pętlę (~45 km) przez OpenRouteService.",
+    cyclingRoutesLoadError: "Nie udało się wczytać modułu tras rowerowych.",
+    cyclingRoutesMissingDestination:
+      "Brak destynacji w bazie — wróć do wyszukiwarki i wybierz miejsce z listy.",
     subtitleActivities:
       "Dane podróży uzupełniłeś na stronie głównej — zaznacz co chcecie robić i szukaj regionów.",
     activities: "Aktywności",

@@ -1,7 +1,9 @@
 import { toPolishPlaceName } from "@/lib/destinations/polish-names";
 
 const EXACT_PL: Record<string, string> = {
-  "Popcorn Beach": "Plaża Popcorn",
+  "Coves Dels Hams": "Jaskinie Hams",
+  "Cuevas del Hams": "Jaskinie Hams",
+  "Covas dels Hams": "Jaskinie Hams",
   "Waikiki Beach": "Plaża Waikiki",
   "Playa de la Calera": "Plaża Calera",
   "Playa de El Hierro": "Plaża El Hierro",
