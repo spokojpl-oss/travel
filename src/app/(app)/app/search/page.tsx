@@ -1284,18 +1284,16 @@ function SearchPageContent() {
     };
   }
 
-  function handlePlanComplete(updated: DestinationBuildPayload) {
-    storeDestinationBuildPayload(updated.cluster.id, updated);
-    setPlanPayload(updated);
-    setStep(8);
-    syncUrl(trip, 8);
+  function goToDestinationOffer(payload: DestinationBuildPayload) {
+    storeDestinationBuildPayload(payload.cluster.id, payload);
+    const tripParams = tripContextToParams(trip);
+    tripParams.set("build_id", payload.cluster.id);
+    router.push(`/app/destination?${tripParams.toString()}`);
   }
 
-  function openFinalOffer() {
-    if (!planPayload?.planComplete) return;
-    const tripParams = tripContextToParams(trip);
-    tripParams.set("build_id", planPayload.cluster.id);
-    router.push(`/app/destination?${tripParams.toString()}`);
+  function handlePlanComplete(updated: DestinationBuildPayload) {
+    setPlanPayload(updated);
+    goToDestinationOffer(updated);
   }
 
   function storeAndGoToPlan(
@@ -2029,43 +2027,8 @@ function SearchPageContent() {
         </section>
       )}
 
-      {showResultsStep && results && !isSearching && (
+      {showResultsStep && results && !isSearching && !planPayload?.planComplete && (
         <section className="mt-8">
-          {planPayload?.planComplete && planPayload.lodgingBase && (
-            <Card className="mb-8 border-brand-200 bg-brand-50/30">
-              <CardBody className="space-y-3">
-                <p className="font-display text-lg font-bold text-text-primary">
-                  {locale !== "en" ? "Twój plan jest gotowy" : "Your plan is ready"}
-                </p>
-                <p className="text-sm text-text-secondary">
-                  {locale !== "en"
-                    ? `Baza: ${planPayload.lodgingBase.name} · ${planPayload.selectedAttractionIds?.length ?? 0} miejsc · ${planPayload.selectedCyclingRoutes?.length ?? 0} tras rowerowych`
-                    : `Base: ${planPayload.lodgingBase.name} · ${planPayload.selectedAttractionIds?.length ?? 0} places · ${planPayload.selectedCyclingRoutes?.length ?? 0} cycling routes`}
-                </p>
-                {travelContextHints.airportHint && (
-                  <p className="text-sm text-brand-800">{travelContextHints.airportHint}</p>
-                )}
-                <Button size="lg" onClick={openFinalOffer}>
-                  {locale !== "en"
-                    ? "Loty, hotele i transport →"
-                    : "Flights, hotels & transport →"}
-                </Button>
-                <div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setStep(7);
-                      syncUrl(trip, 7);
-                    }}
-                  >
-                    {locale !== "en" ? "← Zmień plan" : "← Edit plan"}
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
           {attractionMapOverview && !isCyclingTrip(trip) ? (
             <IslandOverviewSection
               results={{ ...results, island_overview: attractionMapOverview }}

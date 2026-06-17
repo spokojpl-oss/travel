@@ -69,6 +69,18 @@ export type GooglePlace = {
   editorial_summary: string | null;
 };
 
+function parseGooglePlacesErrorResponse(
+  status: number,
+  errorText: string,
+  context: string,
+): GooglePlaceSearchTextResponse {
+  if (status === 429) {
+    console.warn(`Google Places quota exceeded (${context})`);
+    return { places: [] };
+  }
+  throw new Error(`Google Places error ${status}: ${errorText}`);
+}
+
 export async function searchPlacesByText({
   textQuery,
   bbox,
@@ -123,7 +135,11 @@ export async function searchPlacesByText({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Google Places error ${response.status}: ${errorText}`);
+        return parseGooglePlacesErrorResponse(
+          response.status,
+          errorText,
+          `searchText: ${textQuery}`,
+        );
       }
 
       return response.json() as Promise<GooglePlaceSearchTextResponse>;
@@ -184,7 +200,11 @@ export async function searchPlacesNearby({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Google Places error ${response.status}: ${errorText}`);
+        return parseGooglePlacesErrorResponse(
+          response.status,
+          errorText,
+          "searchNearby",
+        );
       }
 
       return response.json() as Promise<GooglePlaceSearchTextResponse>;

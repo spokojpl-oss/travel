@@ -604,10 +604,6 @@ export function DestinationPlanWizard({
             />
           </Card>
 
-          {cyclingMapRoutes.length > 0 && (
-            <SelectedCyclingRoutesSummary routes={cyclingMapRoutes} pl={pl} />
-          )}
-
           <SelectedPlacesSummary
             cards={effectivePlaceCards.filter((c) => selectedIds.has(c.id))}
             pl={pl}
@@ -773,36 +769,6 @@ function LodgingAreaCard({
         </div>
       )}
     </button>
-  );
-}
-
-function SelectedCyclingRoutesSummary({
-  routes,
-  pl,
-}: {
-  routes: ReturnType<typeof cyclingRoutesToMapOverlays>;
-  pl: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-        {pl ? "Wybrane trasy rowerowe" : "Selected cycling routes"} ({routes.length})
-      </p>
-      <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {routes.map((route) => (
-          <li
-            key={route.id}
-            className="rounded-lg border border-emerald-100 bg-white/80 px-2.5 py-2 text-sm"
-          >
-            <span className="font-medium text-text-primary">{route.name}</span>
-            <span className="mt-0.5 block text-xs text-text-secondary">
-              {route.distanceKm.toFixed(1)} km
-              {route.elevationGainM != null && ` · ${route.elevationGainM} m+`}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
