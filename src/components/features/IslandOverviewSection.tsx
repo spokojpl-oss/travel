@@ -43,6 +43,8 @@ export function IslandOverviewSection({
   variant = "island",
   plannedCyclingRoutes = [],
   onRemoveCyclingRoute,
+  planIds: controlledPlanIds,
+  onPlanIdsChange,
 }: {
   results: ActivitySearchResult;
   activityNames: Record<string, string>;
@@ -54,6 +56,8 @@ export function IslandOverviewSection({
   variant?: "island" | "region";
   plannedCyclingRoutes?: ActivityRoute[];
   onRemoveCyclingRoute?: (id: string) => void;
+  planIds?: Set<string>;
+  onPlanIdsChange?: (ids: Set<string>) => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -84,7 +88,13 @@ export function IslandOverviewSection({
     () => new Set(slugsOnIsland),
   );
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const [planIds, setPlanIds] = useState<Set<string>>(new Set());
+  const [internalPlanIds, setInternalPlanIds] = useState<Set<string>>(new Set());
+  const planIds = controlledPlanIds ?? internalPlanIds;
+
+  function setPlanIds(next: Set<string>) {
+    if (onPlanIdsChange) onPlanIdsChange(next);
+    else setInternalPlanIds(next);
+  }
 
   const filteredAttractions = useMemo(() => {
     if (enabledSlugs.size === 0) return [];
@@ -133,12 +143,10 @@ export function IslandOverviewSection({
   }
 
   function togglePlan(id: string) {
-    setPlanIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(planIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPlanIds(next);
   }
 
   const feasibilityBorder =

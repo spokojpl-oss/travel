@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { ActivityRoute } from "@/types/activities";
 import { isActivityCategory, parseRouteStartPoint } from "@/lib/supabase/activity-routes";
+import { dedupeCyclingRoutes } from "@/lib/activities/cycling/route-dedup";
 import { maxDistanceFromPointM } from "@/lib/activities/cycling/route-validation";
 
 const QuerySchema = z.object({
@@ -94,5 +96,7 @@ export async function GET(
     });
   }
 
-  return NextResponse.json({ routes: routes.slice(0, q.limit) });
+  return NextResponse.json({
+    routes: dedupeCyclingRoutes(routes as ActivityRoute[]).slice(0, q.limit),
+  });
 }

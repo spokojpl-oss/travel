@@ -84,6 +84,24 @@ export type RouteBeachProximity = {
   distanceKm: number;
 };
 
+export function beachesRelevantToRoutes(
+  routes: ActivityRoute[],
+  beaches: AttractionWithActivities[],
+  maxKm = NEAR_BEACH_KM,
+): AttractionWithActivities[] {
+  if (routes.length === 0 || beaches.length === 0) return [];
+  return beaches.filter((beach) =>
+    routes.some((route) => {
+      const path = parseRouteGeometry(route.geometry);
+      const d = minDistanceKmToPath(
+        { lat: Number(beach.lat), lon: Number(beach.lon) },
+        path,
+      );
+      return d <= maxKm;
+    }),
+  );
+}
+
 export function nearestBeachToRoute(
   route: ActivityRoute,
   beaches: AttractionWithActivities[],

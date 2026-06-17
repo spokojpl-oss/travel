@@ -115,13 +115,6 @@ export function CyclingSearchPanel({
           {regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu.
         </p>
       )}
-      {beachAttractions.length > 0 && (
-        <p className="mb-4 text-sm text-text-secondary">
-          Trasy posortowane pod kątem bliskości plaż w wybranych rejonach (
-          {beachAttractions.length}{" "}
-          {beachAttractions.length === 1 ? "plaża" : "plaż"}).
-        </p>
-      )}
       {regionCenters.length > 1 && regionBatchSplit && (
         <p className="mb-4 text-sm text-text-secondary">
           {regionCenters.length} wybrane rejony — startowo 20 tras dla całej

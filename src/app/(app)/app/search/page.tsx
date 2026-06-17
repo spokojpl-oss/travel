@@ -21,7 +21,7 @@ import { getTouristRegionById, regionDisplayName, regionMapRadiusKm } from "@/li
 import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
-import { beachAttractionsFromPool } from "@/lib/plan/cycling-plan";
+import { beachAttractionsFromPool, isBeachAttraction } from "@/lib/plan/cycling-plan";
 import {
   defaultRhythmForTrip,
   hasChildrenInPassengers,
@@ -199,6 +199,9 @@ function SearchPageContent() {
     null,
   );
   const [planEnriching, setPlanEnriching] = useState(false);
+  const [selectedAttractionPlanIds, setSelectedAttractionPlanIds] = useState<
+    Set<string>
+  >(new Set());
   const interestsMatchedRef = useRef(false);
 
   const cyclingPlanRouteIds = useMemo(
@@ -975,6 +978,7 @@ function SearchPageContent() {
     setIsSearching(true);
     setError(null);
     setResults(null);
+    setSelectedAttractionPlanIds(new Set());
 
     setStep(isDestinationFlow ? 7 : 3);
     syncUrl(trip, isDestinationFlow ? 7 : 3);
@@ -1135,11 +1139,20 @@ function SearchPageContent() {
       results?.clusters.flatMap((c) => c.attractions) ??
       [];
     const matched = selectedTouristRegions();
-    return beachAttractionsFromPool(
+    const regionBeaches = beachAttractionsFromPool(
       pool,
       Array.from(selectedActivities),
       matched,
     );
+
+    if (selectedAttractionPlanIds.size > 0) {
+      const picked = pool.filter((a) => selectedAttractionPlanIds.has(a.id));
+      const pickedBeaches = picked.filter(isBeachAttraction);
+      if (pickedBeaches.length > 0) return pickedBeaches;
+      return picked.length > 0 ? picked : regionBeaches;
+    }
+
+    return regionBeaches;
   }, [
     planPayload?.attractionPool,
     results,
@@ -1147,6 +1160,7 @@ function SearchPageContent() {
     scoredRegions,
     trip.tourist_region_ids,
     trip.tourist_region_id,
+    selectedAttractionPlanIds,
   ]);
 
   function resolveClusterForSelectedRegions(
@@ -1947,6 +1961,22 @@ function SearchPageContent() {
 
       {showPlanStep && results && !isSearching && (
         <section className="mt-8 space-y-8">
+          {isCyclingTrip(trip) && attractionMapOverview && (
+            <IslandOverviewSection
+              results={{ ...results, island_overview: attractionMapOverview }}
+              activityNames={activityNames}
+              taxonomyActivities={taxonomyActivities}
+              feasibility={
+                results.view_mode === "island" ? islandFeasibility : null
+              }
+              variant={results.view_mode === "island" ? "island" : "region"}
+              planIds={selectedAttractionPlanIds}
+              onPlanIdsChange={setSelectedAttractionPlanIds}
+              plannedCyclingRoutes={plannedCyclingRoutes}
+              onRemoveCyclingRoute={removeCyclingPlanRoute}
+            />
+          )}
+
           {isCyclingTrip(trip) && (
             <CyclingSearchPanel
               destinationLabel={
@@ -1967,6 +1997,10 @@ function SearchPageContent() {
             <DestinationPlanWizard
               payload={{
                 ...planPayload,
+                selectedAttractionIds:
+                  selectedAttractionPlanIds.size > 0
+                    ? [...selectedAttractionPlanIds]
+                    : planPayload.selectedAttractionIds,
                 selectedCyclingRoutes:
                   plannedCyclingRoutes.length > 0
                     ? plannedCyclingRoutes
@@ -2032,7 +2066,7 @@ function SearchPageContent() {
             </Card>
           )}
 
-          {attractionMapOverview ? (
+          {attractionMapOverview && !isCyclingTrip(trip) ? (
             <IslandOverviewSection
               results={{ ...results, island_overview: attractionMapOverview }}
               activityNames={activityNames}

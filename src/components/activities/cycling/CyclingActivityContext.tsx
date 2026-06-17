@@ -13,10 +13,12 @@ import {
 import type { ActivityRoute } from "@/types/activities";
 import type { CyclingRegionCenter, CyclingRouteFilters } from "@/lib/activities/cycling/types";
 import {
+  beachesRelevantToRoutes,
   rankRoutesForBeaches,
   routeBeachHints,
   type RouteBeachProximity,
 } from "@/lib/plan/cycling-plan";
+import { dedupeCyclingRoutes } from "@/lib/activities/cycling/route-dedup";
 import type { AttractionWithActivities } from "@/types/domain";
 import {
   BATCH_ROUTE_COUNT,
@@ -179,12 +181,14 @@ export function CyclingActivityProvider({
         throw new Error(errText);
       }
       const data = (await res.json()) as { routes: ActivityRoute[] };
-      const nextRoutes = filterPlausibleRoutes(
-        data.routes ?? [],
-        routeCenter,
-        resolvedRegionCenters.length === 1
-          ? (resolvedRegionCenters[0]?.radiusKm ?? regionRadiusKm)
-          : DEFAULT_DESTINATION_RADIUS_KM,
+      const nextRoutes = dedupeCyclingRoutes(
+        filterPlausibleRoutes(
+          data.routes ?? [],
+          routeCenter,
+          resolvedRegionCenters.length === 1
+            ? (resolvedRegionCenters[0]?.radiusKm ?? regionRadiusKm)
+            : DEFAULT_DESTINATION_RADIUS_KM,
+        ),
       );
       setRoutes(nextRoutes);
       return nextRoutes;
@@ -393,12 +397,17 @@ export function CyclingActivityProvider({
     [onTogglePlanRoute],
   );
 
+  const relevantBeaches = useMemo(
+    () => beachesRelevantToRoutes(routes, beachAttractions),
+    [routes, beachAttractions],
+  );
+
   const displayRoutes = useMemo(
     () =>
-      beachAttractions.length > 0
-        ? rankRoutesForBeaches(routes, beachAttractions)
+      relevantBeaches.length > 0
+        ? rankRoutesForBeaches(routes, relevantBeaches)
         : routes,
-    [routes, beachAttractions],
+    [routes, relevantBeaches],
   );
 
   const routePaths = useMemo(
@@ -411,8 +420,8 @@ export function CyclingActivityProvider({
   );
 
   const beachHints = useMemo(
-    () => routeBeachHints(displayRoutes, beachAttractions),
-    [displayRoutes, beachAttractions],
+    () => routeBeachHints(displayRoutes, relevantBeaches),
+    [displayRoutes, relevantBeaches],
   );
 
   useEffect(() => {
@@ -454,7 +463,7 @@ export function CyclingActivityProvider({
       regionCenters: resolvedRegionCenters,
       regionBatchSummary,
       routeBeachHints: beachHints,
-      hasBeachFocus: beachAttractions.length > 0,
+      hasBeachFocus: beachHints.size > 0,
     }),
     [
       destinationId,
@@ -475,7 +484,7 @@ export function CyclingActivityProvider({
       resolvedRegionCenters,
       regionBatchSummary,
       beachHints,
-      beachAttractions.length,
+      relevantBeaches.length,
       togglePlanRoute,
     ],
   );

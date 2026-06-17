@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseRouteStartPoint } from "@/lib/supabase/activity-routes";
+import { distanceKm } from "@/lib/search/geo-clustering";
 import { generateCyclingRoute } from "@/lib/activities/cycling/ors-client";
 import { lineStringWkt, pointWkt } from "@/lib/activities/cycling/geometry";
 import {
@@ -83,6 +85,40 @@ type RouteJob = {
   globalIndex: number;
 };
 
+async function hasSimilarStoredRoute(
+  supabase: ReturnType<typeof createAdminClient>,
+  destinationId: string,
+  activityType: ActivityType,
+  distanceM: number,
+  startLat: number,
+  startLng: number,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("activity_routes")
+    .select("id, distance_m, start_point")
+    .eq("destination_id", destinationId)
+    .eq("activity_type", activityType)
+    .gte("distance_m", Math.round(distanceM * 0.92))
+    .lte("distance_m", Math.round(distanceM * 1.08))
+    .limit(30);
+
+  if (!data?.length) return false;
+
+  for (const row of data) {
+    const start = parseRouteStartPoint(row.start_point);
+    if (!start) continue;
+    if (
+      distanceKm(
+        { lat: startLat, lon: startLng },
+        { lat: start.lat, lon: start.lng },
+      ) < 1.5
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function generateCyclingRoutesBatch({
   destinationId,
   regions,
@@ -130,6 +166,16 @@ export async function generateCyclingRoutesBatch({
 
       const geometryWkt = lineStringWkt(route.geometryGeoJson.coordinates);
       if (!geometryWkt) return { ok: false as const };
+
+      const duplicate = await hasSimilarStoredRoute(
+        supabase,
+        destinationId,
+        job.preset.activityType,
+        route.distance_m,
+        route.snappedLat,
+        route.snappedLng,
+      );
+      if (duplicate) return { ok: false as const, duplicate: true as const };
 
       const typeLabel = job.preset.activityType.replace("cycling_", "");
       const regionSuffix = job.label ? ` · ${job.label}` : "";
