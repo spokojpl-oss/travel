@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { CyclingRouteCard } from "./CyclingRouteCard";
@@ -11,6 +11,10 @@ import { getGoogleMapsApiKey } from "@/lib/maps/google-maps-config";
 import { loadGoogleMaps } from "@/lib/maps/load-google-maps";
 import { useLocale } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/Button";
+import {
+  BATCH_ROUTE_COUNT,
+  distributeRouteCounts,
+} from "@/lib/activities/cycling/route-distribution";
 
 export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
   const {
@@ -29,8 +33,23 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
     generatingCount,
     routeCenter,
     regionRadiusKm,
+    regionCenters,
+    regionBatchSummary,
+    routeBeachHints,
+    hasBeachFocus,
     routePaths,
   } = useCyclingActivity();
+
+  const generateButtonLabel = useMemo(() => {
+    if (regionCenters.length <= 1) {
+      return `Wygeneruj ${BATCH_ROUTE_COUNT} tras`;
+    }
+    const split = distributeRouteCounts(
+      BATCH_ROUTE_COUNT,
+      regionCenters.length,
+    ).join("+");
+    return `Wygeneruj ${BATCH_ROUTE_COUNT} tras (${split})`;
+  }, [regionCenters.length]);
 
   const { locale } = useLocale();
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -105,7 +124,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
             >
               {generating
                 ? `Generuję ${generatingCount} tras…`
-                : "Wygeneruj 10 tras"}
+                : generateButtonLabel}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => void refreshRoutes()}>
               Odśwież
@@ -134,6 +153,11 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
         <div className="shrink-0 border-b border-border-default px-3 py-2.5">
           <h3 className="font-display text-sm font-bold text-text-primary">
             Trasy ({routes.length})
+            {hasBeachFocus && (
+              <span className="ml-1.5 text-xs font-normal text-emerald-700">
+                · blisko plaż
+              </span>
+            )}
             {regionRadiusKm > 0 && (
               <span className="ml-1.5 text-xs font-normal text-text-secondary">
                 · rejon ±{regionRadiusKm} km
@@ -147,7 +171,8 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
           )}
           {generating && routes.length > 0 && (
             <p className="col-span-full px-1 text-xs text-text-secondary">
-              Generuję {generatingCount} tras w rejonie…
+              Generuję {generatingCount} tras
+              {regionBatchSummary ? ` (${regionBatchSummary})` : " w rejonie"}…
             </p>
           )}
           {error && <p className="px-1 text-sm text-danger">{error}</p>}
@@ -160,6 +185,7 @@ export function CyclingRoutesList({ destinationId }: ActivityComponentProps) {
               route={route}
               selected={selectedRouteId === route.id}
               inPlan={planRouteIds.has(route.id)}
+              beachProximity={routeBeachHints.get(route.id) ?? null}
               compact
               compactGrid
               onSelect={() =>

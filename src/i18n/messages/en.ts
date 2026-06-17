@@ -244,31 +244,24 @@ export const en: Messages = {
       "Trip details from the home page — select what you want to do and search regions.",
     activities: "Activities",
     searching: "Searching regions...",
-    noOsm: "No OSM data — run scrape",
+    noOsm: "Preparing search…",
     search: "Search regions",
     searchWithCount: "Search ({n} activities)",
     editTrip: "← Edit trip on home page",
     timeout: "Search took too long — try fewer activities or narrow the destination.",
-    dbNotReady: "Attractions database not ready — run tagging in admin panel.",
-    suggestionsUnverifiedTitle: "Suggestions not verified in database",
-    suggestionsUnverifiedBody:
-      "We don't have OSM attractions for this place in the database yet. Selected activities are typical trip ideas — you can change them, but region search may return no results.",
+    dbNotReady:
+      "Search is temporarily unavailable — refresh in a moment and try again.",
+    dataPreparingTitle: "Preparing search",
+    dataPreparingBody:
+      "We're loading data for this region. You'll be able to search shortly — refresh if the button stays disabled.",
     noRegionsTitle: "No regions for selected activities",
-    noRegionsUnverified:
-      "Activity suggestions were typical trip ideas — we don't have verified places near {destination} yet. We also tried OpenStreetMap, but nothing was saved.",
     noRegionsEmptyDb:
-      "We found no attractions near {destination} matching your selection. Try fewer categories, “any of selected” mode, or a wider travel scope.",
+      "We found no places near {destination} matching your selection. Try fewer categories, “any of selected” mode, or a wider travel scope.",
     noRegionsClusters:
       "We found {count} attractions, but no region meets all criteria — try “any of selected” or increase radius in advanced settings.",
     changeActivities: "Change activities",
     changeScope: "Change travel scope",
     searchLooser: "Search more loosely (any activity)",
-    adminScrapeHint:
-      "Admin: fill OSM data for this region in the admin panel (Europe / Greece + Cyprus).",
-    searchMetaDetail:
-      "Within search radius: {places} places in database, {tags} tag matches{radius}.",
-    searchMetaOsm:
-      "We tried OpenStreetMap — {places} places in database, {tags} tag matches{radius}.",
     continueToRhythm: "Continue — plan your trip →",
     titleRhythm: "How do you want to spend the trip?",
     subtitleRhythm:
@@ -374,14 +367,21 @@ export const en: Messages = {
     mapHint:
       "Each colour is a suggested lodging base. Click a circle or number — the card below highlights. Airports help you orient on the island.",
     mapHintDesktop:
-      "Click a circle or number — details appear on the right. You can pick up to 3 regions (e.g. two weeks in different bases).",
+      "Click a circle or number — details appear on the right. Pick one region, several, or all of them.",
     introDesktop:
-      "Map on the left, details on the right. Click a region, read the description, then confirm — up to three regions.",
+      "Map on the left, details on the right. Click a region and confirm — or use the shortcuts below.",
     yourSelection: "Your selection",
+    selectionCount: "{selected} of {total}",
+    selectRecommended: "Recommended ({count})",
+    selectAll: "Select all ({count})",
+    clearSelection: "Clear selection",
+    recommendedHint:
+      "For a shorter trip, 2–3 bases are enough — but you can select as many regions as you like.",
+    manySelectedHint:
+      "You selected {count} regions — results and your plan will cover this whole area.",
     confirmRegion: "Select this region",
     confirmedInSelection: "This region is already in your list.",
     removeFromSelection: "Remove from selection",
-    maxRegionsHint: "Maximum {max} regions — remove one to add another.",
     clickMapHint: "Click a coloured region on the map to see its description.",
     continueMulti: "Continue with {count} regions →",
     mapAirport: "Airport",
@@ -498,6 +498,14 @@ export const en: Messages = {
   destination: {
     cyclingRoutesTitle: "Cycling routes in your plan",
     cyclingRouteOpenMaps: "Route start in Google Maps",
+  },
+  cycling: {
+    komootOpenTour: "Open in Komoot",
+    komootImportGpx: "Import to Komoot (GPX)",
+    komootTourHint:
+      "Komoot route — log in to view it in your account.",
+    komootImportHint:
+      "We'll download GPX and open Komoot import (login required).",
   },
   steps: {
     trip: "Trip",

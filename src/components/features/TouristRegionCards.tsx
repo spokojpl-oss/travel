@@ -14,7 +14,7 @@ import {
   regionVibeLabel,
   type ScoredTouristRegion,
 } from "@/lib/destinations/tourist-regions";
-import { MAX_TOURIST_REGIONS } from "@/lib/search/trip-context";
+import { RECOMMENDED_TOURIST_REGIONS } from "@/lib/search/trip-context";
 import { isCompactIslandDestination } from "@/lib/search/destination-size";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import {
@@ -26,14 +26,12 @@ function RegionDetailPanel({
   region,
   index,
   isConfirmed,
-  canAddMore,
   onConfirm,
   onRemove,
 }: {
   region: ScoredTouristRegion;
   index: number;
   isConfirmed: boolean;
-  canAddMore: boolean;
   onConfirm: () => void;
   onRemove: () => void;
 }) {
@@ -184,19 +182,9 @@ function RegionDetailPanel({
         </div>
       ) : (
         <div className="border-t border-border-default pt-3">
-          <Button
-            size="sm"
-            className="w-full"
-            disabled={!canAddMore}
-            onClick={onConfirm}
-          >
+          <Button size="sm" className="w-full" onClick={onConfirm}>
             {t("regions.confirmRegion")}
           </Button>
-          {!canAddMore && (
-            <p className="mt-1.5 text-center text-[11px] text-text-secondary">
-              {t("regions.maxRegionsHint", { max: MAX_TOURIST_REGIONS })}
-            </p>
-          )}
         </div>
       )}
     </div>
@@ -228,6 +216,11 @@ export function TouristRegionCards({
     Boolean(onChooseWholeIsland) &&
     isCompactIslandDestination(destinationLabel);
 
+  const recommendedIds = useMemo(
+    () => regions.slice(0, RECOMMENDED_TOURIST_REGIONS).map((r) => r.id),
+    [regions],
+  );
+
   const [focusedId, setFocusedId] = useState<string | null>(
     () => selectedIds[0] ?? regions[0]?.id ?? null,
   );
@@ -254,14 +247,31 @@ export function TouristRegionCards({
     [selectedIds, regions],
   );
 
+  const allSelected =
+    regions.length > 0 && regions.every((r) => selectedIds.includes(r.id));
+  const recommendedSelected =
+    recommendedIds.length > 0 &&
+    recommendedIds.every((id) => selectedIds.includes(id));
+
   function confirmRegion(region: ScoredTouristRegion) {
     if (selectedIds.includes(region.id)) return;
-    if (selectedIds.length >= MAX_TOURIST_REGIONS) return;
     onSelectedIdsChange([...selectedIds, region.id]);
   }
 
   function removeRegion(regionId: string) {
     onSelectedIdsChange(selectedIds.filter((id) => id !== regionId));
+  }
+
+  function selectRecommended() {
+    onSelectedIdsChange([...recommendedIds]);
+  }
+
+  function selectAll() {
+    onSelectedIdsChange(regions.map((r) => r.id));
+  }
+
+  function clearSelection() {
+    onSelectedIdsChange([]);
   }
 
   if (regions.length === 0) {
@@ -287,6 +297,37 @@ export function TouristRegionCards({
   return (
     <div className="space-y-4">
       <p className="text-sm text-text-secondary">{t("regions.introDesktop")}</p>
+
+      <Card className="border-border-default bg-bg-soft/40">
+        <CardBody className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">{t("regions.recommendedHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={recommendedSelected}
+              onClick={selectRecommended}
+            >
+              {t("regions.selectRecommended", { count: recommendedIds.length })}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={allSelected}
+              onClick={selectAll}
+            >
+              {t("regions.selectAll", { count: regions.length })}
+            </Button>
+            {selectedIds.length > 0 && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
+                {t("regions.clearSelection")}
+              </Button>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
       {showWholeIsland && (
         <Card className="border-brand-200 bg-brand-50/40">
@@ -320,8 +361,12 @@ export function TouristRegionCards({
           {confirmedRegions.length > 0 && (
             <div className="mb-3 border-b border-border-default pb-3">
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
-                {t("regions.yourSelection")} ({confirmedRegions.length}/
-                {MAX_TOURIST_REGIONS})
+                {t("regions.yourSelection")} (
+                {t("regions.selectionCount", {
+                  selected: confirmedRegions.length,
+                  total: regions.length,
+                })}
+                )
               </p>
               <ul className="flex flex-wrap gap-1.5">
                 {confirmedRegions.map((region) => (
@@ -341,6 +386,11 @@ export function TouristRegionCards({
                   </li>
                 ))}
               </ul>
+              {selectedIds.length > RECOMMENDED_TOURIST_REGIONS && (
+                <p className="mt-2 text-[11px] text-text-secondary">
+                  {t("regions.manySelectedHint", { count: selectedIds.length })}
+                </p>
+              )}
             </div>
           )}
 
@@ -350,7 +400,6 @@ export function TouristRegionCards({
               region={focusedRegion}
               index={focusedIndex}
               isConfirmed={selectedIds.includes(focusedRegion.id)}
-              canAddMore={selectedIds.length < MAX_TOURIST_REGIONS}
               onConfirm={() => confirmRegion(focusedRegion)}
               onRemove={() => removeRegion(focusedRegion.id)}
             />

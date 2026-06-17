@@ -6,6 +6,7 @@ import {
   cyclingRouteMapsUrl,
   cyclingRouteOsmUrl,
 } from "@/lib/activities/cycling/route-links";
+import { CyclingRouteKomootLink } from "@/components/activities/cycling/CyclingRouteKomootLink";
 import type { ActivityRoute } from "@/types/activities";
 import { useLocale, useT } from "@/i18n/locale-provider";
 
@@ -47,6 +48,7 @@ export function CyclingRoutesPlanLinks({
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  <CyclingRouteKomootLink route={route} compact />
                   {mapsUrl && (
                     <a
                       href={mapsUrl}

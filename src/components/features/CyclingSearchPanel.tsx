@@ -1,17 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/activities/ActivityPanel";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { useT } from "@/i18n/locale-provider";
 import type { ActivityRoute } from "@/types/activities";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
+import {
+  BATCH_ROUTE_COUNT,
+  distributeRouteCounts,
+} from "@/lib/activities/cycling/route-distribution";
+import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
+import type { AttractionWithActivities } from "@/types/domain";
 
 export function CyclingSearchPanel({
   destinationLabel,
   destinationLat,
   destinationLon,
   regionCenter,
+  regionCenters = [],
+  beachAttractions = [],
   regionRadiusKm = DEFAULT_REGION_RADIUS_KM,
   planRouteIds,
   onTogglePlanRoute,
@@ -20,6 +28,8 @@ export function CyclingSearchPanel({
   destinationLat?: number | null;
   destinationLon?: number | null;
   regionCenter?: { lat: number; lng: number } | null;
+  regionCenters?: CyclingRegionCenter[];
+  beachAttractions?: AttractionWithActivities[];
   regionRadiusKm?: number;
   planRouteIds?: Set<string>;
   onTogglePlanRoute?: (route: ActivityRoute) => void;
@@ -87,14 +97,36 @@ export function CyclingSearchPanel({
 
   const effectiveRegionCenter = regionCenter ?? destinationCenter;
 
+  const regionBatchSplit = useMemo(() => {
+    if (regionCenters.length <= 1) return null;
+    return distributeRouteCounts(BATCH_ROUTE_COUNT, regionCenters.length).join(
+      "+",
+    );
+  }, [regionCenters.length]);
+
   return (
     <section className="mb-10">
       <h2 className="font-display mb-2 text-xl font-bold text-text-primary">
         {t("search.cyclingRoutesTitle")}
       </h2>
-      {regionCenter && (
+      {regionCenters.length === 1 && (
         <p className="mb-4 text-sm text-text-secondary">
-          Trasy w promieniu ±{regionRadiusKm} km od wybranego rejonu.
+          Trasy w promieniu ±
+          {regionCenters[0]?.radiusKm ?? regionRadiusKm} km od wybranego rejonu.
+        </p>
+      )}
+      {beachAttractions.length > 0 && (
+        <p className="mb-4 text-sm text-text-secondary">
+          Trasy posortowane pod kątem bliskości plaż w wybranych rejonach (
+          {beachAttractions.length}{" "}
+          {beachAttractions.length === 1 ? "plaża" : "plaż"}).
+        </p>
+      )}
+      {regionCenters.length > 1 && regionBatchSplit && (
+        <p className="mb-4 text-sm text-text-secondary">
+          {regionCenters.length} wybrane rejony — startowo 20 tras dla całej
+          destynacji, potem po {BATCH_ROUTE_COUNT} tras na partię (
+          {regionBatchSplit} na rejon).
         </p>
       )}
 
@@ -108,8 +140,11 @@ export function CyclingSearchPanel({
         <ActivityPanel
           activity="cycling"
           destinationId={destinationId}
+          destinationLabel={destinationLabel}
           destinationCenter={destinationCenter}
           regionCenter={effectiveRegionCenter}
+          regionCenters={regionCenters}
+          beachAttractions={beachAttractions}
           regionRadiusKm={regionRadiusKm}
           defaultShowCyclOsm
           planRouteIds={planRouteIds}

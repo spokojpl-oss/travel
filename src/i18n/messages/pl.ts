@@ -243,33 +243,25 @@ export const pl = {
       "Dane podróży uzupełniłeś na stronie głównej — zaznacz co chcecie robić i szukaj regionów.",
     activities: "Aktywności",
     searching: "Szukam regionów...",
-    noOsm: "Brak danych OSM — uruchom scrape",
+    noOsm: "Przygotowujemy wyszukiwanie…",
     search: "Szukaj regionów",
     searchWithCount: "Szukaj ({n} aktywności)",
     editTrip: "← Zmień podróż na stronie głównej",
     timeout:
       "Szukanie trwało zbyt długo — spróbuj mniej aktywności lub zawęź destynację.",
     dbNotReady:
-      "Baza atrakcji nie jest gotowa — uruchom tagowanie w panelu admina.",
-    suggestionsUnverifiedTitle: "Propozycje bez weryfikacji w bazie",
-    suggestionsUnverifiedBody:
-      "Nie mamy jeszcze atrakcji OSM dla tego miejsca w bazie. Zaznaczone aktywności to typowe pomysły na wyjazd — możecie je zmienić, ale wyszukiwanie regionów może zwrócić pusty wynik.",
+      "Wyszukiwanie chwilowo niedostępne — odśwież stronę za moment i spróbuj ponownie.",
+    dataPreparingTitle: "Przygotowujemy wyszukiwanie",
+    dataPreparingBody:
+      "Ładujemy dane dla tego regionu. Za chwilę będzie można wyszukać miejsca — odśwież stronę, jeśli przycisk pozostaje nieaktywny.",
     noRegionsTitle: "Brak regionów dla wybranych aktywności",
-    noRegionsUnverified:
-      "Propozycje aktywności były typowymi pomysłami — w bazie nie mamy jeszcze zweryfikowanych miejsc w okolicy {destination}. Próbowaliśmy też uzupełnić dane z OpenStreetMap, ale nic nie zapisano.",
     noRegionsEmptyDb:
-      "W okolicy {destination} nie znaleźliśmy atrakcji pasujących do wybranych aktywności. Spróbujcie mniej kategorii, trybu „dowolna z wybranych” albo szerszego zakresu podróży.",
+      "W okolicy {destination} nie znaleźliśmy miejsc pasujących do wybranych aktywności. Spróbujcie mniej kategorii, trybu „dowolna z wybranych” albo szerszego zakresu podróży.",
     noRegionsClusters:
       "Znaleźliśmy {count} atrakcji, ale żaden rejon nie spełnia wszystkich kryteriów — spróbujcie trybu „dowolna z wybranych” lub zwiększcie promień w ustawieniach zaawansowanych.",
     changeActivities: "Zmień aktywności",
     changeScope: "Zmień zakres podróży",
     searchLooser: "Szukaj łagodniej (dowolna aktywność)",
-    adminScrapeHint:
-      "Administrator: uzupełnij dane OSM dla tego regionu w panelu admina (Europa / Grecja + Cypr).",
-    searchMetaDetail:
-      "W promieniu wyszukiwania: {places} miejsc w bazie, {tags} dopasowań tagów{radius}.",
-    searchMetaOsm:
-      "Próbowaliśmy uzupełnić dane z OpenStreetMap — {places} miejsc w bazie, {tags} dopasowań tagów{radius}.",
     continueToRhythm: "Dalej — zaplanuj wyjazd →",
     titleRhythm: "Jak chcecie spędzić wyjazd?",
     subtitleRhythm:
@@ -375,14 +367,21 @@ export const pl = {
     mapHint:
       "Każdy kolor to proponowana baza noclegowa. Kliknij okrąg lub numer — karta poniżej się podświetli. Lotniska pomagają zorientować się na wyspie.",
     mapHintDesktop:
-      "Kliknij okrąg lub numer — po prawej zobaczysz opis. Możesz wybrać do 3 regionów (np. dwa tygodnie w różnych bazach).",
+      "Kliknij okrąg lub numer — po prawej zobaczysz opis. Możesz wybrać jeden rejon, kilka albo wszystkie.",
     introDesktop:
-      "Mapa po lewej, szczegóły po prawej. Kliknij rejon, poczytaj opis i zatwierdź przyciskiem — możesz dodać do trzech.",
+      "Mapa po lewej, szczegóły po prawej. Kliknij rejon, poczytaj opis i zatwierdź — albo użyj skrótów poniżej.",
     yourSelection: "Twój wybór",
+    selectionCount: "{selected} z {total}",
+    selectRecommended: "Polecane ({count})",
+    selectAll: "Zaznacz wszystkie ({count})",
+    clearSelection: "Wyczyść wybór",
+    recommendedHint:
+      "Dla krótszego pobytu wystarczą 2–3 bazy — ale możesz zaznaczyć tyle regionów, ile chcesz.",
+    manySelectedHint:
+      "Wybrałeś {count} regionów — wyniki i plan obejmą cały ten obszar.",
     confirmRegion: "Wybieram ten rejon",
     confirmedInSelection: "Ten rejon jest już na liście.",
     removeFromSelection: "Usuń z wyboru",
-    maxRegionsHint: "Maksymalnie {max} regiony — usuń jeden, żeby dodać inny.",
     clickMapHint: "Kliknij kolorowy rejon na mapie, żeby zobaczyć opis.",
     continueMulti: "Dalej z {count} rejonami →",
     mapAirport: "Lotnisko",
@@ -499,6 +498,14 @@ export const pl = {
   destination: {
     cyclingRoutesTitle: "Trasy rowerowe w planie",
     cyclingRouteOpenMaps: "Start trasy w Google Maps",
+  },
+  cycling: {
+    komootOpenTour: "Otwórz w Komoot",
+    komootImportGpx: "Importuj do Komoot (GPX)",
+    komootTourHint:
+      "Trasa z Komoot — po zalogowaniu zobaczysz ją w swoim koncie.",
+    komootImportHint:
+      "Pobierzemy GPX i otworzymy import w Komoot (wymaga logowania).",
   },
   steps: {
     trip: "Podróż",

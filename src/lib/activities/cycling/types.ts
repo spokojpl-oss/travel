@@ -16,3 +16,11 @@ export interface GenerateCyclingRouteInput {
   activityType: ActivityType;
   loop: boolean;
 }
+
+export type CyclingRegionCenter = {
+  id?: string;
+  lat: number;
+  lng: number;
+  radiusKm?: number;
+  label?: string;
+};

@@ -44,11 +44,15 @@ export type TripContext = {
   trip_rhythm: TripRhythm | null;
   /** Wybrany region turystyczny z poradnika (id) — pierwszy z listy, kompatybilność wsteczna. */
   tourist_region_id: string | null;
-  /** Do 3 regionów — np. tydzień Pafos + tydzień Ayia Napa. */
+  /** Wybrane regiony turystyczne (id) — dowolna liczba; 3 to tylko domyślna propozycja. */
   tourist_region_ids: string[];
 };
 
-export const MAX_TOURIST_REGIONS = 3;
+/** Ile regionów sugerujemy jednym kliknięciem (np. tydzień w trzech bazach). */
+export const RECOMMENDED_TOURIST_REGIONS = 3;
+
+/** Górny limit techniczny w URL (ochrona przed absurdalnie długim query). */
+export const MAX_TOURIST_REGIONS = 50;
 
 export function parseTouristRegionParam(value: string | null): string[] {
   if (!value?.trim()) return [];

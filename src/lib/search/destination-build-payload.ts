@@ -52,6 +52,9 @@ export type DestinationBuildPayload = {
   tripDays?: number;
   /** Wybrane trasy rowerowe (moduł kolarstwa). */
   selectedCyclingRoutes?: ActivityRoute[];
+  /** Plan rowerowy — logika tras, plaż i baz. */
+  isCycling?: boolean;
+  hasRentalCar?: boolean;
   /** Hero + karty miejsc z /api/search/plan-pool */
   discover?: DiscoverPlacesResult;
 };

@@ -34,6 +34,14 @@ import {
 } from "@/lib/search/exploration-scope";
 import type { DestinationBuildPayload } from "@/lib/search/destination-build-payload";
 import { cyclingRoutesToMapOverlays } from "@/lib/maps/cycling-route-overlays";
+import {
+  assessCyclingTripLogistics,
+  beachAttractionsFromPool,
+  buildCyclingLodgingOptions,
+  enhanceDiscoverForCycling,
+  scoreCyclingLodgingOption,
+  type CyclingTripAdvice,
+} from "@/lib/plan/cycling-plan";
 import { useLocale } from "@/i18n/locale-provider";
 import type { GeoCluster } from "@/types/domain";
 
@@ -122,6 +130,62 @@ export function DestinationPlanWizard({
     explorationScopeFromString(payload.explorationScope ?? null) ??
     defaultExplorationScope();
   const tripDays = payload.tripDays ?? 5;
+  const cyclingRoutes = payload.selectedCyclingRoutes ?? [];
+  const isCyclingMode = Boolean(payload.isCycling || cyclingRoutes.length > 0);
+
+  const beachAttractions = useMemo(
+    () =>
+      beachAttractionsFromPool(
+        enrichedPool,
+        payload.activities,
+        matchedRegions,
+      ),
+    [enrichedPool, payload.activities, matchedRegions],
+  );
+
+  const cyclingAdvice = useMemo((): CyclingTripAdvice | null => {
+    if (!isCyclingMode || matchedRegions.length < 2) return null;
+    return assessCyclingTripLogistics({
+      regions: matchedRegions,
+      routes: cyclingRoutes,
+      tripDays,
+      hasRentalCar: payload.hasRentalCar,
+      beachCount: beachAttractions.length,
+    });
+  }, [
+    isCyclingMode,
+    matchedRegions,
+    cyclingRoutes,
+    tripDays,
+    payload.hasRentalCar,
+    beachAttractions.length,
+  ]);
+
+  const cyclingDiscover = useMemo(() => {
+    if (!isCyclingMode) {
+      return {
+        placeCards,
+        suggestedIds: discover.suggestedIds,
+      };
+    }
+    return enhanceDiscoverForCycling({
+      discover,
+      routes: cyclingRoutes,
+      beaches: beachAttractions,
+      regions: matchedRegions,
+    });
+  }, [
+    isCyclingMode,
+    discover,
+    cyclingRoutes,
+    beachAttractions,
+    matchedRegions,
+    placeCards,
+  ]);
+
+  const effectivePlaceCards = isCyclingMode
+    ? cyclingDiscover.placeCards
+    : placeCards;
 
   const [step, setStep] = useState<WizardStep>("discover");
   const [baseChoice, setBaseChoice] = useState<string | null>(
@@ -143,20 +207,28 @@ export function DestinationPlanWizard({
   /** Po enrich z API — przełącz sugestie na pool ograniczony do rejonu (nie trzymaj starych ID z całej wyspy). */
   useEffect(() => {
     if (!payload.poolEnriched || payload.selectedAttractionIds?.length) return;
-    const ids = payload.discover?.suggestedIds;
+    const ids = isCyclingMode
+      ? cyclingDiscover.suggestedIds
+      : payload.discover?.suggestedIds;
     if (!ids?.length) return;
     setSelectedIds(new Set(ids));
-  }, [payload.poolEnriched, payload.discover?.suggestedIds, payload.selectedAttractionIds]);
+  }, [
+    payload.poolEnriched,
+    payload.discover?.suggestedIds,
+    payload.selectedAttractionIds,
+    isCyclingMode,
+    cyclingDiscover.suggestedIds,
+  ]);
 
   const selectedPoolIds = useMemo(
     () =>
       resolvePlaceSelectionToPoolIds(
         [...selectedIds],
         enrichedPool,
-        placeCards,
+        effectivePlaceCards,
         matchedRegions,
       ),
-    [selectedIds, enrichedPool, placeCards, matchedRegions],
+    [selectedIds, enrichedPool, effectivePlaceCards, matchedRegions],
   );
 
   const selectedPlaces = useMemo(
@@ -164,15 +236,25 @@ export function DestinationPlanWizard({
       resolveSelectedCardsToAttractions(
         selectedIds,
         enrichedPool,
-        placeCards,
+        effectivePlaceCards,
         matchedRegions,
       ),
-    [selectedIds, enrichedPool, placeCards, matchedRegions],
+    [selectedIds, enrichedPool, effectivePlaceCards, matchedRegions],
   );
 
   const selectedAttractions = selectedPlaces;
 
   const baseOptions = useMemo(() => {
+    if (isCyclingMode && matchedRegions.length > 0) {
+      return buildCyclingLodgingOptions(matchedRegions, {
+        attractions:
+          selectedAttractions.length > 0 ? selectedAttractions : rawPool,
+        locale,
+        stayRadiusKm: payload.stayRadiusKm,
+        routes: cyclingRoutes,
+      });
+    }
+
     const fromRegions = computeLodgingAreaOptions(matchedRegions, {
       attractions:
         selectedAttractions.length > 0 ? selectedAttractions : rawPool,
@@ -207,6 +289,8 @@ export function DestinationPlanWizard({
 
     return [];
   }, [
+    isCyclingMode,
+    cyclingRoutes,
     matchedRegions,
     selectedAttractions,
     rawPool,
@@ -216,6 +300,32 @@ export function DestinationPlanWizard({
     payload.cluster.center,
     pl,
   ]);
+
+  const lodgingScores = useMemo(() => {
+    if (!isCyclingMode) return new Map<string, ReturnType<typeof scoreCyclingLodgingOption>>();
+    const scores = baseOptions.map((o) =>
+      scoreCyclingLodgingOption(
+        o,
+        cyclingRoutes,
+        beachAttractions,
+        matchedRegions,
+        locale,
+      ),
+    );
+    return new Map(scores.map((s) => [s.option.id, s]));
+  }, [
+    isCyclingMode,
+    baseOptions,
+    cyclingRoutes,
+    beachAttractions,
+    matchedRegions,
+    locale,
+  ]);
+
+  useEffect(() => {
+    if (!isCyclingMode || baseChoice || baseOptions.length === 0) return;
+    setBaseChoice(baseOptions[0]!.id);
+  }, [isCyclingMode, baseChoice, baseOptions]);
 
   const selectedBase = baseOptions.find((o) => o.id === baseChoice);
 
@@ -239,8 +349,8 @@ export function DestinationPlanWizard({
   }, [selectedBase, selectedAttractions, payload.airports]);
 
   const mapAttractions = useMemo(
-    () => selectedPlaceMapPoints(selectedIds, placeCards),
-    [selectedIds, placeCards],
+    () => selectedPlaceMapPoints(selectedIds, effectivePlaceCards),
+    [selectedIds, effectivePlaceCards],
   );
 
   const poolWithMeta = useMemo(() => {
@@ -298,8 +408,10 @@ export function DestinationPlanWizard({
   }
 
   function selectRecommended() {
-    const ids = placeCards.filter((c) => c.recommended).map((c) => c.id);
-    if (discover.suggestedIds?.length) {
+    const ids = effectivePlaceCards.filter((c) => c.recommended).map((c) => c.id);
+    if (isCyclingMode && cyclingDiscover.suggestedIds.length) {
+      setSelectedIds(new Set(cyclingDiscover.suggestedIds));
+    } else if (discover.suggestedIds?.length) {
       setSelectedIds(new Set(discover.suggestedIds));
     } else {
       setSelectedIds(new Set(ids));
@@ -326,7 +438,21 @@ export function DestinationPlanWizard({
     });
   }
 
-  if (!story || placeCards.length === 0) {
+  useEffect(() => {
+    if (
+      isCyclingMode &&
+      effectivePlaceCards.length === 0 &&
+      step === "discover"
+    ) {
+      setStep("base");
+    }
+  }, [isCyclingMode, effectivePlaceCards.length, step]);
+
+  if (
+    !story ||
+    (effectivePlaceCards.length === 0 &&
+      !(isCyclingMode && cyclingMapRoutes.length > 0))
+  ) {
     return (
       <Card>
         <CardBody className="text-sm text-text-secondary">
@@ -367,10 +493,14 @@ export function DestinationPlanWizard({
         })}
       </nav>
 
+      {cyclingAdvice && (
+        <CyclingTripAdviceBanner advice={cyclingAdvice} pl={pl} />
+      )}
+
       {step === "discover" && (
         <WhatToSeeStep
           story={story}
-          placeCards={placeCards}
+          placeCards={effectivePlaceCards}
           selectedIds={selectedIds}
           tripDays={tripDays}
           onToggle={togglePlace}
@@ -416,9 +546,13 @@ export function DestinationPlanWizard({
             />
             <CardBody className="space-y-4">
               <p className="text-sm leading-relaxed text-text-secondary">
-                {pl
-                  ? "Twój wybrany rejon podzielony na miejsca noclegowe — kliknij na mapie lub poniżej. Potem wyszukaj hotel na Booking w tej okolicy."
-                  : "Your region split into lodging areas — click on the map or below. Then search Booking in that area."}
+                {isCyclingMode
+                  ? pl
+                    ? "Baza noclegowa w rejonie tras rowerowych — najlepiej blisko morza i startów tras. Ty wybierasz ostatecznie; poniżej odległości do plaż, tras i lotniska."
+                    : "Lodging in your cycling regions — ideally near the sea and route starts. You choose; distances to beaches, routes and airport below."
+                  : pl
+                    ? "Twój wybrany rejon podzielony na miejsca noclegowe — kliknij na mapie lub poniżej. Potem wyszukaj hotel na Booking w tej okolicy."
+                    : "Your region split into lodging areas — click on the map or below. Then search Booking in that area."}
               </p>
 
               {baseOptions.map((option, index) => (
@@ -428,6 +562,13 @@ export function DestinationPlanWizard({
                   index={index}
                   selected={baseChoice === option.id}
                   pl={pl}
+                  cyclingHint={
+                    lodgingScores.get(option.id)
+                      ? pl
+                        ? lodgingScores.get(option.id)!.reasonPl
+                        : lodgingScores.get(option.id)!.reasonEn
+                      : null
+                  }
                   distances={
                     baseChoice === option.id ? lodgingDistances : null
                   }
@@ -468,7 +609,7 @@ export function DestinationPlanWizard({
           )}
 
           <SelectedPlacesSummary
-            cards={placeCards.filter((c) => selectedIds.has(c.id))}
+            cards={effectivePlaceCards.filter((c) => selectedIds.has(c.id))}
             pl={pl}
             compact
           />
@@ -499,11 +640,39 @@ export function DestinationPlanWizard({
   );
 }
 
+function CyclingTripAdviceBanner({
+  advice,
+  pl,
+}: {
+  advice: CyclingTripAdvice;
+  pl: boolean;
+}) {
+  const isWarning = advice.level === "warning";
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-4 py-3 text-sm",
+        isWarning
+          ? "border-amber-300 bg-amber-50/90 text-amber-950"
+          : "border-cyan-200 bg-cyan-50/60 text-text-primary",
+      )}
+    >
+      <p className="font-semibold">
+        {pl ? advice.titlePl : advice.titleEn}
+      </p>
+      <p className="mt-1 leading-relaxed text-text-secondary">
+        {pl ? advice.bodyPl : advice.bodyEn}
+      </p>
+    </div>
+  );
+}
+
 function LodgingAreaCard({
   option,
   index,
   selected,
   pl,
+  cyclingHint,
   distances,
   onSelect,
 }: {
@@ -511,6 +680,7 @@ function LodgingAreaCard({
   index: number;
   selected: boolean;
   pl: boolean;
+  cyclingHint?: string | null;
   distances: ReturnType<typeof lodgingDistancesFromArea> | null;
   onSelect: () => void;
 }) {
@@ -542,6 +712,12 @@ function LodgingAreaCard({
       <p className="mt-2 text-sm leading-relaxed text-text-secondary">
         {description}
       </p>
+      {cyclingHint && (
+        <p className="mt-1.5 text-xs font-medium text-emerald-800">
+          {pl ? "Dla roweru: " : "For cycling: "}
+          {cyclingHint}
+        </p>
+      )}
 
       {selected && distances && (
         <div className="mt-4 space-y-3 border-t border-brand-100 pt-3">

@@ -2,13 +2,18 @@
 
 import { getActivityModule } from "@/lib/activities/registry";
 import { CyclingActivityProvider } from "@/components/activities/cycling/CyclingActivityContext";
+import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { ActivityRoute } from "@/types/activities";
+import type { AttractionWithActivities } from "@/types/domain";
 
 interface Props {
   activity?: string;
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  destinationLabel?: string;
   regionCenter?: { lat: number; lng: number } | null;
+  regionCenters?: CyclingRegionCenter[];
+  beachAttractions?: AttractionWithActivities[];
   regionRadiusKm?: number;
   defaultShowCyclOsm?: boolean;
   planRouteIds?: Set<string>;
@@ -18,8 +23,11 @@ interface Props {
 export function ActivityPanel({
   activity,
   destinationId,
+  destinationLabel,
   destinationCenter,
   regionCenter,
+  regionCenters,
+  beachAttractions,
   regionRadiusKm,
   defaultShowCyclOsm = false,
   planRouteIds,
@@ -41,8 +49,11 @@ export function ActivityPanel({
     return (
       <CyclingActivityProvider
         destinationId={destinationId}
+        destinationLabel={destinationLabel}
         destinationCenter={destinationCenter}
         regionCenter={regionCenter}
+        regionCenters={regionCenters}
+        beachAttractions={beachAttractions}
         regionRadiusKm={regionRadiusKm}
         defaultShowCyclOsm={defaultShowCyclOsm}
         planRouteIds={planRouteIds}

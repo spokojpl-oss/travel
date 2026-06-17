@@ -3,12 +3,15 @@
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { CyclingRouteKomootLink } from "@/components/activities/cycling/CyclingRouteKomootLink";
 import { cn } from "@/lib/utils/cn";
 import type { ActivityRoute, SurfaceMix } from "@/types/activities";
 import {
   CYCLING_TYPE_LABELS,
   DIFFICULTY_LABELS,
 } from "@/lib/activities/cycling/constants";
+import type { RouteBeachProximity } from "@/lib/plan/cycling-plan";
+import { useT } from "@/i18n/locale-provider";
 
 const SURFACE_COLORS: Record<keyof SurfaceMix, string> = {
   asphalt: "bg-brand-700",
@@ -81,6 +84,7 @@ export function CyclingRouteCard({
   route,
   selected,
   inPlan,
+  beachProximity = null,
   compact = false,
   compactGrid = false,
   onSelect,
@@ -89,11 +93,13 @@ export function CyclingRouteCard({
   route: ActivityRoute;
   selected: boolean;
   inPlan: boolean;
+  beachProximity?: RouteBeachProximity | null;
   compact?: boolean;
   compactGrid?: boolean;
   onSelect: () => void;
   onTogglePlan: () => void;
 }) {
+  const t = useT();
   const distanceKm = (route.distance_m / 1000).toFixed(1);
 
   return (
@@ -133,12 +139,28 @@ export function CyclingRouteCard({
           {route.elevation_gain_m != null && (
             <span>{route.elevation_gain_m} m+</span>
           )}
+          {beachProximity && (
+            <span className="text-emerald-700">
+              · {beachProximity.beachName} {beachProximity.distanceKm} km
+            </span>
+          )}
           {route.max_gradient_pct != null && !compactGrid && (
             <span>max {route.max_gradient_pct}%</span>
           )}
         </div>
 
         {!compactGrid && <SurfaceMixBar mix={route.surface_mix} />}
+
+        {selected && (
+          <div className="rounded-md border border-brand-100 bg-brand-50/50 px-2 py-1.5">
+            <CyclingRouteKomootLink route={route} compact={compactGrid} />
+            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+              {route.source === "komoot"
+                ? t("cycling.komootTourHint")
+                : t("cycling.komootImportHint")}
+            </p>
+          </div>
+        )}
 
         <div
           className={cn(

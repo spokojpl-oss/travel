@@ -29,6 +29,8 @@ interface GenerateInput {
   loop: boolean;
   /** Maks. odległość punktów trasy od startu (km) — domyślnie ~35 km. */
   maxRadiusKm?: number;
+  /** Stały seed ORS round_trip — różne trasy przy kolejnych generacjach. */
+  seed?: number;
 }
 
 type OrsErrorBody = {
@@ -119,7 +121,7 @@ async function requestRoute(
           round_trip: {
             length: input.targetDistanceKm * 1000,
             points: 5,
-            seed: Math.floor(Math.random() * 100),
+            seed: input.seed ?? Math.floor(Math.random() * 100),
           },
         },
         elevation: true,

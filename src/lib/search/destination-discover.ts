@@ -72,7 +72,7 @@ export function suggestActivities({
 }
 
 /** Krótki limit — discovery musi odpowiedzieć od razu, OSM fill idzie w tle. */
-const DISCOVERY_COUNT_TIMEOUT_MS = 3_000;
+const DISCOVERY_COUNT_TIMEOUT_MS = 8_000;
 const DISCOVERY_WEATHER_TIMEOUT_MS = 2_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {

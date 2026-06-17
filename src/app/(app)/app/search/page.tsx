@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useLocale, useT } from "@/i18n/locale-provider";
 import { RefineInput } from "@/components/features/RefineInput";
 import { RegionResultCard } from "@/components/features/RegionResultCard";
@@ -18,9 +17,11 @@ import { IslandOverviewSection } from "@/components/features/IslandOverviewSecti
 import { CyclingSearchPanel } from "@/components/features/CyclingSearchPanel";
 import { DestinationPlanWizard } from "@/components/features/DestinationPlanWizard";
 import { buildAttractionOverviewFromClusters } from "@/lib/maps/build-attraction-overview";
-import { getTouristRegionById } from "@/lib/destinations/tourist-regions";
+import { getTouristRegionById, regionDisplayName, regionMapRadiusKm } from "@/lib/destinations/tourist-regions";
+import type { CyclingRegionCenter } from "@/lib/activities/cycling/types";
 import type { ScoredTouristRegion } from "@/lib/destinations/tourist-regions";
 import { DEFAULT_REGION_RADIUS_KM } from "@/lib/activities/cycling/generate-batch";
+import { beachAttractionsFromPool } from "@/lib/plan/cycling-plan";
 import {
   defaultRhythmForTrip,
   hasChildrenInPassengers,
@@ -104,8 +105,6 @@ type DataStatus = {
 function EmptyResultsCard({
   results,
   trip,
-  suggestionsUnverified,
-  locale,
   onChangeActivities,
   onChangeScope,
   onSearchLooser,
@@ -113,8 +112,6 @@ function EmptyResultsCard({
 }: {
   results: ActivitySearchResult;
   trip: TripContext;
-  suggestionsUnverified: boolean;
-  locale: "pl" | "en";
   onChangeActivities: () => void;
   onChangeScope: () => void;
   onSearchLooser: () => void;
@@ -122,17 +119,9 @@ function EmptyResultsCard({
 }) {
   const destination = trip.destination_label ?? trip.destination ?? "";
   const destSuffix = destination ? ` ${destination}` : "";
-  const radiusSuffix =
-    results.meta?.geo_radius_km_used != null
-      ? locale === "en"
-        ? ` (up to ${results.meta.geo_radius_km_used} km)`
-        : ` (do ${results.meta.geo_radius_km_used} km)`
-      : "";
 
   let body: string;
-  if (suggestionsUnverified && results.total_attractions_considered === 0) {
-    body = t("search.noRegionsUnverified", { destination: destSuffix.trim() || "—" });
-  } else if (results.total_attractions_considered === 0) {
+  if (results.total_attractions_considered === 0) {
     body = t("search.noRegionsEmptyDb", {
       destination: destSuffix.trim() || "—",
     });
@@ -154,19 +143,6 @@ function EmptyResultsCard({
           </p>
         </div>
 
-        {results.meta && results.total_attractions_considered === 0 && (
-          <p className="text-xs text-text-tertiary">
-            {t(
-              results.meta.osm_filled ? "search.searchMetaOsm" : "search.searchMetaDetail",
-              {
-                places: results.meta.attractions_in_bbox,
-                tags: results.meta.tag_rows_fetched,
-                radius: radiusSuffix,
-              },
-            )}
-          </p>
-        )}
-
         <div className="flex flex-wrap gap-3">
           <Button onClick={onChangeActivities}>{t("search.changeActivities")}</Button>
           <Button variant="secondary" onClick={onChangeScope}>
@@ -178,10 +154,6 @@ function EmptyResultsCard({
             </Button>
           )}
         </div>
-
-        {suggestionsUnverified && (
-          <p className="text-xs text-text-tertiary">{t("search.adminScrapeHint")}</p>
-        )}
       </CardBody>
     </Card>
   );
@@ -909,8 +881,6 @@ function SearchPageContent() {
     });
   }
 
-  const suggestionsUnverified = discovery?.suggestions_unverified ?? false;
-
   function toggleActivity(slug: string) {
     const next = new Set(selectedActivities);
     if (next.has(slug)) next.delete(slug);
@@ -1125,6 +1095,60 @@ function SearchPageContent() {
     return { lat: centroid.lat, lng: centroid.lon };
   }, [trip.tourist_region_id, trip.tourist_region_ids, scoredRegions]);
 
+  const cyclingRegionCenters = useMemo((): CyclingRegionCenter[] => {
+    const ids =
+      trip.tourist_region_ids.length > 0
+        ? trip.tourist_region_ids
+        : trip.tourist_region_id
+          ? [trip.tourist_region_id]
+          : [];
+    if (ids.length === 0) return [];
+
+    const destinationLabel = trip.destination_label ?? trip.destination ?? "";
+
+    return ids.flatMap((id) => {
+      const region =
+        scoredRegions.find((r) => r.id === id) ?? getTouristRegionById(id);
+      if (!region) return [];
+      return [
+        {
+          id: region.id,
+          lat: region.center_lat,
+          lng: region.center_lon,
+          radiusKm: regionMapRadiusKm(region, destinationLabel),
+          label: regionDisplayName(region, locale),
+        },
+      ];
+    });
+  }, [
+    trip.tourist_region_id,
+    trip.tourist_region_ids,
+    scoredRegions,
+    trip.destination_label,
+    trip.destination,
+    locale,
+  ]);
+
+  const cyclingBeachAttractions = useMemo(() => {
+    const pool =
+      planPayload?.attractionPool ??
+      results?.clusters.flatMap((c) => c.attractions) ??
+      [];
+    const matched = selectedTouristRegions();
+    return beachAttractionsFromPool(
+      pool,
+      Array.from(selectedActivities),
+      matched,
+    );
+  }, [
+    planPayload?.attractionPool,
+    results,
+    selectedActivities,
+    scoredRegions,
+    trip.tourist_region_ids,
+    trip.tourist_region_id,
+  ]);
+
   function resolveClusterForSelectedRegions(
     clusters: GeoCluster[],
     destinationLabel: string,
@@ -1228,6 +1252,9 @@ function SearchPageContent() {
       attractionPool: pool,
       selectedCyclingRoutes:
         plannedCyclingRoutes.length > 0 ? plannedCyclingRoutes : undefined,
+      isCycling: isCyclingTrip(trip),
+      hasRentalCar:
+        trip.travel_mode === "car" && trip.vehicle_source === "rental",
       planComplete: false,
       poolEnriched: false,
       touristRegionId: trip.tourist_region_id,
@@ -1454,6 +1481,9 @@ function SearchPageContent() {
             stay_radius_km: planPayload.stayRadiusKm,
             explore_radius_km: planPayload.exploreRadiusKm,
             trip_days: planPayload.tripDays,
+            departure_date: trip.departure_date,
+            return_date: trip.return_date,
+            locale,
             with_kids: hasChildrenInPassengers(trip.passengers),
           }),
         });
@@ -1726,36 +1756,15 @@ function SearchPageContent() {
 
       {showActivitiesStep && (
         <>
-          {suggestionsUnverified && (
-            <Card className="mb-6 border-amber-300 bg-amber-50/90">
-              <CardBody className="text-sm">
-                <p className="font-semibold text-text-primary">
-                  {t("search.suggestionsUnverifiedTitle")}
-                </p>
-                <p className="mt-1 text-text-secondary">
-                  {t("search.suggestionsUnverifiedBody")}
-                </p>
-              </CardBody>
-            </Card>
-          )}
-
           {showDataInfo && (
-            <Card className="mb-6 border-warning/40 bg-orange-50/60">
+            <Card className="mb-6 border-border-default bg-bg-soft/60">
               <CardBody>
                 <p className="font-medium text-text-primary">
-                  Wyszukiwanie regionów jest niedostępne
+                  {t("search.dataPreparingTitle")}
                 </p>
                 <p className="mt-2 text-sm text-text-secondary">
-                  {dataStatus!.tags === 0
-                    ? `Masz ${dataStatus!.attractions} atrakcji, ale brak tagów aktywności — uruchom „Tylko tagowanie” w panelu admina.`
-                    : `Baza ma ${dataStatus!.attractions} atrakcji — sprawdź scrape OSM (region Iberia dla Hiszpanii).`}
+                  {t("search.dataPreparingBody")}
                 </p>
-                <Link
-                  href="/app/admin"
-                  className="mt-3 inline-flex rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
-                >
-                  Otwórz panel admina →
-                </Link>
               </CardBody>
             </Card>
           )}
@@ -1946,6 +1955,8 @@ function SearchPageContent() {
               destinationLat={trip.destination_lat}
               destinationLon={trip.destination_lon}
               regionCenter={cyclingRegionCenter}
+              regionCenters={cyclingRegionCenters}
+              beachAttractions={cyclingBeachAttractions}
               regionRadiusKm={DEFAULT_REGION_RADIUS_KM}
               planRouteIds={cyclingPlanRouteIds}
               onTogglePlanRoute={toggleCyclingPlanRoute}
@@ -2055,8 +2066,6 @@ function SearchPageContent() {
                 <EmptyResultsCard
                   results={results}
                   trip={trip}
-                  suggestionsUnverified={suggestionsUnverified}
-                  locale={locale}
                   onChangeActivities={goToActivitiesStep}
                   onChangeScope={goToScopeStep}
                   onSearchLooser={searchLooser}

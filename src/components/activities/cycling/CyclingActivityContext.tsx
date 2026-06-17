@@ -11,22 +11,33 @@ import {
   type ReactNode,
 } from "react";
 import type { ActivityRoute } from "@/types/activities";
-import type { CyclingRouteFilters } from "@/lib/activities/cycling/types";
+import type { CyclingRegionCenter, CyclingRouteFilters } from "@/lib/activities/cycling/types";
+import {
+  rankRoutesForBeaches,
+  routeBeachHints,
+  type RouteBeachProximity,
+} from "@/lib/plan/cycling-plan";
+import type { AttractionWithActivities } from "@/types/domain";
 import {
   BATCH_ROUTE_COUNT,
+  DEFAULT_DESTINATION_RADIUS_KM,
   DEFAULT_REGION_RADIUS_KM,
+  INITIAL_DESTINATION_ROUTE_COUNT,
 } from "@/lib/activities/cycling/generate-batch";
+import {
+  buildRegionBatchTargets,
+} from "@/lib/activities/cycling/route-distribution";
 import { isPlausibleStoredRoute } from "@/lib/activities/cycling/route-validation";
 import {
   buildRoutesQueryParams,
   parseRouteGeometry,
 } from "@/lib/supabase/activity-routes";
 
-const MIN_INITIAL_ROUTES = 10;
-const ROUTES_FETCH_LIMIT = 40;
+const ROUTES_FETCH_LIMIT = 80;
 
 type GenerateRouteOptions = {
   count?: number;
+  mode?: "destination" | "regions";
 };
 
 type CyclingActivityContextValue = {
@@ -49,6 +60,10 @@ type CyclingActivityContextValue = {
   routePaths: Array<{ id: string; path: Array<{ lat: number; lng: number }> }>;
   routeCenter: { lat: number; lng: number } | null;
   regionRadiusKm: number;
+  regionCenters: CyclingRegionCenter[];
+  regionBatchSummary: string | null;
+  routeBeachHints: Map<string, RouteBeachProximity>;
+  hasBeachFocus: boolean;
 };
 
 const CyclingActivityContext = createContext<CyclingActivityContextValue | null>(
@@ -76,7 +91,10 @@ function filterPlausibleRoutes(
 export function CyclingActivityProvider({
   destinationId,
   destinationCenter,
+  destinationLabel,
   regionCenter,
+  regionCenters = [],
+  beachAttractions = [],
   regionRadiusKm = DEFAULT_REGION_RADIUS_KM,
   defaultShowCyclOsm = false,
   planRouteIds: controlledPlanRouteIds,
@@ -85,7 +103,10 @@ export function CyclingActivityProvider({
 }: {
   destinationId: string;
   destinationCenter?: { lat: number; lng: number } | null;
+  destinationLabel?: string;
   regionCenter?: { lat: number; lng: number } | null;
+  regionCenters?: CyclingRegionCenter[];
+  beachAttractions?: AttractionWithActivities[];
   regionRadiusKm?: number;
   defaultShowCyclOsm?: boolean;
   planRouteIds?: Set<string>;
@@ -103,8 +124,12 @@ export function CyclingActivityProvider({
   const [showCyclOsm, setShowCyclOsm] = useState(defaultShowCyclOsm);
   const [generating, setGenerating] = useState(false);
   const [generatingCount, setGeneratingCount] = useState(0);
+  const [regionBatchSummary, setRegionBatchSummary] = useState<string | null>(
+    null,
+  );
   const seededDestinationRef = useRef<string | null>(null);
   const scrapeStartedRef = useRef(false);
+  const komootScrapeStartedRef = useRef(false);
 
   const planRouteIds = controlledPlanRouteIds ?? internalPlanRouteIds;
 
@@ -113,19 +138,32 @@ export function CyclingActivityProvider({
     [regionCenter, destinationCenter],
   );
 
+  const resolvedRegionCenters = useMemo(
+    () =>
+      regionCenters.length > 0
+        ? regionCenters
+        : regionCenter
+          ? [{ lat: regionCenter.lat, lng: regionCenter.lng, radiusKm: regionRadiusKm }]
+          : [],
+    [regionCenters, regionCenter, regionRadiusKm],
+  );
+
   const refreshRoutes = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
     setError(null);
     try {
+      const useGeoFilter =
+        resolvedRegionCenters.length === 1 && routeCenter != null;
       const params = buildRoutesQueryParams(
         destinationId,
         filters,
         ROUTES_FETCH_LIMIT,
-        routeCenter
+        useGeoFilter && routeCenter
           ? {
               lat: routeCenter.lat,
               lng: routeCenter.lng,
-              radiusKm: regionRadiusKm,
+              radiusKm:
+                resolvedRegionCenters[0]?.radiusKm ?? regionRadiusKm,
             }
           : undefined,
       );
@@ -144,7 +182,9 @@ export function CyclingActivityProvider({
       const nextRoutes = filterPlausibleRoutes(
         data.routes ?? [],
         routeCenter,
-        regionRadiusKm,
+        resolvedRegionCenters.length === 1
+          ? (resolvedRegionCenters[0]?.radiusKm ?? regionRadiusKm)
+          : DEFAULT_DESTINATION_RADIUS_KM,
       );
       setRoutes(nextRoutes);
       return nextRoutes;
@@ -160,7 +200,25 @@ export function CyclingActivityProvider({
     } finally {
       if (!options?.silent) setLoading(false);
     }
-  }, [destinationId, filters, routeCenter, regionRadiusKm]);
+  }, [destinationId, filters, routeCenter, regionRadiusKm, resolvedRegionCenters]);
+
+  const runKomootScrapeInBackground = useCallback(() => {
+    if (komootScrapeStartedRef.current || !routeCenter) return;
+    komootScrapeStartedRef.current = true;
+    void fetch("/api/activities/cycling/scrape-komoot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinationId,
+        centerLat: routeCenter.lat,
+        centerLng: routeCenter.lng,
+        radiusKm: regionRadiusKm,
+        destinationLabel,
+      }),
+    })
+      .then(() => refreshRoutes({ silent: true }))
+      .catch(() => null);
+  }, [destinationId, destinationLabel, refreshRoutes, routeCenter, regionRadiusKm]);
 
   const runOsmScrapeInBackground = useCallback(() => {
     if (scrapeStartedRef.current || !routeCenter) return;
@@ -177,17 +235,82 @@ export function CyclingActivityProvider({
     })
       .then(() => refreshRoutes({ silent: true }))
       .catch(() => null);
-  }, [destinationId, refreshRoutes, routeCenter, regionRadiusKm]);
+    runKomootScrapeInBackground();
+  }, [
+    destinationId,
+    refreshRoutes,
+    routeCenter,
+    regionRadiusKm,
+    runKomootScrapeInBackground,
+  ]);
+
+  const fetchAllRouteCount = useCallback(async () => {
+    const params = new URLSearchParams({
+      destinationId,
+      limit: String(ROUTES_FETCH_LIMIT),
+    });
+    const res = await fetch(`/api/activities/cycling/routes?${params}`);
+    if (!res.ok) return 0;
+    const data = (await res.json()) as { routes: ActivityRoute[] };
+    return (data.routes ?? []).length;
+  }, [destinationId]);
 
   const generateRoutes = useCallback(
     async (options?: GenerateRouteOptions) => {
-      if (!routeCenter) {
-        setError("Brak współrzędnych rejonu — nie można wygenerować tras.");
+      const destCenter = destinationCenter ?? routeCenter;
+      if (!destCenter) {
+        setError("Brak współrzędnych — nie można wygenerować tras.");
         return;
       }
-      const count = options?.count ?? BATCH_ROUTE_COUNT;
+
+      const mode = options?.mode ?? "regions";
+      const totalCount = options?.count ?? BATCH_ROUTE_COUNT;
+      const presetStartIndex = routes.length;
+
+      let regionsPayload: Array<{
+        centerLat: number;
+        centerLng: number;
+        count: number;
+        maxRadiusKm: number;
+        label?: string;
+      }> = [];
+      let summary: string | null = null;
+
+      if (mode === "regions" && resolvedRegionCenters.length > 0) {
+        const targets = buildRegionBatchTargets(
+          resolvedRegionCenters.map((r) => ({
+            centerLat: r.lat,
+            centerLng: r.lng,
+            maxRadiusKm: r.radiusKm ?? regionRadiusKm,
+            label: r.label,
+          })),
+          totalCount,
+        );
+        regionsPayload = targets.map((t) => ({
+          centerLat: t.centerLat,
+          centerLng: t.centerLng,
+          count: t.count,
+          maxRadiusKm: t.maxRadiusKm ?? regionRadiusKm,
+          label: t.label,
+        }));
+        summary = targets
+          .map((t) => (t.label && t.count > 0 ? `${t.label}: ${t.count}` : null))
+          .filter(Boolean)
+          .join(" · ");
+      } else {
+        regionsPayload = [
+          {
+            centerLat: destCenter.lat,
+            centerLng: destCenter.lng,
+            count: totalCount,
+            maxRadiusKm: DEFAULT_DESTINATION_RADIUS_KM,
+          },
+        ];
+      }
+
       setGenerating(true);
-      setGeneratingCount(count);
+      setGeneratingCount(regionsPayload.reduce((sum, r) => sum + r.count, 0));
+      setRegionBatchSummary(summary);
       setError(null);
       try {
         const res = await fetch("/api/activities/cycling/generate-batch", {
@@ -195,10 +318,8 @@ export function CyclingActivityProvider({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             destinationId,
-            centerLat: routeCenter.lat,
-            centerLng: routeCenter.lng,
-            count,
-            maxRadiusKm: regionRadiusKm,
+            regions: regionsPayload,
+            presetStartIndex,
           }),
         });
         if (!res.ok) {
@@ -220,30 +341,39 @@ export function CyclingActivityProvider({
     },
     [
       destinationId,
+      destinationCenter,
       refreshRoutes,
       regionRadiusKm,
+      resolvedRegionCenters,
       routeCenter,
+      routes.length,
       runOsmScrapeInBackground,
     ],
   );
 
   const ensureInitialRoutes = useCallback(async () => {
     if (seededDestinationRef.current === destinationId) return;
-    if (!routeCenter) return;
+    if (!destinationCenter && !routeCenter) return;
 
     seededDestinationRef.current = destinationId;
 
-    const current = await refreshRoutes();
+    await refreshRoutes();
     runOsmScrapeInBackground();
 
-    if (current.length >= MIN_INITIAL_ROUTES) return;
+    const totalInDb = await fetchAllRouteCount();
+    if (totalInDb >= INITIAL_DESTINATION_ROUTE_COUNT) return;
 
-    await generateRoutes({ count: BATCH_ROUTE_COUNT });
+    await generateRoutes({
+      count: INITIAL_DESTINATION_ROUTE_COUNT,
+      mode: "destination",
+    });
   }, [
     destinationId,
+    destinationCenter,
+    routeCenter,
     generateRoutes,
     refreshRoutes,
-    routeCenter,
+    fetchAllRouteCount,
     runOsmScrapeInBackground,
   ]);
 
@@ -263,18 +393,32 @@ export function CyclingActivityProvider({
     [onTogglePlanRoute],
   );
 
+  const displayRoutes = useMemo(
+    () =>
+      beachAttractions.length > 0
+        ? rankRoutesForBeaches(routes, beachAttractions)
+        : routes,
+    [routes, beachAttractions],
+  );
+
   const routePaths = useMemo(
     () =>
-      routes.map((route) => ({
+      displayRoutes.map((route) => ({
         id: route.id,
         path: parseRouteGeometry(route.geometry),
       })),
-    [routes],
+    [displayRoutes],
+  );
+
+  const beachHints = useMemo(
+    () => routeBeachHints(displayRoutes, beachAttractions),
+    [displayRoutes, beachAttractions],
   );
 
   useEffect(() => {
     seededDestinationRef.current = null;
     scrapeStartedRef.current = false;
+    komootScrapeStartedRef.current = false;
     let cancelled = false;
     void (async () => {
       await refreshRoutes();
@@ -284,14 +428,14 @@ export function CyclingActivityProvider({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destinationId, routeCenter?.lat, routeCenter?.lng, regionRadiusKm]);
+  }, [destinationId, destinationCenter?.lat, destinationCenter?.lng, routeCenter?.lat, routeCenter?.lng, regionRadiusKm, resolvedRegionCenters.length]);
 
   const value = useMemo(
     () => ({
       destinationId,
       filters,
       setFilters,
-      routes,
+      routes: displayRoutes,
       loading,
       error,
       selectedRouteId,
@@ -307,11 +451,15 @@ export function CyclingActivityProvider({
       routePaths,
       routeCenter,
       regionRadiusKm,
+      regionCenters: resolvedRegionCenters,
+      regionBatchSummary,
+      routeBeachHints: beachHints,
+      hasBeachFocus: beachAttractions.length > 0,
     }),
     [
       destinationId,
       filters,
-      routes,
+      displayRoutes,
       loading,
       error,
       selectedRouteId,
@@ -324,6 +472,10 @@ export function CyclingActivityProvider({
       routePaths,
       routeCenter,
       regionRadiusKm,
+      resolvedRegionCenters,
+      regionBatchSummary,
+      beachHints,
+      beachAttractions.length,
       togglePlanRoute,
     ],
   );
